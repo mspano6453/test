@@ -1,0 +1,26 @@
+Tea Towel – drum samples
+
+All built-in drum sounds are real recordings from the AVL Drumkits by Glen MacArthur
+(Bandshed), licensed under Creative Commons Attribution-ShareAlike 3.0 Unported
+(CC BY-SA 3.0). Full license text: LICENSE-CC-BY-SA-3.0.txt in this folder, or
+https://creativecommons.org/licenses/by-sa/3.0/
+
+Source: http://www.bandshed.net/avldrumkits/  (GitHub mirror: https://github.com/studiorack/avl-drumkits)
+
+Files used (renamed; audio unchanged, 5 velocity layers each):
+  kick_1..5       <- 36-Ludwig26Kick
+  snare_1..5      <- 38-PearlSnare
+  snarerim_1..5   <- 40-PearlSnareEdge
+  sidestick_1..5  <- 37-SideStick
+  rtom_1..5       <- 45-Ludwig14Tom
+  ftom_1..5       <- 41-Ludwig16FloorTom
+  ftomlow_1..5    <- 43-Ludwig18FloorTom
+  hatclosed_1..5  <- 42-SabianRockHatClosed
+  hatpedal_1..5   <- 44-SabianRockHatPedal
+  hatopen_1..5    <- 46-SabianRockHatSemiOpen
+  ride_1..5       <- 51-ZildjianA24Ride
+  ridebell_1..5   <- 53-ZildjianA24RideBell
+  crash_1..5      <- 49-ZildjianA20Crash
+
+If you share or sell anything that includes these samples, keep this credit and the
+CC BY-SA 3.0 license with them.
