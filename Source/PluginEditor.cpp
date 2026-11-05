@@ -2,14 +2,10 @@
 
 using namespace ttui;
 using namespace tt;
+using ttui::font;
 
 namespace
 {
-juce::Font font (float size, bool bold = false)
-{
-    return juce::Font (juce::FontOptions (size, bold ? juce::Font::bold : juce::Font::plain));
-}
-
 const int kNormalNote[NumPieces] = { 36, 38, 48, 43, 42, 51, 49 };
 const int kAltNote[NumPieces]    = { 36, 37, 48, 43, 46, 53, 49 };
 
@@ -20,139 +16,6 @@ void audition (TeaTowelProcessor& p, int piece, bool alt, float vel)
     p.keyboardState.noteOff (10, note, 0.0f);
 }
 } // namespace
-
-// ===========================================================================
-// LookAndFeel: 60s studio console - charcoal, cream, amber
-// ===========================================================================
-ttui::LookAndFeel::LookAndFeel()
-{
-    setColour (juce::ResizableWindow::backgroundColourId, col::bg);
-    setColour (juce::Label::textColourId, col::cream);
-    setColour (juce::TextButton::buttonColourId, col::panel2);
-    setColour (juce::TextButton::buttonOnColourId, col::amber);
-    setColour (juce::TextButton::textColourOffId, col::cream);
-    setColour (juce::TextButton::textColourOnId, col::bg);
-    setColour (juce::ComboBox::backgroundColourId, col::panel2);
-    setColour (juce::ComboBox::textColourId, col::cream);
-    setColour (juce::ComboBox::outlineColourId, col::line);
-    setColour (juce::ComboBox::arrowColourId, col::amber);
-    setColour (juce::PopupMenu::backgroundColourId, col::panel);
-    setColour (juce::PopupMenu::textColourId, col::cream);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, col::amber);
-    setColour (juce::PopupMenu::highlightedTextColourId, col::bg);
-    setColour (juce::BubbleComponent::backgroundColourId, col::panel2);
-    setColour (juce::BubbleComponent::outlineColourId, col::amber);
-    setColour (juce::TooltipWindow::textColourId, col::cream);
-}
-
-void ttui::LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
-                                         float start, float end, juce::Slider& s)
-{
-    const auto b = juce::Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (3.0f);
-    const float r = juce::jmin (b.getWidth(), b.getHeight()) * 0.5f;
-    const auto c = b.getCentre();
-    const float arcW = juce::jmax (2.0f, r * 0.09f);
-    const float angle = start + pos * (end - start);
-
-    juce::Path track;
-    track.addCentredArc (c.x, c.y, r - arcW, r - arcW, 0.0f, start, end, true);
-    g.setColour (col::line);
-    g.strokePath (track, juce::PathStrokeType (arcW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    const bool bipolar = (bool) s.getProperties().getWithDefault ("bipolar", false);
-    const float from = bipolar ? (start + end) * 0.5f : start;
-    juce::Path val;
-    val.addCentredArc (c.x, c.y, r - arcW, r - arcW, 0.0f, juce::jmin (from, angle), juce::jmax (from, angle), true);
-    g.setColour (col::amber);
-    g.strokePath (val, juce::PathStrokeType (arcW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    // Bakelite knob
-    const float kr = (r - arcW) * 0.74f;
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff4a443d), c.x, c.y - kr,
-                                             juce::Colour (0xff141210), c.x, c.y + kr, false));
-    g.fillEllipse (c.x - kr, c.y - kr, kr * 2, kr * 2);
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.drawEllipse (c.x - kr, c.y - kr, kr * 2, kr * 2, 1.0f);
-
-    juce::Path ptr;
-    ptr.addRoundedRectangle (-1.5f, -kr * 0.92f, 3.0f, kr * 0.55f, 1.5f);
-    g.setColour (col::cream);
-    g.fillPath (ptr, juce::AffineTransform::rotation (angle).translated (c.x, c.y));
-}
-
-void ttui::LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
-                                         float minPos, float maxPos, juce::Slider::SliderStyle style, juce::Slider& s)
-{
-    if (style != juce::Slider::LinearVertical)
-    {
-        LookAndFeel_V4::drawLinearSlider (g, x, y, w, h, pos, minPos, maxPos, style, s);
-        return;
-    }
-    const float cx = (float) x + (float) w * 0.5f;
-    const auto track = juce::Rectangle<float> (cx - 2.5f, (float) y + 6.0f, 5.0f, (float) h - 12.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.55f));
-    g.fillRoundedRectangle (track, 2.5f);
-    g.setColour (col::amber.withAlpha (0.85f));
-    g.fillRoundedRectangle (track.withTop (pos), 2.5f);
-
-    // tick marks
-    g.setColour (col::muted.withAlpha (0.5f));
-    for (int i = 0; i <= 10; ++i)
-    {
-        const float ty = track.getY() + track.getHeight() * (float) i / 10.0f;
-        g.drawHorizontalLine ((int) ty, cx - 12.0f, cx - 6.0f);
-        g.drawHorizontalLine ((int) ty, cx + 6.0f, cx + 12.0f);
-    }
-
-    const auto cap = juce::Rectangle<float> (cx - 13.0f, pos - 8.0f, 26.0f, 16.0f);
-    g.setGradientFill (juce::ColourGradient (col::cream, cap.getX(), cap.getY(),
-                                             juce::Colour (0xffb9ae95), cap.getX(), cap.getBottom(), false));
-    g.fillRoundedRectangle (cap, 3.0f);
-    g.setColour (col::bg);
-    g.drawHorizontalLine ((int) pos, cap.getX() + 3.0f, cap.getRight() - 3.0f);
-}
-
-void ttui::LookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&,
-                                             bool over, bool down)
-{
-    auto r = b.getLocalBounds().toFloat().reduced (1.0f);
-    juce::Colour c = b.getToggleState() ? col::amber : col::panel2;
-    if (over) c = c.brighter (0.12f);
-    if (down) c = c.darker (0.15f);
-    g.setColour (c);
-    g.fillRoundedRectangle (r, 4.0f);
-    g.setColour (b.getToggleState() ? col::amber.brighter (0.3f) : col::line);
-    g.drawRoundedRectangle (r, 4.0f, 1.0f);
-}
-
-// ===========================================================================
-Knob::Knob (const juce::String& name, bool isSmall, juce::Component* popupParent) : small (isSmall)
-{
-    slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    slider.setPopupDisplayEnabled (true, true, popupParent);
-    slider.setMouseDragSensitivity (180);
-    label.setText (name, juce::dontSendNotification);
-    label.setJustificationType (juce::Justification::centred);
-    label.setFont (font (small ? 11.0f : 13.0f, ! small));
-    label.setColour (juce::Label::textColourId, small ? col::muted : col::cream);
-    label.setInterceptsMouseClicks (false, false);
-    addAndMakeVisible (slider);
-    addAndMakeVisible (label);
-}
-
-void Knob::attach (juce::AudioProcessorValueTreeState& s, const juce::String& id)
-{
-    att.reset();
-    att = std::make_unique<SliderAttachment> (s, id, slider);
-}
-
-void Knob::resized()
-{
-    auto r = getLocalBounds();
-    label.setBounds (r.removeFromBottom (small ? 14 : 20));
-    slider.setBounds (r);
-}
 
 // ===========================================================================
 // KIT view - the drum kit you can click, like AD2's kit page
@@ -759,14 +622,161 @@ void FxView::resized()
 }
 
 // ===========================================================================
+// PLAYER page - a drummer that follows Live's transport
+// ===========================================================================
+PlayerView::PlayerView (TeaTowelProcessor& p, juce::Component* popupParent) : proc (p)
+{
+    onButton.setColour (juce::ToggleButton::textColourId, col::cream);
+    onButton.setColour (juce::ToggleButton::tickColourId, col::amber);
+    onButton.setColour (juce::ToggleButton::tickDisabledColourId, col::muted);
+    onAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, PID::on, onButton);
+    addAndMakeVisible (onButton);
+
+    for (int i = 0; i < NumStyles; ++i) styleBox.addItem (styleName (i), i + 1);
+    styleAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, PID::style, styleBox);
+    addAndMakeVisible (styleBox);
+
+    fillBox.addItemList ({ "Off", "4 bars", "8 bars", "16 bars" }, 1);
+    fillAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, PID::fillEvery, fillBox);
+    addAndMakeVisible (fillBox);
+
+    for (int i = 0; i < NumSections; ++i)
+    {
+        sectionButtons[i].setButtonText (juce::String (sectionName (i)).toUpperCase());
+        sectionButtons[i].onClick = [this, i] { setSection (i); };
+        addAndMakeVisible (sectionButtons[i]);
+    }
+    fillButton.onClick = [this] { proc.player.requestFill = true; };
+    endingButton.onClick = [this] { proc.player.requestEnding = true; };
+    addAndMakeVisible (fillButton);
+    addAndMakeVisible (endingButton);
+
+    intensity = std::make_unique<Knob> ("INTENSITY", false, popupParent);
+    looseness = std::make_unique<Knob> ("LOOSENESS", false, popupParent);
+    swing     = std::make_unique<Knob> ("SWING", false, popupParent);
+    intensity->attach (p.apvts, PID::intensity);
+    looseness->attach (p.apvts, PID::looseness);
+    swing->attach (p.apvts, PID::swing);
+    addAndMakeVisible (*intensity);
+    addAndMakeVisible (*looseness);
+    addAndMakeVisible (*swing);
+
+    startTimerHz (30);
+}
+
+void PlayerView::setSection (int s)
+{
+    if (auto* prm = proc.apvts.getParameter (PID::section))
+    {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost (prm->convertTo0to1 ((float) s));
+        prm->endChangeGesture();
+    }
+}
+
+void PlayerView::timerCallback()
+{
+    const bool running = proc.player.uiRunning.load();
+    const int sec = running ? proc.player.uiSection.load()
+                            : (int) proc.apvts.getRawParameterValue (PID::section)->load();
+    for (int i = 0; i < NumSections; ++i) sectionButtons[i].setToggleState (i == sec, juce::dontSendNotification);
+    fillButton.setToggleState (running && proc.player.uiFillComing.load(), juce::dontSendNotification);
+    const int st = running ? proc.player.uiStep.load() : -1;
+    if (st != shownStep || sec != shownSection)
+    {
+        shownStep = st; shownSection = sec;
+        repaint (lightsArea.getUnion (statusArea));
+    }
+}
+
+void PlayerView::paint (juce::Graphics& g)
+{
+    g.fillAll (col::bg);
+    auto r = getLocalBounds().reduced (24, 16);
+
+    auto panel = [&] (juce::Rectangle<int> a, const juce::String& title)
+    {
+        g.setColour (col::panel);
+        g.fillRoundedRectangle (a.toFloat(), 8.0f);
+        g.setColour (col::amber);
+        g.setFont (font (15.0f, true));
+        g.drawText (title, a.reduced (16, 10).removeFromTop (20), juce::Justification::topLeft);
+    };
+    panel ({ r.getX(), r.getY(), r.getWidth(), 120 }, "DRUMMER");
+    panel ({ r.getX(), r.getY() + 136, r.getWidth(), 150 }, "SONG");
+    panel ({ r.getX(), r.getY() + 302, r.getWidth(), 210 }, "FEEL");
+
+    g.setColour (col::muted);
+    g.setFont (font (12.0f));
+    g.drawText ("Style", r.getX() + 16, r.getY() + 74, 60, 24, juce::Justification::centredLeft);
+    g.drawText ("Auto fill", r.getX() + 16 + 470, r.getY() + 74, 80, 24, juce::Justification::centredLeft);
+
+    // step lights
+    const bool running = proc.player.uiRunning.load();
+    for (int i = 0; i < 16; ++i)
+    {
+        const float w = (float) lightsArea.getWidth() / 16.0f;
+        auto c = juce::Rectangle<float> ((float) lightsArea.getX() + w * (float) i + 3.0f, (float) lightsArea.getY(), w - 6.0f, (float) lightsArea.getHeight());
+        g.setColour (i == shownStep ? col::amber : (i % 4 == 0 ? col::line.brighter (0.25f) : col::line));
+        g.fillRoundedRectangle (c, 3.0f);
+    }
+
+    g.setFont (font (13.0f, true));
+    g.setColour (running ? col::cream : col::muted);
+    juce::String status;
+    if (! (bool) proc.apvts.getRawParameterValue (PID::on)->load())
+        status = "Player is off - tick the box above, then press play in Live.";
+    else if (! running)
+        status = "Waiting for Live to play...";
+    else if (proc.player.uiEnded.load())
+        status = "Ended. Pick a section or press FILL to start again.";
+    else
+        status = juce::String (sectionName (proc.player.uiSection.load())) + "  -  bar " + juce::String (proc.player.uiBar.load())
+                 + (proc.player.uiFillComing.load() ? "  -  fill coming" : "");
+    g.drawText (status, statusArea, juce::Justification::centredLeft);
+
+    g.setColour (col::muted);
+    g.setFont (font (13.0f));
+    g.drawFittedText ("Section changes land on the next bar, with a fill leading in.\n\n"
+                      "Script a whole song: automate \"Player Section\" in Live's Arrangement view.\n\n"
+                      "Key switches from your keyboard: C3 verse, D3 chorus, E3 bridge, F3 fill, G3 ending.\n\n"
+                      "Record what it plays: make a MIDI track, set MIDI From to this track / Tea Towel, arm and record.",
+                      juce::Rectangle<int> (r.getX() + 500, r.getY() + 302 + 36, r.getWidth() - 516, 160), juce::Justification::topLeft, 12, 1.0f);
+}
+
+void PlayerView::resized()
+{
+    auto r = getLocalBounds().reduced (24, 16);
+    auto top = juce::Rectangle<int> (r.getX() + 16, r.getY() + 38, r.getWidth() - 32, 28);
+    onButton.setBounds (top.removeFromLeft (360));
+    styleBox.setBounds (r.getX() + 16 + 64, r.getY() + 74, 300, 26);
+    fillBox.setBounds (r.getX() + 16 + 470 + 80, r.getY() + 74, 140, 26);
+
+    auto song = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 40, r.getWidth() - 32, 44);
+    const int bw = (song.getWidth() - 5 * 10) / 5;
+    for (int i = 0; i < NumSections; ++i) { sectionButtons[i].setBounds (song.removeFromLeft (bw)); song.removeFromLeft (10); }
+    song.removeFromLeft (14);
+    fillButton.setBounds (song.removeFromLeft (bw - 7)); song.removeFromLeft (10);
+    endingButton.setBounds (song.removeFromLeft (bw - 7));
+
+    lightsArea = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 96, r.getWidth() - 32, 14);
+    statusArea = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 114, r.getWidth() - 32, 20);
+
+    auto feel = juce::Rectangle<int> (r.getX() + 16, r.getY() + 302 + 36, 3 * 150, 120);
+    intensity->setBounds (feel.removeFromLeft (150).reduced (10, 0));
+    looseness->setBounds (feel.removeFromLeft (150).reduced (10, 0));
+    swing->setBounds (feel.removeFromLeft (150).reduced (10, 0));
+}
+
+// ===========================================================================
 // Editor shell: header with tabs + preset menu, like AD2's top bar
 // ===========================================================================
 TeaTowelEditor::TeaTowelEditor (TeaTowelProcessor& p)
-    : AudioProcessorEditor (&p), proc (p), kit (p), mixer (p, this), edit (p, this), fx (p, this)
+    : AudioProcessorEditor (&p), proc (p), kit (p), mixer (p, this), edit (p, this), fx (p, this), player (p, this)
 {
     setLookAndFeel (&lnf);
 
-    for (auto* t : { &tabKit, &tabEdit, &tabFx })
+    for (auto* t : { &tabKit, &tabEdit, &tabFx, &tabPlayer })
     {
         t->setRadioGroupId (1001);
         t->setClickingTogglesState (true);
@@ -775,6 +785,7 @@ TeaTowelEditor::TeaTowelEditor (TeaTowelProcessor& p)
     tabKit.onClick  = [this] { showPage (0); };
     tabEdit.onClick = [this] { showPage (1); };
     tabFx.onClick   = [this] { showPage (2); };
+    tabPlayer.onClick = [this] { showPage (3); };
 
     for (int i = 0; i < proc.getNumPrograms(); ++i) presetBox.addItem (proc.getProgramName (i), i + 1);
     presetBox.setSelectedId (proc.getCurrentProgram() + 1, juce::dontSendNotification);
@@ -794,6 +805,7 @@ TeaTowelEditor::TeaTowelEditor (TeaTowelProcessor& p)
     addAndMakeVisible (mixer);
     addChildComponent (edit);
     addChildComponent (fx);
+    addChildComponent (player);
 
     tabKit.setToggleState (true, juce::dontSendNotification);
     setSize (1000, 660);
@@ -815,6 +827,7 @@ void TeaTowelEditor::showPage (int pg)
     mixer.setVisible (pg == 0);
     edit.setVisible (pg == 1);
     fx.setVisible (pg == 2);
+    player.setVisible (pg == 3);
     if (pg == 0) kit.repaint();
 }
 
@@ -841,6 +854,8 @@ void TeaTowelEditor::resized()
     auto header = r.removeFromTop (56).reduced (16, 12);
     presetBox.setBounds (header.removeFromRight (240));
     header.removeFromRight (20);
+    tabPlayer.setBounds (header.removeFromRight (84));
+    header.removeFromRight (6);
     tabFx.setBounds (header.removeFromRight (70));
     header.removeFromRight (6);
     tabEdit.setBounds (header.removeFromRight (70));
@@ -849,6 +864,7 @@ void TeaTowelEditor::resized()
 
     edit.setBounds (r);
     fx.setBounds (r);
+    player.setBounds (r);
     mixer.setBounds (r.removeFromBottom (215));
     kit.setBounds (r);
 }

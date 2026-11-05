@@ -1,0 +1,81 @@
+Full drum tracks with pop song structure. In each folder:
+  00 FULL SONG  = the whole song as one clip (drop it in Arrangement view)
+  01, 02 ...    = each section on its own (drop them into Session view to rearrange)
+Set Live's tempo to the bpm in the file name.
+
+01 Sixties Pop (Ringo feel)  -  120 bpm, 73 bars, about 2:26
+  bar   1  Intro (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Pre-Chorus (4 bars)
+  bar  17  Chorus (8 bars)
+  bar  25  Verse 2 (8 bars)
+  bar  33  Pre-Chorus 2 (4 bars)
+  bar  37  Chorus 2 (8 bars)
+  bar  45  Bridge (8 bars)
+  bar  53  Last Chorus (16 bars)
+  bar  69  Ending (5 bars)
+
+02 Mid-tempo Pop Rock  -  104 bpm, 73 bars, about 2:48
+  bar   1  Intro (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Pre-Chorus (4 bars)
+  bar  17  Chorus (8 bars)
+  bar  25  Verse 2 (8 bars)
+  bar  33  Pre-Chorus 2 (4 bars)
+  bar  37  Chorus 2 (8 bars)
+  bar  45  Bridge (half-time) (8 bars)
+  bar  53  Last Chorus (16 bars)
+  bar  69  Ending (5 bars)
+
+03 Motorik Pop  -  132 bpm, 104 bars, about 3:09
+  bar   1  Intro (hats only) (8 bars)
+  bar   9  Verse 1 (16 bars)
+  bar  25  Chorus (8 bars)
+  bar  33  Verse 2 (16 bars)
+  bar  49  Chorus 2 (8 bars)
+  bar  57  Bridge (ride, four on floor) (16 bars)
+  bar  73  Last Chorus (16 bars)
+  bar  89  Outro (long fade groove) (16 bars)
+
+04 Crazy Horse-style Rocker  -  88 bpm, 81 bars, about 3:40
+  bar   1  Intro (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Chorus (8 bars)
+  bar  21  Verse 2 (8 bars)
+  bar  29  Chorus 2 (8 bars)
+  bar  37  Guitar Solo (16 bars)
+  bar  53  Verse 3 (8 bars)
+  bar  61  Last Chorus (16 bars)
+  bar  77  Ending (5 bars)
+
+05 Uptempo Power Pop  -  150 bpm, 73 bars, about 1:56
+  bar   1  Intro (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Pre-Chorus (4 bars)
+  bar  17  Chorus (8 bars)
+  bar  25  Verse 2 (8 bars)
+  bar  33  Pre-Chorus 2 (4 bars)
+  bar  37  Chorus 2 (8 bars)
+  bar  45  Breakdown (8 bars)
+  bar  53  Last Chorus (16 bars)
+  bar  69  Ending (5 bars)
+
+06 Slow Ballad  -  72 bpm, 57 bars, about 3:10
+  bar   1  Intro (sidestick) (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Chorus (8 bars)
+  bar  21  Verse 2 (8 bars)
+  bar  29  Chorus 2 (8 bars)
+  bar  37  Bridge (8 bars)
+  bar  45  Last Chorus (8 bars)
+  bar  53  Ending (5 bars)
+
+07 Folk-Pop Shuffle  -  96 bpm, 64 bars, about 2:40
+  bar   1  Intro (4 bars)
+  bar   5  Verse 1 (8 bars)
+  bar  13  Chorus (8 bars)
+  bar  21  Verse 2 (8 bars)
+  bar  29  Chorus 2 (8 bars)
+  bar  37  Bridge (8 bars)
+  bar  45  Last Chorus (16 bars)
+  bar  61  Ending (4 bars)

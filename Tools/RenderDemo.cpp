@@ -5,6 +5,7 @@
 #include <random>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Source/PluginEditor.h"
+#include "../TapeTwin/TapeTwinProcessor.h"
 #include "../Source/PluginProcessor.h"
 
 struct Ev { double t; int note; float vel; };
@@ -53,6 +54,53 @@ static std::vector<Ev> makeGroove (double bpm, std::mt19937& rng)
     return ev;
 }
 
+struct FakeHead : juce::AudioPlayHead
+{
+    double ppq = 0, bpm = 120; bool playing = true;
+    juce::Optional<PositionInfo> getPosition() const override
+    {
+        PositionInfo p; p.setIsPlaying (playing); p.setPpqPosition (ppq); p.setBpm (bpm);
+        p.setTimeSignature (TimeSignature { 4, 4 });
+        return p;
+    }
+};
+
+// TT_PLAYER=<style>[,bpm]: let the Player drive the kit for 32 bars with section changes
+static int runPlayer (TeaTowelProcessor& proc, const juce::File& outFile, int style, double bpm)
+{
+    const double sr = 48000.0; const int bs = 256;
+    FakeHead head; head.bpm = bpm;
+    proc.setPlayHead (&head);
+    auto set = [&] (const char* id, float v) { auto* prm = proc.apvts.getParameter (id); prm->setValueNotifyingHost (prm->convertTo0to1 (v)); };
+    set (tt::PID::on, 1); set (tt::PID::style, (float) style); set (tt::PID::section, 0);
+    const double barSec = 4 * 60.0 / bpm;
+    const int total = (int) (barSec * 33 * sr);
+    juce::AudioBuffer<float> out (2, total), block (2, bs);
+    int outEvents = 0; bool fillSent = false, endSent = false;
+    for (int pos = 0; pos < total; pos += bs)
+    {
+        const double t = pos / sr; const double bar = t / barSec;
+        if (bar >= 8 && bar < 16) set (tt::PID::section, 1);
+        if (bar >= 16) set (tt::PID::section, 2);
+        if (bar >= 22.5 && ! fillSent) { proc.player.requestFill = true; fillSent = true; }
+        if (bar >= 28.2 && ! endSent) { proc.player.requestEnding = true; endSent = true; }
+        const int n = juce::jmin (bs, total - pos);
+        block.setSize (2, n, false, false, true);
+        juce::MidiBuffer midi;
+        proc.processBlock (block, midi);
+        outEvents += midi.getNumEvents();
+        head.ppq += n / sr * bpm / 60.0;
+        for (int c = 0; c < 2; ++c) out.copyFrom (c, pos, block, c, 0, n);
+    }
+    float peak = out.getMagnitude (0, total);
+    std::printf ("player style %d: midi-out events=%d peak=%.2f\n", style, outEvents, peak);
+    outFile.deleteFile();
+    juce::WavAudioFormat wav;
+    std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (new juce::FileOutputStream (outFile), sr, 2, 24, {}, 0));
+    w->writeFromAudioSampleBuffer (out, 0, total);
+    return 0;
+}
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
@@ -65,17 +113,58 @@ int main (int argc, char** argv)
     proc.prepareToPlay (sr, bs);
     if (argc > 2) proc.setCurrentProgram (std::atoi (argv[2]));
 
+    if (const char* tp = std::getenv ("TT_TAPE"))   // TT_TAPE=<preset>: render the groove, then run it through Tape Twin
+    {
+        TapeTwinProcessor tape;
+        tape.setPlayConfigDetails (2, 2, 48000.0, 256);
+        tape.prepareToPlay (48000.0, 256);
+        tape.setCurrentProgram (std::atoi (tp));
+        if (std::getenv ("TT_SNAPSHOT"))
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> ed (tape.createEditor());
+            auto img = ed->createComponentSnapshot (ed->getLocalBounds());
+            juce::File f (juce::File::getCurrentWorkingDirectory().getChildFile ("ui_tape.png"));
+            f.deleteFile(); juce::FileOutputStream os (f); juce::PNGImageFormat().writeImageToStream (img, os);
+        }
+        juce::AudioFormatManager fm; fm.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> rd (fm.createReaderFor (juce::File::getCurrentWorkingDirectory().getChildFile ("tape_in.wav")));
+        if (rd == nullptr) { std::printf ("need tape_in.wav\n"); return 1; }
+        const int len = (int) rd->lengthInSamples + 48000 * 3;
+        juce::AudioBuffer<float> buf (2, len); buf.clear();
+        rd->read (&buf, 0, (int) rd->lengthInSamples, 0, true, true);
+        bool bad = false;
+        for (int pos = 0; pos < len; pos += 256)
+        {
+            const int n = juce::jmin (256, len - pos);
+            juce::AudioBuffer<float> view (buf.getArrayOfWritePointers(), 2, pos, n);
+            juce::MidiBuffer m; tape.processBlock (view, m);
+        }
+        for (int c = 0; c < 2; ++c) for (int i = 0; i < len; ++i) if (! std::isfinite (buf.getSample (c, i))) bad = true;
+        std::printf ("tape preset %s: peak %.2f finite=%s\n", tape.getProgramName (std::atoi (tp)).toRawUTF8(), buf.getMagnitude (0, len), bad ? "NO" : "yes");
+        outFile.deleteFile();
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (new juce::FileOutputStream (outFile), 48000.0, 2, 24, {}, 0));
+        w->writeFromAudioSampleBuffer (buf, 0, len);
+        return bad ? 2 : 0;
+    }
+
+    if (const char* ps = std::getenv ("TT_PLAYER"))
+    {
+        auto parts = juce::StringArray::fromTokens (ps, ",", "");
+        return runPlayer (proc, outFile, parts[0].getIntValue(), parts.size() > 1 ? parts[1].getDoubleValue() : 120.0);
+    }
+
     if (std::getenv ("TT_SNAPSHOT") != nullptr)   // debug: save the three UI pages as PNGs
     {
         std::unique_ptr<juce::AudioProcessorEditor> ed (proc.createEditor());
-        const char* names[] = { "kit", "edit", "fx" };
-        for (int page = 0; page < 3; ++page)
+        const char* names[] = { "kit", "edit", "fx", "player" };
+        for (int page = 0; page < 4; ++page)
         {
-            juce::Component* tabs[3] {};
+            juce::Component* tabs[4] {};
             int ti = 0;
             for (auto* c : ed->getChildren())
                 if (auto* b = dynamic_cast<juce::TextButton*> (c))
-                    if (b->getRadioGroupId() == 1001 && ti < 3) tabs[ti++] = b;
+                    if (b->getRadioGroupId() == 1001 && ti < 4) tabs[ti++] = b;
             if (auto* b = dynamic_cast<juce::TextButton*> (tabs[page])) { b->setToggleState (true, juce::dontSendNotification); if (b->onClick) b->onClick(); }
             auto img = ed->createComponentSnapshot (ed->getLocalBounds());
             juce::File f (juce::File::getCurrentWorkingDirectory().getChildFile (juce::String ("ui_") + names[page] + ".png"));

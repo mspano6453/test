@@ -2,47 +2,10 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
+#include "UiKit.h"
 
 namespace ttui
 {
-namespace col
-{
-    const juce::Colour bg     { 0xff1b1916 };
-    const juce::Colour panel  { 0xff25221e };
-    const juce::Colour panel2 { 0xff302b25 };
-    const juce::Colour line   { 0xff3d3731 };
-    const juce::Colour cream  { 0xffe9dfc7 };
-    const juce::Colour amber  { 0xffe0a33a };
-    const juce::Colour muted  { 0xff8c8273 };
-    const juce::Colour red    { 0xffb5452f };
-}
-
-class LookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    LookAndFeel();
-    void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
-                           float start, float end, juce::Slider&) override;
-    void drawLinearSlider (juce::Graphics&, int x, int y, int w, int h, float pos, float minPos,
-                           float maxPos, juce::Slider::SliderStyle, juce::Slider&) override;
-    void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool over, bool down) override;
-};
-
-using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-
-class Knob : public juce::Component
-{
-public:
-    Knob (const juce::String& name, bool isSmall, juce::Component* popupParent);
-    void attach (juce::AudioProcessorValueTreeState& s, const juce::String& id);
-    void resized() override;
-    juce::Slider slider;
-    juce::Label label;
-private:
-    bool small;
-    std::unique_ptr<SliderAttachment> att;
-};
-
 // ---------------------------------------------------------------------------
 class KitView : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer
 {
@@ -135,6 +98,27 @@ private:
     juce::Rectangle<int> meterArea;
     float grShown = 0;
 };
+// ---------------------------------------------------------------------------
+class PlayerView : public juce::Component, private juce::Timer
+{
+public:
+    PlayerView (TeaTowelProcessor&, juce::Component* popupParent);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+private:
+    void timerCallback() override;
+    void setSection (int s);
+    TeaTowelProcessor& proc;
+    juce::ToggleButton onButton { "Play along with Live's transport" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
+    juce::ComboBox styleBox, fillBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt, fillAtt;
+    juce::TextButton sectionButtons[tt::NumSections];
+    juce::TextButton fillButton { "FILL" }, endingButton { "ENDING" };
+    std::unique_ptr<Knob> intensity, looseness, swing;
+    juce::Rectangle<int> lightsArea, statusArea;
+    int shownStep = -2, shownSection = -1;
+};
 } // namespace ttui
 
 // ---------------------------------------------------------------------------
@@ -152,12 +136,13 @@ private:
 
     ttui::LookAndFeel lnf;
     TeaTowelProcessor& proc;
-    juce::TextButton tabKit { "KIT" }, tabEdit { "EDIT" }, tabFx { "FX" };
+    juce::TextButton tabKit { "KIT" }, tabEdit { "EDIT" }, tabFx { "FX" }, tabPlayer { "PLAYER" };
     juce::ComboBox presetBox;
     ttui::KitView kit;
     ttui::MixerView mixer;
     ttui::EditView edit;
     ttui::FxView fx;
+    ttui::PlayerView player;
     int page = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeaTowelEditor)

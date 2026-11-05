@@ -8,6 +8,7 @@
 #include <vector>
 #include "Params.h"
 #include "DrumEngine.h"
+#include "Player.h"
 
 class TeaTowelProcessor : public juce::AudioProcessor
 {
@@ -26,7 +27,7 @@ public:
 
     const juce::String getName() const override { return "Tea Towel"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }   // the Player's hits, for recording
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 3.0; }
 
@@ -51,6 +52,7 @@ public:
     juce::MidiKeyboardState keyboardState;                     // lets the UI play the kit
     std::array<std::atomic<float>, tt::NumPieces> hitFlash;    // UI hit lights
     std::atomic<float> gainReductionDb { 0.0f };               // Squash meter
+    tt::GroovePlayer player;                                   // the PLAYER page
 
 private:
     void handleMidi (const juce::MidiMessage& m);
@@ -69,6 +71,9 @@ private:
     juce::String samplePaths[tt::NumPieces];
     juce::CriticalSection pathLock;
     juce::AudioFormatManager formatManager;
+    juce::MidiBuffer playerOut;
+    int64_t sampleCounter = 0;
+    std::atomic<float>* playerParams[7] {};
 
     double sr = 44100.0;
     std::vector<float> scratch;

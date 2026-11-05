@@ -62,6 +62,18 @@ inline const char* masterName (int k)
     return n[k];
 }
 
+// Player (groove generator) parameter IDs
+namespace PID
+{
+    inline constexpr const char* on = "p_on";
+    inline constexpr const char* style = "p_style";
+    inline constexpr const char* section = "p_section";
+    inline constexpr const char* fillEvery = "p_fill";
+    inline constexpr const char* intensity = "p_int";
+    inline constexpr const char* looseness = "p_loose";
+    inline constexpr const char* swing = "p_swing";
+}
+
 // ---------------------------------------------------------------------------
 // Factory kits. Values per piece: tune(st), towel, decay, tone, vol(dB), pan, room
 // Master: thud, squash, tape, room level, room size, width, output(dB)

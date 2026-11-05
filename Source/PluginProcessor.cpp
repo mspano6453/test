@@ -80,6 +80,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
             juce::ParameterID { masterId (k), 1 }, juce::String ("Master ") + masterName (k),
             range, def.master[k], attr));
     }
+    // Player
+    ps.push_back (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { PID::on, 1 }, "Player On", false));
+    {
+        juce::StringArray st; for (int i = 0; i < NumStyles; ++i) st.add (styleName (i));
+        ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::style, 1 }, "Player Style", st, 0));
+        juce::StringArray se; for (int i = 0; i < NumSections; ++i) se.add (sectionName (i));
+        ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::section, 1 }, "Player Section", se, 0));
+        ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::fillEvery, 1 }, "Player Fill Every",
+                                                                    juce::StringArray { "Off", "4 bars", "8 bars", "16 bars" }, 2));
+    }
+    auto pctAttr = juce::AudioParameterFloatAttributes().withStringFromValueFunction (pctText);
+    ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::intensity, 1 }, "Player Intensity", juce::NormalisableRange<float> (0, 1, 0.001f), 0.55f, pctAttr));
+    ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::looseness, 1 }, "Player Looseness", juce::NormalisableRange<float> (0, 1, 0.001f), 0.3f, pctAttr));
+    ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::swing, 1 }, "Player Swing", juce::NormalisableRange<float> (0, 1, 0.001f), 0.0f, pctAttr));
+
     return { ps.begin(), ps.end() };
 }
 
@@ -98,6 +113,9 @@ TeaTowelProcessor::TeaTowelProcessor()
 
     formatManager.registerBasicFormats();
     loadBuiltInKit();
+    const char* pids[] = { PID::on, PID::style, PID::section, PID::fillEvery, PID::intensity, PID::looseness, PID::swing };
+    for (int i = 0; i < 7; ++i) playerParams[i] = apvts.getRawParameterValue (pids[i]);
+    playerOut.ensureSize (4096);
     scratch.resize (512);
 }
 
@@ -122,6 +140,7 @@ void TeaTowelProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     }
     grState = 0.0f;
     keyboardState.reset();
+    player.prepare (sr);
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +200,20 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     roomBuf.clear (0, n);
 
     keyboardState.processNextMidiBuffer (midi, 0, n, true);
+
+    // The drummer adds its hits for this block (and keeps a copy for MIDI out)
+    {
+        GroovePlayer::Settings ps;
+        ps.on = playerParams[0]->load() > 0.5f;
+        ps.style = (int) playerParams[1]->load();
+        ps.section = (int) playerParams[2]->load();
+        ps.fillEvery = (int) playerParams[3]->load();
+        ps.intensity = playerParams[4]->load();
+        ps.looseness = playerParams[5]->load();
+        ps.swing = playerParams[6]->load();
+        playerOut.clear();
+        player.process (midi, playerOut, n, sampleCounter, ps, getPlayHead());
+    }
 
     // Snapshot controls once per block
     for (int p = 0; p < NumPieces; ++p)
@@ -293,6 +326,8 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         else              { L[i] = 0.5f * (l + r); }
     }
     gainReductionDb.store (maxGr);
+    midi.swapWith (playerOut);     // MIDI out = only what the Player played
+    sampleCounter += n;
 
     for (auto& s : blockSamples) s.reset();
 }

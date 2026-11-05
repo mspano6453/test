@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -57,6 +60,21 @@ jobs:
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
           & $iscc installer\windows.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish Windows installer (release + branch)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="tea-towel-suite-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" out/*.exe -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+             --title "Tea Towel Suite build ${GITHUB_RUN_NUMBER}" --notes "Tea Towel + Tape Twin. Double-click to install, then Rescan in Ableton." || true
+          cd out
+          git init -q -b tea-towel-installer
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "Windows installer (build ${GITHUB_RUN_NUMBER})"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" tea-towel-installer
 
       - uses: actions/upload-artifact@v4
         with:
