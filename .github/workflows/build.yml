@@ -1,0 +1,64 @@
+name: Build Tea Towel
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+          # add "- os: macos-14 / name: macOS" here for a Mac installer
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          else
+            cmake -B build
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Make macOS installer
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          R=pkgroot
+          mkdir -p "$R/Library/Audio/Plug-Ins/VST3" "$R/Library/Audio/Plug-Ins/Components" "$R/Users/Shared/Tea Towel"
+          cp -R "build/TeaTowel_artefacts/Release/VST3/Tea Towel.vst3" "$R/Library/Audio/Plug-Ins/VST3/"
+          cp -R "build/TeaTowel_artefacts/Release/AU/Tea Towel.component" "$R/Library/Audio/Plug-Ins/Components/"
+          cp -R Grooves "$R/Users/Shared/Tea Towel/"
+          codesign --force --deep -s - "$R/Library/Audio/Plug-Ins/VST3/Tea Towel.vst3"
+          codesign --force --deep -s - "$R/Library/Audio/Plug-Ins/Components/Tea Towel.component"
+          pkgbuild --analyze --root "$R" comp.plist
+          n=$(/usr/libexec/PlistBuddy -c "Print" comp.plist | grep -c "RootRelativeBundlePath")
+          for ((i=0; i<n; i++)); do /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" comp.plist; done
+          pkgbuild --root "$R" --component-plist comp.plist --identifier com.teatowelaudio.teatowel \
+                   --version 1.0.0 --install-location / teatowel-component.pkg
+          mkdir -p out
+          productbuild --package teatowel-component.pkg "out/Tea Towel Installer (Mac).pkg"
+
+      - name: Make Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc installer\windows.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TeaTowel-${{ matrix.name }}
+          path: out/

@@ -1,0 +1,107 @@
+# Tea Towel — dead drum instrument
+
+A VST3 / AU drum instrument for that towel-on-the-heads, late-60s Ringo sound: thuddy toms, a fat low snare with short wires, a kick with no boom, and dark cymbals — all squashed through a valve-style compressor and tape.
+
+The workflow follows the Addictive Drums 2 layout (Kit page with mixer, per-drum Edit page, FX page for the bus). It's an independent project, not affiliated with XLN Audio, and uses none of their sounds.
+
+## The sounds
+
+Every drum is a real recording — nothing is synthesised. The kit is built from the free **AVL Drumkits** by Glen MacArthur (CC BY-SA 3.0), with 5 velocity layers per hit:
+
+| Drum | Recording |
+|---|---|
+| Kick | Ludwig 26" |
+| Snare | Pearl (plus rimshot and side-stick) |
+| Rack tom | Ludwig 14" |
+| Floor toms | Ludwig 16" (note 43) and 18" (note 41) |
+| Hi-hat | Sabian (closed, pedal, open) |
+| Ride | Zildjian A 24" (plus bell) |
+| Crash | Zildjian A 20" |
+
+The samples are embedded in the plugin, so there's nothing extra to install. Credits and license are in `Samples/CREDITS.txt`; keep them with the samples if you ever share the plugin.
+
+## Pages
+
+**KIT** — Click a drum to play it (right-click for side-stick, open hat or ride bell; shift-click plays softer). Drop a WAV/AIFF onto any drum to replace it with your sample. The mixer under the kit has pan, room send and volume for each drum. Drums light up as MIDI hits them.
+
+**EDIT** — One drum at a time:
+
+| Knob | What it does |
+|---|---|
+| Tune | ±12 semitones |
+| Towel | How much cloth is on the head. More = the ring is choked off sooner and the head sounds duller |
+| Decay | How much of the recording's natural ring is let through |
+| Tone | Brightness. Softer hits are automatically a little darker |
+| Volume / Pan / Room | Same as the mixer |
+
+The **Load sample…** button (or drag-and-drop) swaps in your own one-shot; Tune, Towel, Decay and Tone still shape it. **Use built-in** goes back to the kit's recording. Sample paths are saved with your Live set.
+
+**FX** — the drum bus:
+
+- **Thud** — low-end bump around 95 Hz
+- **Squash** — a slow, leveling compressor in the spirit of the valve limiters used on 60s drum sub-mixes (meter shows gain reduction)
+- **Tape** — saturation plus top-end roll-off
+- **Room / Room Size** — a small, dark, damped room fed by each drum's Room knob
+- **Width / Output**
+
+## Kits (presets menu, top right)
+
+- **Studio Two '69 – Towels** — the default; damped and squashed
+- **Rooftop '69** — a bit more open and roomy
+- **Cellar Club '63 – Open** — no towels, brighter, livelier
+- **Full Towel** — maximum deadness
+
+## MIDI map (works with Ableton's standard Drum Rack layout)
+
+| Drum | Notes |
+|---|---|
+| Kick | 35, 36 |
+| Snare | 38 snare · 40 rimshot · 37 side-stick |
+| Rack tom | 50 · 48 · 47 · 45 (high → low) |
+| Floor tom | 43 · 41 |
+| Hi-hat | 42 closed · 44 pedal · 46 open (closed/pedal choke the open hat) |
+| Ride | 51, 59 · 53 bell |
+| Crash | 49, 52, 55, 57 |
+
+The `Grooves` folder has five MIDI clips (straight eighths, shuffle, floor-tom groove, ride with a tom fill, half-time). Drag them onto the Tea Towel track in Live.
+
+## Getting the plugin built
+
+The plugin has to be compiled for your machine. The easiest way needs no tools installed:
+
+1. Create a new GitHub repository and upload everything in this folder (including the hidden `.github` folder).
+2. Open the **Actions** tab. The "Build Tea Towel" workflow runs automatically (or press *Run workflow*). It takes about 10 minutes.
+3. When it finishes, download **TeaTowel-macOS** or **TeaTowel-Windows** from the run's *Artifacts* section and unzip it (on Mac, unzip the inner zip too).
+
+### Build it yourself instead
+
+You need CMake 3.22+ and Xcode (Mac) or Visual Studio 2022 with C++ (Windows).
+
+```
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+The plugin appears in `build/TeaTowel_artefacts/Release/VST3/` (and `AU/` on Mac).
+
+## Installing in Ableton Live 12
+
+**Mac**
+1. Copy `Tea Towel.vst3` to `/Library/Audio/Plug-Ins/VST3/` (and optionally `Tea Towel.component` to `/Library/Audio/Plug-Ins/Components/`).
+2. Because the build isn't notarised, clear the download quarantine once in Terminal:
+   `sudo xattr -dr com.apple.quarantine "/Library/Audio/Plug-Ins/VST3/Tea Towel.vst3"`
+   (same for the `.component` if you copied it).
+
+**Windows**
+1. Copy the `Tea Towel.vst3` folder to `C:\Program Files\Common Files\VST3\`.
+
+**Then in Live:** Settings → Plug-Ins → turn on *Use VST3 Plug-In System Folders* → **Rescan**. Tea Towel shows up under Plug-Ins → Tea Towel Audio. Drop it on a MIDI track and play.
+
+## Offline test tool
+
+`cmake -B build -DTEATOWEL_RENDER_DEMO=ON` also builds `RenderDemo`, which renders every drum plus an 8-bar groove to a WAV and checks the output for clipping and NaNs:
+`RenderDemo demo.wav [kit number 0-3]`
+
+## License note
+
+Built with JUCE 8, which is free for personal projects under its AGPLv3 / starter terms. If you ever sell it, check JUCE's licensing.
