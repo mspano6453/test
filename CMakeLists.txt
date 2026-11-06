@@ -192,6 +192,39 @@ target_link_libraries(Loon
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Carousel - stereo looper
+juce_add_plugin(Carousel
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.carousel"
+    PRODUCT_NAME "Carousel"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Crsl
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Fx Tools
+    FORMATS VST3 AU)
+
+target_sources(Carousel PRIVATE
+    Carousel/CarouselProcessor.cpp
+    Carousel/CarouselEditor.cpp
+    Source/UiKit.cpp)
+
+target_compile_definitions(Carousel PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Carousel
+    PRIVATE
+        juce::juce_audio_utils
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -225,4 +258,9 @@ if(TEATOWEL_RENDER_DEMO)
     target_sources(LoonTest PRIVATE Tools/LoonTest.cpp Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Source/UiKit.cpp)
     target_compile_definitions(LoonTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LOON_NO_ENTRY=1)
     target_link_libraries(LoonTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(CarouselTest PRODUCT_NAME "CarouselTest")
+    target_sources(CarouselTest PRIVATE Tools/CarouselTest.cpp Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp Source/UiKit.cpp)
+    target_compile_definitions(CarouselTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 CAROUSEL_NO_ENTRY=1)
+    target_link_libraries(CarouselTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 endif()
