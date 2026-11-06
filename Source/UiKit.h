@@ -21,6 +21,8 @@ class LookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     LookAndFeel();
+    void setAccent (juce::Colour c);       // amber by default; Schaltwerk uses red
+    juce::Colour accent { 0xffe0a33a };
     void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
                            float start, float end, juce::Slider&) override;
     void drawLinearSlider (juce::Graphics&, int x, int y, int w, int h, float pos, float minPos,

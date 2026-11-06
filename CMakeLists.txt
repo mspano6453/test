@@ -124,6 +124,40 @@ target_link_libraries(Lathe
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Schaltwerk - electronic rhythm box, robot synth/vocoder, Omnichord
+juce_add_plugin(Schaltwerk
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.schaltwerk"
+    PRODUCT_NAME "Schaltwerk"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Schw
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Synth Drum
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Schaltwerk PRIVATE
+    Schaltwerk/SchaltwerkProcessor.cpp
+    Schaltwerk/SchaltwerkEditor.cpp
+    Source/UiKit.cpp)
+
+target_compile_definitions(Schaltwerk PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Schaltwerk
+    PRIVATE
+        juce::juce_audio_utils
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -147,4 +181,9 @@ if(TEATOWEL_RENDER_DEMO)
     target_sources(LatheTest PRIVATE Tools/LatheTest.cpp Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp Source/UiKit.cpp)
     target_compile_definitions(LatheTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LATHE_NO_ENTRY=1)
     target_link_libraries(LatheTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(SchaltwerkTest PRODUCT_NAME "SchaltwerkTest")
+    target_sources(SchaltwerkTest PRIVATE Tools/SchaltwerkTest.cpp Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp Source/UiKit.cpp)
+    target_compile_definitions(SchaltwerkTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 SCHALTWERK_NO_ENTRY=1)
+    target_link_libraries(SchaltwerkTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 endif()

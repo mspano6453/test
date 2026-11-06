@@ -31,6 +31,15 @@ ttui::LookAndFeel::LookAndFeel()
     setColour (juce::TooltipWindow::textColourId, col::cream);
 }
 
+void ttui::LookAndFeel::setAccent (juce::Colour c)
+{
+    accent = c;
+    setColour (juce::TextButton::buttonOnColourId, c);
+    setColour (juce::ComboBox::arrowColourId, c);
+    setColour (juce::PopupMenu::highlightedBackgroundColourId, c);
+    setColour (juce::BubbleComponent::outlineColourId, c);
+}
+
 void ttui::LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
                                          float start, float end, juce::Slider& s)
 {
@@ -49,7 +58,7 @@ void ttui::LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     const float from = bipolar ? (start + end) * 0.5f : start;
     juce::Path val;
     val.addCentredArc (c.x, c.y, r - arcW, r - arcW, 0.0f, juce::jmin (from, angle), juce::jmax (from, angle), true);
-    g.setColour (col::amber);
+    g.setColour (accent);
     g.strokePath (val, juce::PathStrokeType (arcW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Bakelite knob
@@ -78,7 +87,7 @@ void ttui::LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w
     const auto track = juce::Rectangle<float> (cx - 2.5f, (float) y + 6.0f, 5.0f, (float) h - 12.0f);
     g.setColour (juce::Colours::black.withAlpha (0.55f));
     g.fillRoundedRectangle (track, 2.5f);
-    g.setColour (col::amber.withAlpha (0.85f));
+    g.setColour (accent.withAlpha (0.85f));
     g.fillRoundedRectangle (track.withTop (pos), 2.5f);
 
     // tick marks
@@ -102,12 +111,12 @@ void ttui::LookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
                                              bool over, bool down)
 {
     auto r = b.getLocalBounds().toFloat().reduced (1.0f);
-    juce::Colour c = b.getToggleState() ? col::amber : col::panel2;
+    juce::Colour c = b.getToggleState() ? accent : col::panel2;
     if (over) c = c.brighter (0.12f);
     if (down) c = c.darker (0.15f);
     g.setColour (c);
     g.fillRoundedRectangle (r, 4.0f);
-    g.setColour (b.getToggleState() ? col::amber.brighter (0.3f) : col::line);
+    g.setColour (b.getToggleState() ? accent.brighter (0.3f) : col::line);
     g.drawRoundedRectangle (r, 4.0f, 1.0f);
 }
 
