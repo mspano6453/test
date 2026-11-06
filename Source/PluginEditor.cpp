@@ -654,6 +654,9 @@ PlayerView::PlayerView (TeaTowelProcessor& p, juce::Component* popupParent) : pr
     intensity = std::make_unique<Knob> ("INTENSITY", false, popupParent);
     looseness = std::make_unique<Knob> ("LOOSENESS", false, popupParent);
     swing     = std::make_unique<Knob> ("SWING", false, popupParent);
+    variation = std::make_unique<Knob> ("VARIATION", false, popupParent);
+    variation->attach (p.apvts, PID::variation);
+    addAndMakeVisible (*variation);
     intensity->attach (p.apvts, PID::intensity);
     looseness->attach (p.apvts, PID::looseness);
     swing->attach (p.apvts, PID::swing);
@@ -737,7 +740,8 @@ void PlayerView::paint (juce::Graphics& g)
 
     g.setColour (col::muted);
     g.setFont (font (13.0f));
-    g.drawFittedText ("Section changes land on the next bar, with a fill leading in.\n\n"
+    g.drawFittedText ("Every hit is humanized. VARIATION sets how much the drummer improvises: ghost notes, extra kicks, open hats and made-up fills.\n\n"
+                      "Section changes land on the next bar, with a fill leading in.\n\n"
                       "Script a whole song: automate \"Player Section\" in Live's Arrangement view.\n\n"
                       "Key switches from your keyboard: C3 verse, D3 chorus, E3 bridge, F3 fill, G3 ending.\n\n"
                       "Record what it plays: make a MIDI track, set MIDI From to this track / Tea Towel, arm and record.",
@@ -762,10 +766,11 @@ void PlayerView::resized()
     lightsArea = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 96, r.getWidth() - 32, 14);
     statusArea = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 114, r.getWidth() - 32, 20);
 
-    auto feel = juce::Rectangle<int> (r.getX() + 16, r.getY() + 302 + 36, 3 * 150, 120);
-    intensity->setBounds (feel.removeFromLeft (150).reduced (10, 0));
-    looseness->setBounds (feel.removeFromLeft (150).reduced (10, 0));
-    swing->setBounds (feel.removeFromLeft (150).reduced (10, 0));
+    auto feel = juce::Rectangle<int> (r.getX() + 16, r.getY() + 302 + 36, 4 * 116, 120);
+    intensity->setBounds (feel.removeFromLeft (116).reduced (6, 0));
+    looseness->setBounds (feel.removeFromLeft (116).reduced (6, 0));
+    swing->setBounds (feel.removeFromLeft (116).reduced (6, 0));
+    variation->setBounds (feel.removeFromLeft (116).reduced (6, 0));
 }
 
 // ===========================================================================

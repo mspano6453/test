@@ -73,7 +73,7 @@ private:
     juce::AudioFormatManager formatManager;
     juce::MidiBuffer playerOut;
     int64_t sampleCounter = 0;
-    std::atomic<float>* playerParams[7] {};
+    std::atomic<float>* playerParams[8] {};
 
     double sr = 44100.0;
     std::vector<float> scratch;

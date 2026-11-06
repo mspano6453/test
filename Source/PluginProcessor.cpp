@@ -94,6 +94,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::intensity, 1 }, "Player Intensity", juce::NormalisableRange<float> (0, 1, 0.001f), 0.55f, pctAttr));
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::looseness, 1 }, "Player Looseness", juce::NormalisableRange<float> (0, 1, 0.001f), 0.3f, pctAttr));
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::swing, 1 }, "Player Swing", juce::NormalisableRange<float> (0, 1, 0.001f), 0.0f, pctAttr));
+    ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::variation, 1 }, "Player Variation", juce::NormalisableRange<float> (0, 1, 0.001f), 0.5f, pctAttr));
 
     return { ps.begin(), ps.end() };
 }
@@ -113,8 +114,8 @@ TeaTowelProcessor::TeaTowelProcessor()
 
     formatManager.registerBasicFormats();
     loadBuiltInKit();
-    const char* pids[] = { PID::on, PID::style, PID::section, PID::fillEvery, PID::intensity, PID::looseness, PID::swing };
-    for (int i = 0; i < 7; ++i) playerParams[i] = apvts.getRawParameterValue (pids[i]);
+    const char* pids[] = { PID::on, PID::style, PID::section, PID::fillEvery, PID::intensity, PID::looseness, PID::swing, PID::variation };
+    for (int i = 0; i < 8; ++i) playerParams[i] = apvts.getRawParameterValue (pids[i]);
     playerOut.ensureSize (4096);
     scratch.resize (512);
 }
@@ -211,6 +212,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         ps.intensity = playerParams[4]->load();
         ps.looseness = playerParams[5]->load();
         ps.swing = playerParams[6]->load();
+        ps.variation = playerParams[7]->load();
         playerOut.clear();
         player.process (midi, playerOut, n, sampleCounter, ps, getPlayHead());
     }

@@ -133,11 +133,31 @@ public:
     void noteOn (int piece, int artic, float noteMul, float vel, const PieceSettings& s,
                  const KitBank& bank, const SamplePtr& userSample)
     {
+        // Humanize every hit: a real stick never lands the same way twice.
+        const bool cym = piece == HiHat || piece == Ride || piece == Crash;
+        float layerGain = 1.0f;
         SamplePtr smp = userSample;
         if (smp == nullptr)
             if (const auto* layers = bank.find (piece, artic))
-                smp = layers->pick (vel);
+            {
+                smp = layers->pick (juce::jlimit (0.0f, 1.0f, vel + (rnd() - 0.5f) * 0.12f));
+                // don't fire the identical recording twice in a row (the "machine gun" giveaway)
+                if (smp == lastSample[piece])
+                    for (int i = 0; i < kLayers; ++i)
+                        if (layers->v[(size_t) i] == smp)
+                        {
+                            const int up = i + 1 < kLayers && layers->v[(size_t) (i + 1)] != nullptr ? i + 1 : -1;
+                            const int dn = i > 0 ? i - 1 : -1;
+                            const int alt = (rnd() < 0.5f && up >= 0) || dn < 0 ? up : dn;
+                            if (alt >= 0) { smp = layers->v[(size_t) alt]; layerGain = alt > i ? 0.84f : 1.18f; }
+                            break;
+                        }
+            }
         if (smp == nullptr || smp->mono.getNumSamples() < 2) return;
+        lastSample[piece] = smp;
+        const float pitchJitter = std::pow (2.0f, (rnd() - 0.5f) * (cym ? 0.06f : 0.16f) / 12.0f);
+        const float gainJitter = layerGain * (1.0f + (rnd() - 0.5f) * 0.14f);
+        const float toneJitter = 1.0f + (rnd() - 0.5f) * 0.18f;
 
         if (piece == HiHat && (artic == HatClosed || artic == HatPedal))
             for (auto& o : voices[HiHat])
@@ -153,12 +173,12 @@ public:
         v.age = ++counter;
         v.smp = std::move (smp);
         v.pos = 0;
-        v.rate = v.smp->sampleRate / sr * s.tuneRatio * noteMul;
+        v.rate = v.smp->sampleRate / sr * s.tuneRatio * noteMul * pitchJitter;
         v.choke = 1; v.chokeK = 1; v.choking = false;
 
         // Velocity: the layers carry the dynamics, this just smooths between them.
         // A user sample has one layer, so it gets the full velocity curve.
-        v.gain = userSample != nullptr ? std::pow (vel, 1.3f) : 0.55f + 0.45f * vel;
+        v.gain = (userSample != nullptr ? std::pow (vel, 1.3f) : 0.55f + 0.45f * vel) * gainJitter;
 
         // Towel: how soon the ring gets choked off after the stick hits.
         const bool cymbal = piece == HiHat || piece == Ride || piece == Crash;
@@ -171,7 +191,7 @@ public:
         v.envK = (float) std::exp (-1.0 / (tau * sr));
 
         // Tone: a towel also dulls the head, so it darkens a little too
-        const double cutoff = 1800.0 * std::pow (11.0, (double) s.tone) * (1.0 - 0.35 * d) * (0.75 + 0.25 * vel);
+        const double cutoff = 1800.0 * std::pow (11.0, (double) s.tone) * (1.0 - 0.35 * d) * (0.75 + 0.25 * vel) * toneJitter;
         v.toneLp.reset();
         v.toneLp.lowpass (sr, cutoff, 0.6);
     }
@@ -183,6 +203,9 @@ public:
     }
 
 private:
+    SamplePtr lastSample[NumPieces];
+    uint32_t rng = 0xC0FFEEu;
+    float rnd() noexcept { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (float) (rng & 0xffffff) / 16777216.0f; }
     Voice voices[NumPieces][kVoices];
     double sr = 44100.0;
     uint32_t counter = 0;

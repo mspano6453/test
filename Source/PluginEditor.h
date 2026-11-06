@@ -115,7 +115,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt, fillAtt;
     juce::TextButton sectionButtons[tt::NumSections];
     juce::TextButton fillButton { "FILL" }, endingButton { "ENDING" };
-    std::unique_ptr<Knob> intensity, looseness, swing;
+    std::unique_ptr<Knob> intensity, looseness, swing, variation;
     juce::Rectangle<int> lightsArea, statusArea;
     int shownStep = -2, shownSection = -1;
 };

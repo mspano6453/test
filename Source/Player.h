@@ -127,7 +127,7 @@ public:
     {
         bool on = false;
         int style = 0, section = 0, fillEvery = Fill8;
-        float intensity = 0.5f, looseness = 0.3f, swing = 0.0f;
+        float intensity = 0.5f, looseness = 0.3f, swing = 0.0f, variation = 0.5f;
     };
 
     // UI / key-switch requests (any thread)
@@ -302,11 +302,21 @@ private:
             else if (! sectionStart) ++barInSection;
 
             fillThisBar = fillNextBar;
+            const bool requested = fillNextBar;
             fillNextBar = false;
             const int every = s.fillEvery == Fill4 ? 4 : s.fillEvery == Fill8 ? 8 : s.fillEvery == Fill16 ? 16 : 0;
-            if (every > 0 && (barInSection % every) == every - 1) fillThisBar = true;
-            if (fillThisBar) fillAlt ^= 1;
+            const int phraseLen = every > 0 ? every : 8;
+            barsLeftInPhrase = phraseLen - 1 - (barInSection % phraseLen);
+            if (every > 0 && barsLeftInPhrase == 0) fillThisBar = true;
             if (endingStage == 1) { fillThisBar = true; endingStage = 2; }
+            if (fillThisBar) chooseFill (s, ! requested && endingStage == 0);
+
+            // the drummer's feel drifts a little from bar to bar
+            const float V = s.variation;
+            energy += (1.0f - energy) * 0.25f + gauss() * 0.035f * V;
+            energy = juce::jlimit (0.88f, 1.12f, energy);
+            timeBiasMs = juce::jlimit (-3.0f, 3.0f, timeBiasMs * 0.85f + gauss() * 0.7f * (0.3f + V));
+            hatAccent = 1.0f + (rand01() - 0.3f) * 0.35f * (0.3f + V);
 
             uiSection = section;
             uiBar = barInSection + 1;
@@ -320,42 +330,93 @@ private:
         if (ended || section < 0) return;
 
         // requests land on the second half of the current bar if there's time, otherwise the next bar
-        if (requestFill.exchange (false)) { if (step < 8) fillThisBar = true; else fillNextBar = true; }
+        if (requestFill.exchange (false)) { if (step < 8) { fillThisBar = true; chooseFill (s, false); } else fillNextBar = true; }
         if (requestEnding.exchange (false))
         {
-            if (step < 8) { fillThisBar = true; endingStage = 2; }
+            if (step < 8) { fillThisBar = true; chooseFill (s, false); endingStage = 2; }
             else          { endingStage = 1; }
         }
         // a section change coming at the next bar gets a fill if there's room
-        if (step == 8 && wanted != section && ! fillThisBar) fillThisBar = true;
+        if (step == 8 && wanted != section && ! fillThisBar) { fillThisBar = true; chooseFill (s, false); }
 
         uiFillComing = fillThisBar || fillNextBar || endingStage > 0;
 
-        const bool inFill = fillThisBar && step >= 8;
-        const Groove& g = inFill ? st.fill[fillAlt] : st.sec[section];
+        const bool inFill = fillThisBar && step >= fillStart;
+        nowInFill = inFill;
+        const Groove& g = st.sec[section];
         const Groove& ex = st.extra[section];
+        const float V = s.variation;
 
-        const float velScale = 0.78f + 0.34f * s.intensity;
+        const float build = (barsLeftInPhrase == 0 || fillThisBar) ? 1.05f : 1.0f;
+        const float velScale = (0.78f + 0.34f * s.intensity) * energy * build;
         const float swingDelay = (step % 2 == 1) ? (float) (s.swing * 0.333 * stepLen) : 0.0f;
 
         for (int l = 0; l < NumLanes; ++l)
         {
             if (step == 0 && pendingSectionStart && (l == LH || l == LO || l == LRD) && ! inFill) continue;  // crash replaces cymbal
-            char c = g.lane[l] != nullptr ? g.lane[l][step] : '.';
-            if (c == '.' && ! inFill && ex.lane[l] != nullptr && ex.lane[l][step] != '.')
+            char c;
+            int lane = l;
+            if (inFill)
             {
-                const float h = hash01 (step, l);
-                if (h < (s.intensity - 0.35f) * 1.6f) c = ex.lane[l][step];
+                c = useGenFill ? genFill[l][step] : (st.fill[fillAlt].lane[l] != nullptr ? st.fill[fillAlt].lane[l][step] : '.');
+                // keep time on the hats/ride through a short fill's first steps
+                if (c == '.' && step < 8 && g.lane[l] != nullptr && (l == LH || l == LRD || l == LO)) c = g.lane[l][step];
+            }
+            else
+            {
+                c = g.lane[l] != nullptr ? g.lane[l][step] : '.';
+                if (c == '.' && ex.lane[l] != nullptr && ex.lane[l][step] != '.' && rand01() < (s.intensity - 0.35f) * 1.6f)
+                    c = ex.lane[l][step];
+
+                // little things a real drummer does that a loop never would
+                if (l == LH && c != '.' && step % 4 == 2 && rand01() < 0.03f * V) c = '.';                  // drops a weak hat
+                if (l == LH && c != '.' && step == 14 && rand01() < 0.07f * V) lane = LO;                    // opens the hat
+                if (l == LS && c == '.' && (step % 2 == 1) && rand01() < 0.05f * V * (0.4f + s.intensity)) c = 'g';   // ghost note
+                if (l == LK && c == '.' && (step == 3 || step == 7 || step == 10 || step == 14)
+                    && g.lane[LS] != nullptr && g.lane[LS][step] == '.' && rand01() < 0.025f * V) c = 'o';  // extra kick
+                if (l == LS && c == '.' && step == 15 && barsLeftInPhrase == 0 && rand01() < 0.4f * V) c = '-';  // pickup into the next phrase
             }
             if (c == '.') continue;
-            float v = velOf (c) * velScale;
+            float v = velOf (c) * velScale * (1.0f + gauss() * 0.04f);
+            if (l == LH || l == LO || l == LRD) v *= (step % 4 == 0) ? hatAccent : 1.0f / hatAccent;
             if (s.intensity < 0.25f && (l == LH || l == LRD) && (step % 4) == 2) v *= 0.7f;
-            hit (laneNote[l], v, t + (int64_t) swingDelay, s, l);
+            hit (laneNote[lane], v, t + (int64_t) swingDelay, s, l);
         }
         if (step == 15) pendingSectionStart = false;
     }
 
     bool pendingSectionStart = false;
+    bool nowInFill = false, useGenFill = false;
+    int fillStart = 8, barsLeftInPhrase = 7;
+    float energy = 1.0f, timeBiasMs = 0.0f, hatAccent = 1.0f;
+    char genFill[NumLanes][16] {};
+
+    // Pick this bar's fill: one of the style's own fills, or one made up on the spot.
+    // Auto fills are sometimes just the last beat; requested ones always take half a bar.
+    void chooseFill (const Settings& s, bool mayBeShort)
+    {
+        const float V = s.variation;
+        fillStart = (mayBeShort && rand01() < 0.35f * V) ? 12 : 8;
+        const float r = rand01();
+        if (r < 1.0f - 0.6f * V) { useGenFill = false; fillAlt = rand01() < 0.5f ? 0 : 1; return; }
+
+        useGenFill = true;
+        for (auto& lane : genFill) for (auto& c : lane) c = '.';
+        // snare -> rack tom(s) -> floor tom, sixteenths or eighths
+        const int lanesSeq[] = { LS, LS, LT1, LT2, LT2, LT3, LF, LF };
+        const bool sixteenths = rand01() < 0.45f + 0.4f * s.intensity;
+        const int len = 16 - fillStart;
+        for (int i = 0; i < len; ++i)
+        {
+            const int step = fillStart + i;
+            if (! sixteenths && (i % 2 == 1)) continue;
+            if (sixteenths && i > 0 && i < len - 1 && rand01() < 0.15f * V) continue;   // leave a gap now and then
+            const int lane = lanesSeq[juce::jlimit (0, 7, (int) ((float) i / (float) len * 8.0f + (rand01() - 0.5f) * 1.5f))];
+            genFill[lane][step] = i >= len - 2 ? 'x' : (i < 2 ? 'o' : (rand01() < 0.5f ? 'x' : 'o'));
+        }
+        genFill[LK][fillStart] = 'x';
+        if (rand01() < 0.5f) genFill[LK][15] = 'o';
+    }
 
     float hash01 (int step, int lane) const
     {
@@ -367,11 +428,15 @@ private:
     void hit (int note, float vel, int64_t t, const Settings& s, int lane)
     {
         const float L = s.looseness;
-        double lagMs = 0.0;
-        if (lane == LS) lagMs += 16.0 * L;
-        if (lane == LC) lagMs += 8.0 * L;
-        lagMs += std::abs (gauss()) * 9.0 * L;
-        vel += gauss() * 9.0f * L;
+        // a few ms behind the grid on average, drifting from bar to bar, rushing a touch in fills
+        double lagMs = 3.0 + 8.0 * L + timeBiasMs;
+        if (lane == LS) lagMs += 6.0 * L;
+        if (lane == LC) lagMs += 4.0 * L;
+        if (lane == LK) lagMs -= 1.5;
+        if (nowInFill)  lagMs -= 2.5;
+        lagMs += gauss() * (1.2 + 6.0 * L);
+        lagMs = std::max (0.0, lagMs);
+        vel += gauss() * (3.0f + 8.0f * L);
         const int64_t when = t + (int64_t) (lagMs * 0.001 * sr);
         // sloppy flam on hard backbeats when it's really loose
         if (lane == LS && vel > 100 && L > 0.6f && rand01() < L * 0.6f)

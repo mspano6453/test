@@ -72,6 +72,7 @@ namespace PID
     inline constexpr const char* intensity = "p_int";
     inline constexpr const char* looseness = "p_loose";
     inline constexpr const char* swing = "p_swing";
+    inline constexpr const char* variation = "p_var";
 }
 
 // ---------------------------------------------------------------------------
