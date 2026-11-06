@@ -90,6 +90,40 @@ target_link_libraries(TapeTwin
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Lathe - mastering suite
+juce_add_plugin(Lathe
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.lathe"
+    PRODUCT_NAME "Lathe"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Lthe
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Fx Mastering
+    FORMATS VST3 AU)
+
+target_sources(Lathe PRIVATE
+    Lathe/LatheProcessor.cpp
+    Lathe/LatheEditor.cpp
+    Source/UiKit.cpp)
+
+target_compile_definitions(Lathe PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Lathe
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -108,4 +142,9 @@ if(TEATOWEL_RENDER_DEMO)
         juce::juce_audio_formats
         juce::juce_dsp
         juce::juce_recommended_config_flags)
+
+    juce_add_console_app(LatheTest PRODUCT_NAME "LatheTest")
+    target_sources(LatheTest PRIVATE Tools/LatheTest.cpp Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp Source/UiKit.cpp)
+    target_compile_definitions(LatheTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LATHE_NO_ENTRY=1)
+    target_link_libraries(LatheTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

@@ -81,7 +81,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
             range, def.master[k], attr));
     }
     // Player
-    ps.push_back (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { PID::on, 1 }, "Player On", false));
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::on, 1 }, "Player On", juce::StringArray { "Off", "On" }, 0));
     {
         juce::StringArray st; for (int i = 0; i < NumStyles; ++i) st.add (styleName (i));
         ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::style, 1 }, "Player Style", st, 0));
