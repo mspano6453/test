@@ -158,6 +158,40 @@ target_link_libraries(Schaltwerk
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Loon - ambient generator that listens to your guitar
+juce_add_plugin(Loon
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.loon"
+    PRODUCT_NAME "Loon"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Loon
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Fx Generator Reverb
+    FORMATS VST3 AU)
+
+target_sources(Loon PRIVATE
+    Loon/LoonProcessor.cpp
+    Loon/LoonEditor.cpp
+    Source/UiKit.cpp)
+
+target_compile_definitions(Loon PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Loon
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -186,4 +220,9 @@ if(TEATOWEL_RENDER_DEMO)
     target_sources(SchaltwerkTest PRIVATE Tools/SchaltwerkTest.cpp Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp Source/UiKit.cpp)
     target_compile_definitions(SchaltwerkTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 SCHALTWERK_NO_ENTRY=1)
     target_link_libraries(SchaltwerkTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
+
+    juce_add_console_app(LoonTest PRODUCT_NAME "LoonTest")
+    target_sources(LoonTest PRIVATE Tools/LoonTest.cpp Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Source/UiKit.cpp)
+    target_compile_definitions(LoonTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LOON_NO_ENTRY=1)
+    target_link_libraries(LoonTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

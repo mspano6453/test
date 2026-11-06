@@ -1,0 +1,62 @@
+#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include "LoonDSP.h"
+
+class LoonProcessor : public juce::AudioProcessor
+{
+public:
+    LoonProcessor();
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout&) const override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    using AudioProcessor::processBlock;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+    const juce::String getName() const override { return "Loon"; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return true; }      // the notes it plays, for other instruments
+    double getTailLengthSeconds() const override { return 12.0; }
+
+    int getNumPrograms() override;
+    int getCurrentProgram() override { return currentProgram; }
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override {}
+
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
+
+    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    juce::AudioProcessorValueTreeState apvts;
+
+    // read by the UI
+    std::atomic<int> uiRoot { 9 }, uiMinor { 1 }, uiLastNote { -1 }, uiNoteKind { 0 };
+    std::atomic<bool> uiFollowing { false };
+    std::atomic<float> uiInput { 0 }, uiJourney { 0 };
+    std::atomic<uint32_t> uiNoteCounter { 0 };
+
+private:
+    float v (const char* id) const { return apvts.getRawParameterValue (id)->load(); }
+
+    double sr = 44100;
+    ln::KeyDetector key;
+    ln::Generator gen;
+    ln::Cloud cloud;
+    ln::Nature nature;
+    ln::Space space;
+    std::vector<float> mono, gL, gR, sL, sR;
+    double journeyTime = 0;
+    int followedRoot = 9, followedMinor = 1;
+    int currentProgram = 0;
+
+    struct PendingNote { int64_t t; int note; bool on; float vel; };
+    PendingNote pending[128];
+    int pendingCount = 0;
+    int64_t sampleClock = 0;
+    juce::MidiBuffer* currentMidi = nullptr;
+    int blockSize = 0;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoonProcessor)
+};
