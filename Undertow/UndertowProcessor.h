@@ -12,7 +12,7 @@
 namespace ut
 {
 enum Mode { MPlayer = 0, MKeys, MOctave, MTracked };
-enum Follow { FollowGuitar = 0, FollowMidi };
+enum Follow { FollowSelf = 0, FollowGuitar, FollowMidi };
 // keyswitches for the player (Ableton names: C-1.. is 0; these are C0, C#0, D0, D#0)
 constexpr int kKeyVerse = 12, kKeyChorus = 13, kKeyBridge = 14, kKeyFill = 15;
 }
@@ -88,6 +88,9 @@ private:
 
     // params (cached per block)
     int mode = 0, follow = 0, feel = 0, section = 0, reg = 0, keysOct = 0;
+    int key = 9, progs[ut::NumSections] { 0, 2, 5 }, chordBars = 1, sectionBars = 8; bool autoSong = true;
+    ut::Chord selfChord;
+    ut::Chord selfChordAt (int64_t k) const;
     float variation = 0.4f, fills = 0.5f, hook = 0.5f, density = 0.55f, push = 0.25f, human = 0.6f, swing = 0, lengthK = 0.9f;
     float sens = 0.5f, guitarDry = 0, lastFillParam = 0;
     bool stopWithBand = true;

@@ -31,7 +31,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout UndertowProcessor::createLay
     { ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name, items, def)); };
 
     C ("mode", "Mode", { "Bass Player", "Play It (MIDI keys)", "Guitar to Bass: Octave", "Guitar to Bass: Tracked" }, 0);
-    C ("follow", "Follow Chords From", { "Guitar (sidechain)", "MIDI chords" }, 0);
+    C ("follow", "Chords From", { "Self (plays by itself)", "Guitar (sidechain)", "MIDI chords" }, 0);
+    C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
+    C ("prog_verse", "Verse Chords", progressionNames(), 0);
+    C ("prog_chorus", "Chorus Chords", progressionNames(), 2);
+    C ("prog_bridge", "Bridge Chords", progressionNames(), 5);
+    C ("chord_bars", "Bars Per Chord", { "1", "2", "4" }, 0);
+    C ("song", "Song", { "Auto song", "Manual" }, 0);
+    C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars" }, 1);
     C ("feel", "Feel", { "Pump", "Melodic", "Gothic", "Octaves", "Walk" }, 0);
     C ("section", "Section", { "Verse", "Chorus", "Bridge" }, 0);
     C ("fill_now", "Footswitch: Fill", onOff(), 0);
@@ -129,6 +136,8 @@ void UndertowProcessor::readParams()
 {
     auto g = [&] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
     mode = (int) g ("mode"); follow = (int) g ("follow"); feel = (int) g ("feel"); section = (int) g ("section");
+    key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
+    chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = 4 << (int) g ("section_bars");
     reg = (int) g ("register"); stopWithBand = g ("band_stop") < 0.5f; keysOct = (int) g ("octave") - 2;
     variation = g ("variation"); fills = g ("fills"); hook = g ("hook"); density = g ("density");
     push = g ("push"); human = g ("human"); swing = g ("swing"); lengthK = g ("length");
@@ -155,7 +164,11 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
         if (mode == MPlayer && nn >= kKeyVerse && nn <= kKeyFill)
         {
             if (nn == kKeyFill) fillPending = true;
-            else if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (nn - kKeyVerse)));
+            else
+            {
+                if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (nn - kKeyVerse)));
+                if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);   // you're steering now
+            }
             return;
         }
         held[(size_t) nn] = true;
@@ -178,9 +191,21 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
     }
 }
 
+// which chord of the built-in progression is playing at 16th number k
+ut::Chord UndertowProcessor::selfChordAt (int64_t k) const
+{
+    const int64_t bar = k / 16;
+    int sec = section; int64_t barIn = bar;
+    if (autoSong) { const auto sp = songPosition (bar, sectionBars); sec = sp.section; barIn = sp.barIn; }
+    const auto& prog = progressions()[(size_t) juce::jlimit (0, (int) progressions().size() - 1, progs[sec])].chords;
+    const auto& pc = prog[(size_t) ((barIn / chordBars) % (int64_t) prog.size())];
+    return { (key + pc.off) % 12, pc.minor };
+}
+
 ut::Chord UndertowProcessor::currentChord() const
 {
     if (follow == FollowMidi) return midiChord;
+    if (follow == FollowSelf) return selfChord;
     return ears.current();
 }
 
@@ -246,9 +271,23 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
 {
     juce::ignoreUnused (k);
     // the band changes section at a bar line
-    if (motifPos % 16 == 0 && section != activeSection)
+    const int64_t bar = k / 16;
+    const bool selfSong = follow == FollowSelf && autoSong;
+    if (motifPos % 16 == 0)
     {
-        activeSection = section; motifPos = 0; barsInSection = 0;
+        if (selfSong)
+        {
+            const auto sp = songPosition (bar, sectionBars);
+            if (sp.section != activeSection) { activeSection = sp.section; motifPos = (sp.barIn % 2) * 16; barsInSection = sp.barIn; if (motifPos != 0) newPass (k); }
+            barsInSection = sp.barIn;
+            if (sp.lastBar) fillPending = true;               // the band fills into the next section
+        }
+        else if (section != activeSection) { activeSection = section; motifPos = 0; barsInSection = 0; }
+    }
+    if (follow == FollowSelf)
+    {
+        const Chord c = selfChordAt (k);
+        if (! (c.root == selfChord.root && c.minor == selfChord.minor)) { selfChord = c; harmony.hear (c, 1.0f); }
     }
     if (motifPos == 0) newPass (k);
     if (motifPos % 16 == 0 && motifPos + 16 <= kSteps && fillPending)
@@ -266,7 +305,7 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     if (motifPos % 16 == 0) ++barsInSection;
 
     const Chord c = currentChord();
-    const bool bandOn = follow == FollowMidi ? heldChord.valid() : ears.playing();
+    const bool bandOn = follow == FollowSelf || (follow == FollowMidi ? heldChord.valid() : ears.playing());
     if (! c.valid() || (stopWithBand && ! bandOn))
     {
         if (sampler.currentNote >= 0) evs.push_back ({ t, 2, 0, 0, 0 });
@@ -311,6 +350,19 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
         motifPos = (int) (((k % kSteps) + kSteps) % kSteps);
         barsInSection = (int) ((k / 16) % 8);
         activeSection = section;
+        if (follow == FollowSelf)
+        {
+            if (autoSong)
+            {
+                const auto sp = songPosition (k / 16, sectionBars);
+                activeSection = sp.section; barsInSection = sp.barIn;
+                motifPos = (sp.barIn % 2) * 16 + (int) (((k % 16) + 16) % 16);
+            }
+            selfChord = selfChordAt (k);
+            // let the harmony know the key before the first note
+            for (int s = 0; s < NumSections; ++s)
+                for (auto& pc : progressions()[(size_t) progs[s]].chords) harmony.hear ({ (key + pc.off) % 12, pc.minor }, 0.5f);
+        }
         if (! wasPlaying) runSeed = hash ((uint64_t) juce::Time::getHighResolutionTicks());
         newPass (k);
         // newPass assumed bar alignment; keep the current position in the motif
@@ -390,7 +442,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (follow == FollowGuitar && changed) harmony.hear (c, 1.0f);
         if (follow == FollowGuitar) { if (++harmonyTick % 64 == 0) harmony.hear (c, 0.3f); }
         lastChordChanges = ch;
-        if (changed && c.valid() && lastNoteChord.valid() && lastStepPlayed.on && sampler.currentNote >= 0
+        if (follow != FollowSelf && changed && c.valid() && lastNoteChord.valid() && lastStepPlayed.on && sampler.currentNote >= 0
             && sampleClock - lastNoteAt < (int64_t) (sr * 0.12))
         {
             const float left = lastNoteLen - (float) (sampleClock - lastNoteAt) / (float) sr;
@@ -414,7 +466,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     {
         const Chord c = currentChord();
         uiChord = c.valid() ? c.root | (c.minor ? 16 : 0) : -1;
-        uiBandPlaying = follow == FollowMidi ? heldChord.valid() : ears.playing();
+        uiBandPlaying = follow == FollowSelf ? uiTransport.load() : (follow == FollowMidi ? heldChord.valid() : ears.playing());
     }
 
     // 4. render the bass

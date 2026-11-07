@@ -24,6 +24,7 @@ private:
     juce::OwnedArray<APVTS::ButtonAttachment> bAtt;
     juce::TextButton sectionButtons[3], fillButton { "FILL" }, newLineButton { "NEW LINE" }, brightButton { "BRIGHT" };
     juce::ComboBox *modeBox = nullptr, *followBox = nullptr, *feelBox = nullptr, *regBox = nullptr, *octBox = nullptr, *stopBox = nullptr;
+    juce::ComboBox *keyBox = nullptr, *progBox[3] {}, *chordBarsBox = nullptr, *songBox = nullptr, *secBarsBox = nullptr;
     std::vector<ttui::Knob*> playerKnobs, rigKnobs, guitarKnobs;
 
     juce::Rectangle<int> earArea, rollArea, playerPanel, rigPanel, legendArea, guitarArea;

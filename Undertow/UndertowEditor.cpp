@@ -45,6 +45,10 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
                 prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
                 prm->endChangeGesture();
             }
+            if (auto* sg = proc.apvts.getParameter ("song"))   // picking a section by hand = manual song
+            {
+                sg->beginChangeGesture(); sg->setValueNotifyingHost (1.0f); sg->endChangeGesture();
+            }
         };
         addAndMakeVisible (sectionButtons[i]);
     }
@@ -55,6 +59,8 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
     for (auto* b : { &fillButton, &newLineButton, &brightButton }) addAndMakeVisible (*b);
 
     modeBox = combo ("mode"); followBox = combo ("follow"); feelBox = combo ("feel");
+    keyBox = combo ("key"); progBox[0] = combo ("prog_verse"); progBox[1] = combo ("prog_chorus"); progBox[2] = combo ("prog_bridge");
+    chordBarsBox = combo ("chord_bars"); songBox = combo ("song"); secBarsBox = combo ("section_bars");
     regBox = combo ("register"); octBox = combo ("octave"); stopBox = combo ("band_stop");
 
     playerKnobs = { knob ("variation", "VARIATION"), knob ("fills", "FILLS"), knob ("hook", "HOOK"), knob ("density", "BUSY"),
@@ -64,7 +70,7 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
                  knob ("bass_db", "BASS", true), knob ("mid_db", "MID", true), knob ("treble_db", "TREBLE", true), knob ("out", "OUTPUT", true) };
     guitarKnobs = { knob ("sens", "SENSITIVITY", true), knob ("guitar_dry", "GTR BLEND", true) };
 
-    setSize (1080, 640);
+    setSize (1080, 760);
     startTimerHz (30);
 }
 
@@ -72,7 +78,8 @@ UndertowEditor::~UndertowEditor() { setLookAndFeel (nullptr); }
 
 void UndertowEditor::timerCallback()
 {
-    const int sec = (int) proc.apvts.getRawParameterValue ("section")->load();
+    const bool selfAuto = proc.apvts.getRawParameterValue ("follow")->load() < 0.5f && proc.apvts.getRawParameterValue ("song")->load() < 0.5f;
+    const int sec = selfAuto && proc.uiTransport.load() ? proc.uiSection.load() : (int) proc.apvts.getRawParameterValue ("section")->load();
     for (int i = 0; i < 3; ++i) sectionButtons[i].setToggleState (i == sec, juce::dontSendNotification);
     if (fillFlash > 0) --fillFlash;
     fillButton.setToggleState (fillFlash > 0, juce::dontSendNotification);
@@ -82,6 +89,8 @@ void UndertowEditor::timerCallback()
     for (auto* k : playerKnobs) k->setEnabled (player);
     for (auto* b : { &fillButton, &newLineButton }) b->setEnabled (player);
     for (auto& b : sectionButtons) b.setEnabled (player);
+    const bool self = player && proc.apvts.getRawParameterValue ("follow")->load() < 0.5f;
+    for (auto* cb : { keyBox, progBox[0], progBox[1], progBox[2], chordBarsBox, songBox, secBarsBox }) cb->setEnabled (self);
     feelBox->setEnabled (player); regBox->setEnabled (player); stopBox->setEnabled (player); followBox->setEnabled (player);
     guitarKnobs[0]->setEnabled (mode == MTracked);
     guitarKnobs[1]->setEnabled (mode == MOctave || mode == MTracked);
@@ -116,7 +125,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     if (mode == MPlayer)
     {
         g.setColour (col::muted); g.setFont (font (11.0f, true));
-        g.drawText (follow == FollowGuitar ? "CHORD (from your guitar)" : "CHORD (from MIDI)", big.removeFromTop (16), juce::Justification::centredLeft);
+        g.drawText (follow == FollowSelf ? "CHORD (playing by itself)" : follow == FollowGuitar ? "CHORD (from your guitar)" : "CHORD (from MIDI)", big.removeFromTop (16), juce::Justification::centredLeft);
         g.setColour (ch >= 0 ? col::cream : col::muted); g.setFont (font (46.0f, true));
         g.drawText (ch >= 0 ? juce::String (pcName (ch & 15)) + ((ch & 16) ? "m" : "") : juce::String ("--"), big.removeFromTop (52), juce::Justification::centredLeft);
     }
@@ -134,7 +143,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     else if (mode == MPlayer)
     {
         if (! proc.uiTransport.load()) status = "Press play in Live - it plays along to the tempo.";
-        else if (! proc.uiBandPlaying.load()) status = follow == FollowGuitar ? "Waiting for the guitar..." : "Waiting for a chord on the MIDI track...";
+        else if (! proc.uiBandPlaying.load()) status = follow == FollowSelf ? juce::String ("Starting...") : follow == FollowGuitar ? "Waiting for the guitar..." : "Waiting for a chord on the MIDI track...";
         else status = "Playing " + juce::String (note >= 0 ? noteName (note) : "") + "  -  " + kSectionNames[proc.uiSection.load()];
     }
     else if (mode == MKeys) status = "Play it from your KeyStep or a MIDI clip.";
@@ -189,9 +198,25 @@ void UndertowEditor::paint (juce::Graphics& g)
     g.setColour (kTeal); g.setFont (font (13.0f, true));
     g.drawText ("THE PLAYER", playerPanel.reduced (16, 10).removeFromTop (18), juce::Justification::centredLeft);
     g.setColour (col::muted); g.setFont (font (11.0f, true));
+    {
+        const int key = (int) proc.apvts.getRawParameterValue ("key")->load();
+        const char* names[] = { "VERSE: ", "CHORUS: ", "BRIDGE: " };
+        for (int i = 0; i < 3; ++i)
+        {
+            const int pr = progBox[i]->getSelectedItemIndex();
+            g.drawText (juce::String (names[i]) + progressionChords (pr, key), progBox[i]->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
+        }
+        g.drawText ("KEY", keyBox->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
+        g.drawText ("BARS PER CHORD", chordBarsBox->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
+        g.drawText ("SONG", songBox->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
+        g.drawText ("SECTION LENGTH", secBarsBox->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
+        auto selfHdr = keyBox->getBounds().translated (0, -36).withHeight (16).withWidth (500);
+        g.setColour (kTeal); g.drawText ("WHEN IT PLAYS BY ITSELF", selfHdr, juce::Justification::centredLeft);
+        g.setColour (col::muted);
+    }
     for (auto* cb : { modeBox, followBox, feelBox, regBox, octBox, stopBox })
     {
-        const char* t = cb == modeBox ? "MODE" : cb == followBox ? "FOLLOW CHORDS FROM" : cb == feelBox ? "FEEL"
+        const char* t = cb == modeBox ? "MODE" : cb == followBox ? "CHORDS FROM" : cb == feelBox ? "FEEL"
                       : cb == regBox ? "REGISTER" : cb == octBox ? "OCTAVE" : "WHEN THE BAND STOPS";
         g.drawText (t, cb->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
     }
@@ -206,8 +231,8 @@ void UndertowEditor::paint (juce::Graphics& g)
     g.drawText ("GUITAR INPUT", guitarArea.withHeight (14), juce::Justification::centredLeft);
 
     g.setColour (col::muted); g.setFont (font (12.0f));
-    g.drawFittedText ("Put Undertow on a MIDI track and set its Sidechain to your guitar track - it hears your chords and plays along to Live's tempo. "
-                      "Or play chords into it from a MIDI clip (Follow: MIDI chords). Keyswitches: C0 verse, C#0 chorus, D0 bridge, D#0 fill. "
+    g.drawFittedText ("Put Undertow on a MIDI track and press play - it plays a whole song by itself (pick the key and chords above). "
+                      "Or set Chords From to Guitar and its Sidechain to your guitar track and it plays along with you, or feed it chords from a MIDI clip. Keyswitches: C0 verse, C#0 chorus, D0 bridge, D#0 fill. "
                       "Map 'Footswitch: Fill' or Section to your MIDI Captain. Drag its MIDI out to another track to record the bass line as a clip.",
                       legendArea, juce::Justification::topLeft, 3, 1.0f);
 }
@@ -247,6 +272,16 @@ void UndertowEditor::resized()
     regBox->setBounds (combos2.removeFromLeft (cw).reduced (3, 0));
     octBox->setBounds (combos2.removeFromLeft (cw).reduced (3, 0));
     stopBox->setBounds (combos2.reduced (3, 0));
+    pp.removeFromTop (40);
+    auto combos3 = pp.removeFromTop (26);
+    const int qw = combos3.getWidth() / 4;
+    keyBox->setBounds (combos3.removeFromLeft (qw).reduced (3, 0));
+    chordBarsBox->setBounds (combos3.removeFromLeft (qw).reduced (3, 0));
+    songBox->setBounds (combos3.removeFromLeft (qw).reduced (3, 0));
+    secBarsBox->setBounds (combos3.reduced (3, 0));
+    pp.removeFromTop (20);
+    auto combos4 = pp.removeFromTop (26);
+    for (int i = 0; i < 3; ++i) progBox[i]->setBounds ((i < 2 ? combos4.removeFromLeft (cw) : combos4).reduced (3, 0));
     pp.removeFromTop (10);
     auto knobs = pp.removeFromTop (juce::jmin (100, pp.getHeight()));
     const int kw = knobs.getWidth() / (int) playerKnobs.size();

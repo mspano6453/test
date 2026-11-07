@@ -278,4 +278,49 @@ struct Harmony
         return s + o * 12;
     }
 };
+// ---------------------------------------------------------------------------
+// Self-playing: built-in progressions (relative to a key) and a song form
+// ---------------------------------------------------------------------------
+struct ProgChord { int off; bool minor; };
+struct Progression { const char* label; std::vector<ProgChord> chords; };
+inline const std::vector<Progression>& progressions()
+{
+    static const std::vector<Progression> p = {
+        { "i - VI - III - VII", { { 0, true }, { 8, false }, { 3, false }, { 10, false } } },
+        { "i - VII - VI - VII", { { 0, true }, { 10, false }, { 8, false }, { 10, false } } },
+        { "VI - VII - i - i",   { { 8, false }, { 10, false }, { 0, true }, { 0, true } } },
+        { "i - iv - VI - v",    { { 0, true }, { 5, true }, { 8, false }, { 7, true } } },
+        { "i - III - VII - VI", { { 0, true }, { 3, false }, { 10, false }, { 8, false } } },
+        { "i - iv",             { { 0, true }, { 5, true } } },
+        { "i - VII",            { { 0, true }, { 10, false } } },
+        { "i (one chord)",      { { 0, true } } },
+        { "I - V - vi - IV",    { { 0, false }, { 7, false }, { 9, true }, { 5, false } } },
+        { "vi - IV - I - V",    { { 9, true }, { 5, false }, { 0, false }, { 7, false } } },
+        { "I - vi - IV - V",    { { 0, false }, { 9, true }, { 5, false }, { 7, false } } },
+        { "I - IV",             { { 0, false }, { 5, false } } },
+        { "I - bVII - IV - I",  { { 0, false }, { 10, false }, { 5, false }, { 0, false } } },
+    };
+    return p;
+}
+inline juce::StringArray progressionNames() { juce::StringArray a; for (auto& p : progressions()) a.add (p.label); return a; }
+inline juce::String progressionChords (int prog, int key)
+{
+    juce::String s;
+    const auto& ps = progressions();
+    if (prog < 0 || prog >= (int) ps.size()) return s;
+    for (auto& c : ps[(size_t) prog].chords) s << pcName (key + c.off) << (c.minor ? "m" : "") << " ";
+    return s.trim();
+}
+
+// the song the band plays when it's on its own: verse, chorus, verse, chorus, bridge, chorus
+struct SongPos { int section; int barIn; bool lastBar; };
+inline SongPos songPosition (int64_t bar, int sectionBars)
+{
+    static const int form[] = { SVerse, SChorus, SVerse, SChorus, SBridge, SChorus };
+    const int64_t len = (int64_t) sectionBars * 6;
+    const int64_t b = ((bar % len) + len) % len;
+    const int part = (int) (b / sectionBars);
+    const int in = (int) (b % sectionBars);
+    return { form[part], in, in == sectionBars - 1 && form[(part + 1) % 6] != form[part] };
+}
 } // namespace ut

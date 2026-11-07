@@ -70,7 +70,7 @@ int main (int argc, char** argv)
         p.prepareToPlay (sr, bs);
         Head head; head.bpm = bpm; p.setPlayHead (&head);
         setP (p, "feel", (float) feel);
-        setP (p, "follow", 0);
+        setP (p, "follow", 1);
         const int bars = 16, total = (int) (spb * 4 * bars + sr);
         juce::AudioBuffer<float> out (2, total), block (2, bs);
         std::vector<KS> strings (6);
@@ -178,7 +178,7 @@ int main (int argc, char** argv)
             p.setPlayConfigDetails (2, 2, sr, bs);
             p.prepareToPlay (sr, bs);
             Head head; p.setPlayHead (&head);
-            setP (p, "feel", (float) feel); setP (p, "follow", 1);
+            setP (p, "feel", (float) feel); setP (p, "follow", 2);
             const int bars = 8, total = (int) (spb * 4 * bars);
             juce::AudioBuffer<float> out (2, total), block (2, bs);
             int lastBar = -1; std::vector<int> cur; int ok = 0, tot = 0; bool nan = false;
@@ -212,6 +212,45 @@ int main (int argc, char** argv)
                          out.getMagnitude (0, total), out.getRMSLevel (0, 0, total), nan ? "NAN!" : "");
             writeWav (outDir.getChildFile (juce::String ("undertow_midi_") + ut::feelName (feel) + ".wav"), out, sr);
         }
+    }
+
+    // ------------------------------------------------------------------ 0. plays by itself (defaults)
+    if (only.isEmpty() || only == "self")
+    {
+        UndertowProcessor p;
+        p.setPlayConfigDetails (2, 2, sr, bs);
+        p.prepareToPlay (sr, bs);
+        Head head; p.setPlayHead (&head);
+        // defaults: key A, verse i-VI-III-VII, chorus VI-VII-i-i, bridge i-iv, 8-bar sections, auto song
+        const int bars = 48, total = (int) (spb * 4 * bars);
+        juce::AudioBuffer<float> out (2, total), block (2, bs);
+        std::vector<int> firstNote (bars, -1); std::vector<int> sec (bars, -1); int notes = 0;
+        for (int pos = 0; pos < total; pos += bs)
+        {
+            const int n = juce::jmin (bs, total - pos);
+            block.setSize (2, n, false, false, true); block.clear();
+            head.ppq = pos / spb;
+            juce::MidiBuffer midi;
+            p.processBlock (block, midi);
+            for (const auto m : midi) if (m.getMessage().isNoteOn())
+            {
+                ++notes;
+                const double q = (pos + m.samplePosition) / spb;
+                const int b = (int) std::floor ((q + 0.2) / 4);
+                if (b < bars && firstNote[(size_t) b] < 0) firstNote[(size_t) b] = m.getMessage().getNoteNumber();
+            }
+            const int b = (int) (head.ppq / 4);
+            if (b < bars && std::fmod (head.ppq, 4.0) > 1) sec[(size_t) b] = p.uiSection.load();
+            for (int ch = 0; ch < 2; ++ch) out.copyFrom (ch, pos, block, ch, 0, n);
+        }
+        juce::String l; const char* sn[] = { "V", "C", "B" };
+        for (int b = 0; b < bars; ++b) l << (b % 8 == 0 ? "| " : "") << sn[juce::jmax (0, sec[(size_t) b])] << ":" << (firstNote[(size_t) b] >= 0 ? ut::noteName (firstNote[(size_t) b]) : juce::String ("-")) << " ";
+        std::printf ("[self] %d notes, peak %.2f\n   %s\n", notes, out.getMagnitude (0, total), l.toRawUTF8());
+        writeWav (outDir.getChildFile ("undertow_self.wav"), out, sr);
+        std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
+        auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+        auto pf = outDir.getChildFile ("undertow_ui.png"); pf.deleteFile();
+        juce::FileOutputStream os (pf); juce::PNGImageFormat().writeImageToStream (img, os);
     }
 
     // ------------------------------------------------------------------ 3. guitar to bass: tracked + octave
