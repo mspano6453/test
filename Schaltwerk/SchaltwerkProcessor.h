@@ -67,7 +67,8 @@ public:
 
     // read by the UI
     std::atomic<int> currentStep { -1 }, lastString { -1 };
-    std::atomic<bool> chordSounding { false };
+    std::atomic<bool> chordSounding { false }, uiLinked { false };
+    std::atomic<int> uiOmniRoot { 0 }, uiOmniType { 0 };
     std::atomic<float> drumFlash[sw::NumDrums] {};
 
 private:
@@ -91,6 +92,7 @@ private:
     int midiChordKey = -1;
     int64_t lastStepIndex = -1;
     int autoString = 0;
+    bool bandChord = false;
     double bpm = 120;
     int currentProgram = 0;
 

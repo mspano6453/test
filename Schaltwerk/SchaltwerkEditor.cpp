@@ -108,8 +108,9 @@ void ChordPad::paint (juce::Graphics& g)
 {
     const char* typeNames[] = { "MAJOR", "MINOR", "7TH" };
     const bool on = proc.chordSounding.load();
-    const int curRoot = (int) proc.apvts.getRawParameterValue ("om_root")->load();
-    const int curType = (int) proc.apvts.getRawParameterValue ("om_type")->load();
+    const bool linked = proc.uiLinked.load();
+    const int curRoot = linked ? proc.uiOmniRoot.load() : (int) proc.apvts.getRawParameterValue ("om_root")->load();
+    const int curType = linked ? proc.uiOmniType.load() : (int) proc.apvts.getRawParameterValue ("om_type")->load();
     g.setFont (font (11.0f, true));
     for (int r = 0; r < 12; ++r)
     {
@@ -314,6 +315,7 @@ void SchaltwerkEditor::timerCallback()
         grid.flash[d] = juce::jmax (proc.drumFlash[d].exchange (0.0f), grid.flash[d] * 0.8f);
     if (page == 0) grid.repaint();
     if (page == 2) { chordPad.repaint(); strum.repaint(); }
+    repaint (0, 36, getWidth(), 18);
 }
 
 void SchaltwerkEditor::paint (juce::Graphics& g)
@@ -328,6 +330,7 @@ void SchaltwerkEditor::paint (juce::Graphics& g)
     g.setColour (kRed);
     g.setFont (font (11.0f, true));
     g.drawText ("RHYTHMUS  -  ROBOTER  -  OMNICHORD", 24, 38, 400, 14, juce::Justification::centredLeft);
+    if (proc.uiLinked.load()) g.drawText ("FOLLOWING BANDLEADER: OMNICHORD PLAYS THE SONG'S CHORDS", 340, 38, 500, 14, juce::Justification::centredLeft);
 
     auto panel = [&] (juce::Rectangle<int> a, const juce::String& title)
     {

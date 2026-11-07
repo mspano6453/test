@@ -1,5 +1,6 @@
 #include "SchaltwerkProcessor.h"
 #include "SchaltwerkEditor.h"
+#include "../Source/BandBus.h"
 
 using namespace sw;
 
@@ -56,6 +57,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SchaltwerkProcessor::createL
         F (dId (d, "pan"), nm + " Pan", { -1, 1, 0.01f }, panDef[d], panT);
     }
     C ("seq_on", "Sequencer", onOff(), 1);
+    C ("band_link", "Follow Bandleader", onOff(), 1);
     F ("seq_swing", "Swing", { 0, 1, 0.001f }, 0, pct);
     F ("drum_send", "Drums Echo Send", { 0, 1, 0.001f }, 0.1f, pct);
 
@@ -258,6 +260,12 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
         }
     const bool seqOn = apvts.getRawParameterValue ("seq_on")->load() > 0.5f;
     const int autoRate = (int) apvts.getRawParameterValue ("om_auto")->load();   // 0 off, 1 = 1/4, 2 = 1/8, 3 = 1/16
+    // the band: the Omnichord holds the song's chords, the drum box drops out with everyone
+    band::markPresent (band::WSchaltwerk);
+    band::Leader leader;
+    const bool led = playing && apvts.getRawParameterValue ("band_link")->load() > 0.5f && band::readLeader (leader) && leader.playing;
+    uiLinked = led;
+    if (! led && bandChord) { omni.releaseChord (false); bandChord = false; }
     if (! playing) { currentStep = -1; lastStepIndex = -1; return; }
 
     const double ppqPerSample = bpm / 60.0 / sr;
@@ -270,7 +278,16 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
         if (step % 2 == 1) t += swing * 0.333 * (0.25 / ppqPerSample);
         const int off = juce::jlimit (0, n - 1, (int) t);
         currentStep = step;
-        if (seqOn)
+        bool out = false;
+        if (led)
+        {
+            const int64_t bar = (k - step) / 16;
+            out = leader.isOut (bar);
+            int r; bool mn; leader.chordAt (bar, r, mn);
+            if (out) { if (bandChord) { omni.releaseChord (false); bandChord = false; } }
+            else if (! bandChord || omni.root() != r || omni.type() != (mn ? 1 : 0)) { omni.setChord (r, mn ? 1 : 0); bandChord = true; }
+        }
+        if (seqOn && ! out)
             for (int d = 0; d < NumDrums; ++d)
             {
                 const int c = steps[d][step].load();
@@ -364,6 +381,7 @@ void SchaltwerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
     lastString = omni.lastPlucked;
     chordSounding = omni.isChordOn();
+    uiOmniRoot = omni.root(); uiOmniType = omni.type();
     midi.clear();
 }
 

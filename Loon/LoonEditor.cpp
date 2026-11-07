@@ -134,7 +134,7 @@ void LoonEditor::paint (juce::Graphics& g)
     g.drawText ("AMBIENT GENERATOR", 24, 38, 300, 14, juce::Justification::centredLeft);
 
     const juce::String keyText = juce::String (pcName (proc.uiRoot.load())) + (proc.uiMinor.load() ? " minor" : " major");
-    const juce::String keyNote = proc.uiFollowing.load() ? "following your playing" : "set key";
+    const juce::String keyNote = proc.uiLinked.load() ? "following Bandleader" : proc.uiFollowing.load() ? "following your playing" : "set key";
 
     auto panel = [&] (juce::Rectangle<int> a, const juce::String& t)
     {

@@ -1,5 +1,6 @@
 #include "CarouselProcessor.h"
 #include "CarouselEditor.h"
+#include "../Source/BandBus.h"
 
 using namespace cr;
 
@@ -32,6 +33,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout CarouselProcessor::createLay
     C ("play_mode", "Play Mode", { "Loop", "Once" }, 0);
     C ("sync", "Snap to Live Tempo", onOff(), 1);
     C ("snap", "Snap To", { "Beat", "Bar" }, 1);
+    C ("band_rec", "Record Whole Sections (Bandleader)", onOff(), 1);
+    C ("band_slots", "Slots Follow Sections (Bandleader)", onOff(), 0);
     // footswitch targets for Live's MIDI Map mode (press = jump above 50%)
     const char* trigNames[6] = { "Footswitch: Rec/Play/Dub", "Footswitch: Stop", "Footswitch: Undo", "Footswitch: Redo", "Footswitch: Next Loop", "Footswitch: Clear" };
     for (int i = 0; i < 6; ++i) C (kTrigIds[i], trigNames[i], onOff(), 0);
@@ -203,7 +206,10 @@ void CarouselProcessor::handleAction (int a)
         case ARecPlayDub:
             switch (s.state)
             {
-                case Empty:       startRecording(); break;
+                case Empty:
+                    if (bandActive && apvts.getRawParameterValue ("band_rec")->load() > 0.5f) armed = ! armed;   // starts at the next section
+                    else startRecording();
+                    break;
                 case Recording:   if (s.syncTarget == 0) closeLoop(); break;
                 case Playing:     startOverdub(); break;
                 case Overdubbing: s.state = Playing; break;
@@ -219,7 +225,7 @@ void CarouselProcessor::handleAction (int a)
         case ARedo:  if (s.nLayers < s.redoTop) ++s.nLayers; break;
         case ANext:  selectSlot (cur + 1); break;
         case APrev:  selectSlot (cur - 1); break;
-        case AClear: clearSlot (cur); break;
+        case AClear: clearSlot (cur); armed = false; break;
         case AClearAll: for (int i = 0; i < kSlots; ++i) clearSlot (i); break;
         case AToggleReverse: toggle ("reverse"); break;
         case AToggleHalf:    toggle ("half"); break;
@@ -291,12 +297,33 @@ void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     float* L = buffer.getWritePointer (0);
     float* R = nch > 1 ? buffer.getWritePointer (1) : buffer.getWritePointer (0);
 
+    double ppq = 0;
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
             if (auto b = pos->getBpm()) bpm = *b;
             transportPlaying = pos->getIsPlaying();
+            if (auto p = pos->getPpqPosition()) ppq = *p;
         }
+    // the band: with a Bandleader running, loops can follow the song's sections
+    band::markPresent (band::WCarousel);
+    band::Leader leader;
+    bandActive = transportPlaying && band::readLeader (leader) && leader.playing;
+    if (! bandActive) armed = false;
+    uiLinked = bandActive;
+    int boundaryAt = -1; int boundarySection = 0;
+    if (bandActive)
+    {
+        const double ppqPerSample = bpm / 60.0 / sr;
+        const double barPpq = std::ceil (ppq / 4.0 - 1e-9) * 4.0;
+        const int off = (int) std::llround ((barPpq - ppq) / ppqPerSample);
+        if (off >= 0 && off < n)
+        {
+            int64_t in = 0;
+            boundarySection = leader.sectionAt ((int64_t) std::llround (barPpq / 4.0), &in);
+            if (in == 0) boundaryAt = off;
+        }
+    }
 
     const juce::SpinLock::ScopedLockType lock (poolLock);
     if (pool.empty()) return;
@@ -323,10 +350,11 @@ void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     const double rate = (rev ? -1.0 : 1.0) * (half ? 0.5 : 1.0);
     const float fadeStep = (float) (1.0 / (2.0 * sr));
 
-    auto& s = slots[(size_t) cur];
     float inPk = 0;
-
-    for (int i = 0; i < n; ++i)
+    auto run = [&] (int from, int to)
+    {
+    auto& s = slots[(size_t) cur];
+    for (int i = from; i < to; ++i)
     {
         const float inL = L[i], inR = nch > 1 ? R[i] : L[i];
         inPk = std::max (inPk, std::max (std::abs (inL), std::abs (inR)));
@@ -382,6 +410,20 @@ void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         L[i] = oL;
         if (nch > 1) R[i] = oR;
     }
+    };
+
+    if (boundaryAt < 0) run (0, n);
+    else
+    {
+        run (0, boundaryAt);
+        // a new section starts right here
+        if (apvts.getRawParameterValue ("band_slots")->load() > 0.5f) selectSlot (boundarySection);
+        auto& sl = slots[(size_t) cur];
+        if (sl.state == Recording && sectionRec) { sl.syncTarget = 0; closeLoop (true); sectionRec = false; }   // exactly one section long
+        else if (armed && sl.state == Empty) { startRecording(); sectionRec = true; armed = false; }
+        run (boundaryAt, n);
+    }
+    auto& s = slots[(size_t) cur];
 
     // UI
     uiState = s.state; uiSlot = cur; uiLayers = s.nLayers; uiRedo = s.redoTop - s.nLayers; uiFreeChunks = freeTop;
@@ -389,6 +431,8 @@ void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     uiLenSec = (float) ((double) s.length / sr);
     uiRecSec = s.state == Recording ? (float) ((double) s.length / sr) : 0.0f;
     uiWaitingForBar = s.state == Recording && s.syncTarget > 0;
+    uiArmed = armed; uiSectionRec = s.state == Recording && sectionRec;
+    if (s.state != Recording) sectionRec = false;
     uiInLevel = inPk;
     uint32_t has = 0;
     for (int k = 0; k < kSlots; ++k) if (slots[(size_t) k].state != Empty && slots[(size_t) k].length > 0) has |= (1u << k);

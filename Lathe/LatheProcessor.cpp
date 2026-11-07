@@ -1,5 +1,6 @@
 #include "LatheProcessor.h"
 #include "LatheEditor.h"
+#include "../Source/BandBus.h"
 
 using namespace lt;
 
@@ -210,7 +211,7 @@ void LatheProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     float* R = buffer.getWritePointer (1);
 
     readParams();
-    if (resetLoudness.exchange (false)) { inLoud.reset(); outLoud.reset(); }
+    if (resetLoudness.exchange (false)) { inLoud.reset(); outLoud.reset(); for (auto& e : secEnergy) e = 0; for (auto& c : secCount) c = 0; for (auto& u : uiSecLufs) u = -70.0f; }
 
     const float inG = dbToGain (apvts.getRawParameterValue ("in_gain")->load());
     if (std::abs (inG - 1.0f) > 1.0e-6f) buffer.applyGain (inG);
@@ -254,6 +255,35 @@ void LatheProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     if (bits > 0) { dither.process (L, n, bits == 1 ? 16 : 24); dither.process (R, n, bits == 1 ? 16 : 24); }
 
     outLoud.process (L, R, n);
+
+    // the band: loudness of each section, so you can see whether the chorus really lifts
+    band::markPresent (band::WLathe);
+    {
+        band::Leader leader;
+        double ppq = 0; bool playing = false;
+        if (auto* ph = getPlayHead())
+            if (auto pos = ph->getPosition())
+            {
+                playing = pos->getIsPlaying();
+                if (auto p = pos->getPpqPosition()) ppq = *p;
+            }
+        const bool led = playing && band::readLeader (leader) && leader.playing;
+        uiLinked = led;
+        secClock += n;
+        if (led && secClock >= (int64_t) (0.1 * sr))       // one 400 ms momentary reading every 100 ms
+        {
+            secClock = 0;
+            const int64_t bar = (int64_t) std::floor (ppq / 4.0);
+            const float m = outLoud.momentary.load();
+            if (m > -50.0f && ! leader.isOut (bar))
+            {
+                const int sec = leader.sectionAt (bar);
+                secEnergy[sec] += std::pow (10.0, (m + 0.691) / 10.0);
+                secCount[sec] += 1;
+                uiSecLufs[sec] = (float) (-0.691 + 10.0 * std::log10 (secEnergy[sec] / secCount[sec]));
+            }
+        }
+    }
     float pk = 0, tp = 0;
     for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]), std::abs (R[i]));
     for (int i = 2; i < n - 1; ++i)

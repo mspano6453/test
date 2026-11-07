@@ -33,7 +33,7 @@ public:
 
     // read by the UI
     std::atomic<int> uiRoot { 9 }, uiMinor { 1 }, uiLastNote { -1 }, uiNoteKind { 0 };
-    std::atomic<bool> uiFollowing { false };
+    std::atomic<bool> uiFollowing { false }, uiLinked { false };
     std::atomic<float> uiInput { 0 }, uiJourney { 0 };
     std::atomic<uint32_t> uiNoteCounter { 0 };
 
@@ -49,6 +49,8 @@ private:
     std::vector<float> mono, gL, gR, sL, sR;
     double journeyTime = 0;
     int followedRoot = 9, followedMinor = 1;
+    float liftS = 0, dropS = 0, duck = 0;
+    int64_t lastDuckStep = -1;
     int currentProgram = 0;
 
     struct PendingNote { int64_t t; int note; bool on; float vel; };

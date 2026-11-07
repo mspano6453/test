@@ -46,6 +46,7 @@ void TapeTwinEditor::timerCallback()
     echoGlow = juce::jmax (proc.echoLevel.load() * 3.0f, echoGlow * 0.85f);
     knobs[Time]->setEnabled ((int) proc.apvts.getRawParameterValue (paramId (Sync))->load() == 0);
     repaint (deck);
+    repaint (280, 30, 480, 22);
 }
 
 void TapeTwinEditor::drawReel (juce::Graphics& g, juce::Point<float> c, float r, float angle)
@@ -80,6 +81,7 @@ void TapeTwinEditor::paint (juce::Graphics& g)
     g.setColour (col::muted);
     g.setFont (font (11.0f));
     g.drawText ("TAPE ECHO + DOUBLE TRACKER", 21, 34, 260, 14, juce::Justification::centredLeft);
+    if (proc.uiLinked.load()) g.drawText ("FOLLOWING BANDLEADER: ECHO THROWS INTO EACH NEW SECTION", 290, 34, 460, 14, juce::Justification::centredLeft);
 
     // tape deck
     g.setColour (col::panel);

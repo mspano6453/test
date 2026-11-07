@@ -528,6 +528,31 @@ void Meters::paint (juce::Graphics& g)
     readout ("SHORT-TERM", proc.outLoud.shortTerm.load(), "LUFS", false);
     readout ("MOMENTARY", proc.outLoud.momentary.load(), "LUFS", false);
     readout ("TRUE PEAK (max)", gainToDb (tpHold), "dBTP", false);
+
+    // per-section loudness (when a Bandleader runs the song)
+    auto b = getLocalBounds().reduced (12, 10);
+    b.removeFromTop (16 + 200 + 12 + 44 + 30 * 3 + 26 + 10 + 78 + 6 + 26 + 16);
+    if (b.getHeight() < 60) return;
+    g.setColour (col::muted); g.setFont (font (11.0f, true));
+    g.drawText ("BY SECTION (Bandleader)", b.removeFromTop (16), juce::Justification::centredLeft);
+    const char* names[3] = { "Verse", "Chorus", "Bridge" };
+    const float verse = proc.uiSecLufs[0].load();
+    for (int i = 0; i < 3; ++i)
+    {
+        auto row = b.removeFromTop (18);
+        const float v = proc.uiSecLufs[i].load();
+        g.setColour (col::muted); g.setFont (font (12.0f));
+        g.drawText (names[i], row.removeFromLeft (60), juce::Justification::centredLeft);
+        g.setColour (col::cream);
+        juce::String t = v <= -69.9f ? juce::String ("--") : juce::String (v, 1) + " LUFS";
+        if (i > 0 && v > -69.9f && verse > -69.9f) t << "  (" << (v >= verse ? "+" : "") << juce::String (v - verse, 1) << ")";
+        g.drawText (t, row, juce::Justification::centredLeft);
+    }
+    if (! proc.uiLinked.load() && verse <= -69.9f)
+    {
+        g.setColour (col::muted); g.setFont (font (10.0f));
+        g.drawFittedText ("Add Bandleader to the set to see each section's loudness.", b.removeFromTop (28), juce::Justification::topLeft, 2);
+    }
 }
 
 void Meters::resized()

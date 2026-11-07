@@ -45,7 +45,7 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     energyK = new ttui::Knob ("ENERGY", false, this);
     energyK->attach (proc.apvts, "energy");
     owned.add (energyK); addAndMakeVisible (energyK);
-    setSize (980, 650);
+    setSize (980, 660);
     startTimerHz (20);
 }
 
@@ -106,7 +106,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
         const int w = fa.getWidth() / 6;
         for (int i = 0; i < 6; ++i)
         {
-            auto b = fa.withX (fa.getX() + i * w).withWidth (w).reduced (3, 0).withHeight (46);
+            auto b = fa.withX (fa.getX() + i * w).withWidth (w).reduced (3, 0).withHeight (36);
             const bool on = playing && i == proc.uiFormIndex.load();
             g.setColour (on ? kGold : col::panel2); g.fillRoundedRectangle (b.toFloat(), 5.0f);
             g.setColour (on ? col::bg : col::cream); g.setFont (font (13.0f, true));
@@ -139,20 +139,24 @@ void BandleaderEditor::paint (juce::Graphics& g)
     g.setColour (kGold); g.setFont (font (13.0f, true));
     g.drawText ("THE BAND", ba.removeFromTop (18), juce::Justification::centredLeft);
     ba.removeFromTop (6);
-    struct M { const char* name; band::Who who; bool follows; };
-    const M members[] = { { "Tea Towel (drums)", band::WTeaTowel, true }, { "Undertow (bass)", band::WUndertow, true },
-                          { "Loon", band::WLoon, false }, { "Schaltwerk", band::WSchaltwerk, false }, { "Carousel", band::WCarousel, false },
-                          { "Tape Twin", band::WTapeTwin, false }, { "Lathe", band::WLathe, false } };
+    struct M { const char* name; band::Who who; const char* does; };
+    const M members[] = { { "Tea Towel", band::WTeaTowel, "drums: sections, fills, drop-outs" },
+                          { "Undertow", band::WUndertow, "bass: chords, locks to the kick" },
+                          { "Loon", band::WLoon, "key + chords, swells, ducks the kick" },
+                          { "Schaltwerk", band::WSchaltwerk, "Omnichord plays the chords" },
+                          { "Carousel", band::WCarousel, "records whole sections" },
+                          { "Tape Twin", band::WTapeTwin, "echo throws into new sections" },
+                          { "Lathe", band::WLathe, "loudness per section" } };
     for (auto& m : members)
     {
         auto r = ba.removeFromTop (24);
         const bool here = band::isPresent (m.who);
         g.setColour (here ? kGreen : col::line); g.fillEllipse (r.removeFromLeft (14).withSizeKeepingCentre (10, 10).toFloat());
         r.removeFromLeft (6);
-        g.setColour (m.follows ? col::cream : col::muted); g.setFont (font (13.0f, m.follows));
-        g.drawText (m.name, r.removeFromLeft (150), juce::Justification::centredLeft);
+        g.setColour (here ? col::cream : col::muted); g.setFont (font (13.0f, true));
+        g.drawText (m.name, r.removeFromLeft (84), juce::Justification::centredLeft);
         g.setColour (col::muted); g.setFont (font (11.0f));
-        g.drawText (m.follows ? (here ? "following" : "not in this set") : "joins in a later update", r, juce::Justification::centredLeft);
+        g.drawText (m.does, r, juce::Justification::centredLeft);
     }
     if (! proc.uiBusOk.load()) { g.setColour (col::red); g.drawText ("Couldn't open the band link on this computer.", ba.removeFromTop (20), juce::Justification::centredLeft); }
 
@@ -170,7 +174,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
     }
 
     g.setColour (col::muted); g.setFont (font (12.0f));
-    g.drawFittedText ("Put Bandleader on its own MIDI track (it makes no sound) and press play. Tea Towel and Undertow follow it automatically. "
+    g.drawFittedText ("Put Bandleader on its own MIDI track (it makes no sound) and press play. The rest of the suite follows it automatically (green dot = listening). "
                       "Send the footswitch to this track, or MIDI Map the \"Footswitch:\" parameters.",
                       legendArea, juce::Justification::topLeft, 3);
 }
@@ -197,7 +201,7 @@ void BandleaderEditor::resized()
         allInB.setBounds (bot.reduced (4));
     }
     r.removeFromTop (12);
-    formArea = r.removeFromTop (130);
+    formArea = r.removeFromTop (140);
     {
         auto sb = formArea.reduced (18, 12).removeFromBottom (34);
         const int w = sb.getWidth() / 3;

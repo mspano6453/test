@@ -93,7 +93,9 @@ public:
     lt::Loudness inLoud, outLoud;
     std::atomic<float> inPeak { 0 }, outPeak { 0 }, outTruePeak { 0 }, maxGr { 0 };
     std::atomic<float> dynGr[3] {}, dynEqCut[2] {};
-    std::atomic<bool> resetLoudness { false };
+    std::atomic<bool> resetLoudness { false }, uiLinked { false };
+    std::atomic<float> uiSecLufs[3] { -70.0f, -70.0f, -70.0f };
+    double secEnergy[3] {}; long secCount[3] {}; int64_t secClock = 0;
     lt::SampleFifo spectrumFifo { 1 << 15 }, scopeFifo { 1 << 14 }, assistFifo { 1 << 17 };
 
     // Assistant (driven from the editor's timer on the message thread)

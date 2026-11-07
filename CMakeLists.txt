@@ -352,4 +352,18 @@ if(TEATOWEL_RENDER_DEMO)
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(BandTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 UNDERTOW_NO_ENTRY=1 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1)
     target_link_libraries(BandTest PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(SuiteTest PRODUCT_NAME "SuiteTest")
+    target_sources(SuiteTest PRIVATE Tools/SuiteTest.cpp
+        Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        Loon/LoonProcessor.cpp Loon/LoonEditor.cpp
+        Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp
+        Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp
+        TapeTwin/TapeTwinProcessor.cpp TapeTwin/TapeTwinEditor.cpp
+        Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp
+        Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(SuiteTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 CAROUSEL_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
+    target_link_libraries(SuiteTest PRIVATE TeaTowelSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

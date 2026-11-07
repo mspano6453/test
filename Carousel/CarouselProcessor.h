@@ -86,7 +86,7 @@ public:
     std::atomic<int> uiState { cr::Empty }, uiSlot { 0 }, uiLayers { 0 }, uiRedo { 0 }, uiFreeChunks { 0 };
     std::atomic<float> uiPos { 0 }, uiLenSec { 0 }, uiRecSec { 0 }, uiInLevel { 0 };
     std::atomic<uint32_t> uiSlotHas { 0 };
-    std::atomic<bool> uiWaitingForBar { false };
+    std::atomic<bool> uiWaitingForBar { false }, uiLinked { false }, uiArmed { false }, uiSectionRec { false };
     double getSampleRateSafe() const { return sr; }
 
     // Export the current slot's loop (all layers mixed) to a WAV. Message thread only.
@@ -122,6 +122,7 @@ private:
     int freeTop = 0;
     std::vector<cr::Slot> slots;
     int cur = 0;
+    bool bandActive = false, armed = false, sectionRec = false;
     juce::SpinLock poolLock;
 
     juce::AbstractFifo fifo { 256 };

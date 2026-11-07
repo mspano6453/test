@@ -44,7 +44,8 @@ void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
     const int64_t at = bar + (frac > 0.75 ? 2 : 1);
     auto goTo = [&] (int sec, bool advanceForm)
     {
-        if (advanceForm) formIndex = (formIndex + 1) % 6;
+        if (advanceForm) pendingForm = (formIndex + 1) % 6;
+        else pendingForm = -1;
         L.nextSection = sec; L.nextStartBar = at; L.fillBar = at - 1;
         if (L.dropStart < at && L.dropEnd > at) L.dropEnd = at;   // a section change brings everyone back
     };
@@ -57,7 +58,11 @@ void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
     switch (c)
     {
         case CNext:
-            if (apvts.getRawParameterValue ("song")->load() < 0.5f) goTo (kForm[(formIndex + 1) % 6], true);
+            if (apvts.getRawParameterValue ("song")->load() < 0.5f)
+            {
+                if (pendingForm >= 0) formIndex = pendingForm;   // already heading somewhere: go one further
+                goTo (kForm[(formIndex + 1) % 6], true);
+            }
             else
             {
                 const int s = (L.curSection + 1) % band::NumSec;
@@ -106,7 +111,8 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const double frac = ppq / 4.0 - (double) bar;
 
     // where are we? (start of play, or the playhead jumped)
-    if (playing && (! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.5))
+    // (while stopped, keep the song parked where play will start, so followers start in the right place)
+    if (! playing || ! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.5)
     {
         if (autoSong)
         {
@@ -116,7 +122,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             formIndex = (int) ((((bar % len) + len) % len) / secBars);
         }
         else { L.curSection = (int) g ("section"); L.curStartBar = bar; }
-        L.nextStartBar = band::kNever; L.fillBar = -band::kNever;
+        L.nextStartBar = band::kNever; L.fillBar = -band::kNever; pendingForm = -1;
         L.dropStart = L.dropEnd = band::kNever;
     }
     wasPlaying = playing;
@@ -162,13 +168,17 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     if (playing)
     {
         // a scheduled change arrives
-        if (bar >= L.nextStartBar) { L.curSection = L.nextSection; L.curStartBar = L.nextStartBar; L.nextStartBar = band::kNever; }
+        if (bar >= L.nextStartBar)
+        {
+            L.curSection = L.nextSection; L.curStartBar = L.nextStartBar; L.nextStartBar = band::kNever;
+            if (pendingForm >= 0) { formIndex = pendingForm; pendingForm = -1; }
+        }
         if (L.dropEnd <= bar) L.dropStart = L.dropEnd = band::kNever;
         // auto song: line up the next part one bar ahead, with a fill into it
         if (autoSong && L.nextStartBar >= band::kNever && bar >= L.curStartBar + secBars - 1)
         {
-            formIndex = (formIndex + 1) % 6;
-            L.nextSection = kForm[formIndex];
+            pendingForm = (formIndex + 1) % 6;
+            L.nextSection = kForm[pendingForm];
             L.nextStartBar = L.curStartBar + secBars;
             if (L.nextStartBar <= bar) L.nextStartBar = bar + 1;
             L.fillBar = L.nextStartBar - 1;

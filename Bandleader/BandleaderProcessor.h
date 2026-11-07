@@ -59,7 +59,7 @@ private:
     band::Leader L;
     bool wasPlaying = false;
     double lastPpqEnd = -1;
-    int formIndex = 0;
+    int formIndex = 0, pendingForm = -1;
     std::array<float, 7> lastTrig {};
     std::array<int, 7> lastCC {};
 };

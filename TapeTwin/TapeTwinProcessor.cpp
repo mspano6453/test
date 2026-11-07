@@ -1,5 +1,6 @@
 #include "TapeTwinProcessor.h"
 #include "TapeTwinEditor.h"
+#include "../Source/BandBus.h"
 
 using namespace tw;
 
@@ -36,6 +37,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TapeTwinProcessor::createLay
     add (AdtTime, "Double Time", { 5, 60, 0.1f }, ms);
     add (AdtWobble, "Double Wobble", { 0, 1, 0.001f }, pct);
     add (Output, "Output", { -24, 12, 0.1f }, db);
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "band_throws", 1 }, "Section Throws (Bandleader)", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -91,6 +93,30 @@ void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         delayMs = syncBeats (sync) * 60000.0 / juce::jmax (30.0, bpm);
     }
     delayMs = juce::jlimit (20.0, 2000.0, delayMs);
+
+    // the band: an echo "throw" on the last beat before each section change or drop-out
+    band::markPresent (band::WTapeTwin);
+    band::Leader leader;
+    double ppq = 0, bpmNow = 120; bool playing = false;
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
+        {
+            playing = pos->getIsPlaying();
+            if (auto p = pos->getPpqPosition()) ppq = *p;
+            if (auto b = pos->getBpm()) bpmNow = *b;
+        }
+    const bool led = playing && apvts.getRawParameterValue ("band_throws")->load() > 0.5f && band::readLeader (leader) && leader.playing;
+    uiLinked = led;
+    double throwStart = -1e18, throwEnd = -1e18;     // in beats
+    if (led)
+    {
+        int64_t change = band::kNever;
+        if (leader.nextStartBar < band::kNever) change = leader.nextStartBar;
+        if (leader.dropStart < band::kNever && leader.dropStart < change && leader.dropStart * 4 > ppq - 1) change = leader.dropStart;
+        if (change < band::kNever) { throwEnd = (double) change * 4.0; throwStart = throwEnd - 1.0; }
+    }
+    const double ppqPerSample = bpmNow / 60.0 / sr;
+    const float throwDecay = (float) std::exp (-1.0 / (sr * 60.0 / juce::jmax (30.0, bpmNow) * 3.0));   // rings out over a few beats
     currentDelayMs = (float) delayMs;
     const double target = delayMs * 0.001 * sr;
     if (smoothDelay <= 0.0) smoothDelay = target;
@@ -132,6 +158,13 @@ void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
         smoothDelay += (target - smoothDelay) * glide;
 
+        const double q = ppq + i * ppqPerSample;
+        const bool inThrow = q >= throwStart && q < throwEnd;
+        if (inThrow) throwEnv = 1.0f; else throwEnv *= throwDecay;
+        const float fbNow = fb + (juce::jmax (fb, 0.72f) - fb) * throwEnv;
+        const float mixNow = echoMix + (juce::jmax (echoMix, 0.55f) - echoMix) * throwEnv;
+        const float sendNow = inThrow ? 1.6f : 1.0f;
+
         float dry[2], e[2];
         for (int c = 0; c < 2; ++c)
         {
@@ -145,7 +178,7 @@ void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         for (int c = 0; c < 2; ++c)
         {
             const float cross = (1.0f - 0.5f * spread) * e[c] + 0.5f * spread * e[1 - c];
-            float w = dry[c] + fb * cross;
+            float w = dry[c] * sendNow + fbNow * cross;
             w = std::tanh (1.2f * w) / 1.2f;                            // tape saturates in the loop
             w += (rand01() - 0.5f) * 0.0006f * age;                     // a little hiss on old tape
             echo[c].write (w);
@@ -155,7 +188,7 @@ void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             adtPh[c] += (0.31 + 0.11 * c) / sr; if (adtPh[c] > 1) adtPh[c] -= 1;
             const float a = adt[c].read (juce::jmax (2.0, ad));
 
-            float y = (dry[c] + adtMix * 0.9f * a) * adtNorm + echoMix * e[c];
+            float y = (dry[c] + adtMix * 0.9f * a) * adtNorm + mixNow * e[c];
             peak = juce::jmax (peak, std::abs (e[c]));
             io[c][i] = y * outG;
         }

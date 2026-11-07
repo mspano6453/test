@@ -105,6 +105,7 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
     std::atomic<float> echoLevel { 0.0f }, currentDelayMs { 0.0f };
+    std::atomic<bool> uiLinked { false };
 
 private:
     std::atomic<float>* prm[tw::NumParams] {};
@@ -115,6 +116,7 @@ private:
     double wowPh = 0, wowPh2 = 0, flPh = 0, flPh2 = 0, adtPh[2] { 0.0, 0.37 };
     float drift = 0, driftTarget = 0, adtDrift[2] {}, adtDriftTarget[2] {};
     int driftCounter = 0;
+    float throwEnv = 0;
     uint32_t rng = 22222u;
     int currentProgram = 0;
 

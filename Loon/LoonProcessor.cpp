@@ -1,4 +1,5 @@
 #include "LoonProcessor.h"
+#include "../Source/BandBus.h"
 #include "LoonEditor.h"
 
 using namespace ln;
@@ -47,6 +48,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LoonProcessor::createLayout(
     C ("mood", "Mood", moods, MWarm);
     C ("root", "Key", roots, 9);
     C ("follow", "Follow Input Key", onOff(), 1);
+    C ("band_link", "Follow Bandleader", { "Off", "Key only", "Key + chords" }, 2);
     C ("journey", "Journey", { "Off", "10 min", "30 min", "60 min" }, 0);
     F ("weather", "Weather", 0.3f);
     F ("evolve", "Evolve", 0.4f);
@@ -134,6 +136,39 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     uiJourney = (float) jPh;
     const float jMod = jLen > 0 ? (float) std::sin (kTwoPi * jPh) : 0.0f;
 
+    // ---- the band: a Bandleader in the set gives the key (and the chord of the moment)
+    band::markPresent (band::WLoon);
+    band::Leader leader;
+    const int linkMode = (int) v ("band_link");
+    bool led = linkMode > 0 && band::readLeader (leader);
+    double ppq = 0, bpm = 120; bool playing = false;
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
+        {
+            playing = pos->getIsPlaying();
+            if (auto p = pos->getPpqPosition()) ppq = *p;
+            if (auto b = pos->getBpm()) bpm = *b;
+        }
+    led = led && playing && leader.playing;
+    uiLinked = led;
+    int bandRoot = 9; bool bandMinor = true; float sectionLift = 0, dropLift = 0;
+    const int64_t bar = (int64_t) std::floor (ppq / 4.0);
+    if (led)
+    {
+        // the song's key: the tonic chord (offset 0) tells major from minor
+        bandRoot = leader.key; bandMinor = true;
+        for (int s = 0; s < band::NumSec; ++s)
+            for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
+                if (leader.progOff[s][i] == 0) bandMinor = leader.progMinor[s][i] != 0;
+        if (linkMode == 2) { int r; bool m; leader.chordAt (bar, r, m); bandRoot = r; bandMinor = m; }
+        const int sec = leader.sectionAt (bar);
+        sectionLift = sec == band::Chorus ? 1.0f : sec == band::Bridge ? -0.6f : 0.0f;
+        dropLift = leader.isOut (bar) ? 1.0f : 0.0f;          // the band stops: Loon fills the space
+    }
+    const double sm = 1.0 - std::exp (-(double) n / (2.0 * sr));   // ~2 s glide
+    liftS += (float) ((sectionLift - liftS) * sm);
+    dropS += (float) ((dropLift - dropS) * sm);
+
     Generator::Params gp;
     gp.on = v ("gen_on") > 0.5f;
     gp.mood = (int) v ("mood");
@@ -145,11 +180,37 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     gp.evolve = v ("evolve");
     gp.brightness = juce::jlimit (0.0f, 1.0f, v ("bright") + 0.25f * jMod);
     gp.padLvl = v ("pads"); gp.bellLvl = v ("bells"); gp.glassLvl = v ("glass"); gp.droneLvl = v ("drone");
-    uiRoot = gp.root; uiMinor = gp.minor ? 1 : 0; uiFollowing = useFollow;
+    if (led) { gp.root = bandRoot; gp.minor = bandMinor; }
+    // choruses swell and brighten, bridges thin out and darken
+    gp.brightness = juce::jlimit (0.0f, 1.0f, gp.brightness + 0.15f * liftS + 0.2f * dropS);
+    gp.weather = juce::jlimit (0.0f, 1.0f, gp.weather + 0.1f * dropS);
+    uiRoot = gp.root; uiMinor = gp.minor ? 1 : 0; uiFollowing = useFollow && ! led;
 
     // ---- generate
     std::fill (gL.begin(), gL.begin() + n, 0.0f); std::fill (gR.begin(), gR.begin() + n, 0.0f);
-    gen.render (gL.data(), gR.data(), n, gp, v ("gen_lvl"));
+    gen.render (gL.data(), gR.data(), n, gp, v ("gen_lvl") * (1.0f + 0.25f * liftS + 0.35f * dropS));
+
+    // dip under Tea Towel's kick (no sidechain routing needed)
+    if (led)
+    {
+        const double ppqPerSample = bpm / 60.0 / sr;
+        const float rel = (float) std::exp (-1.0 / (0.16 * sr));
+        for (int i = 0; i < n; ++i)
+        {
+            const double q = ppq + i * ppqPerSample;
+            const int64_t k = (int64_t) std::floor (q * 4.0);
+            if (k != lastDuckStep)
+            {
+                lastDuckStep = k;
+                const int64_t b = (k - (((k % 16) + 16) % 16)) / 16;
+                uint16_t kicks = 0;
+                if (band::readKicks (b, kicks) && ((kicks >> (int) (((k % 16) + 16) % 16)) & 1u)) duck = 1.0f;
+            }
+            const float g = 1.0f - 0.33f * duck;      // about -3.5 dB at the hit
+            gL[(size_t) i] *= g; gR[(size_t) i] *= g;
+            duck *= rel;
+        }
+    }
 
     Cloud::Params cp;
     cp.amount = v ("cloud_amt"); cp.density = v ("cloud_den"); cp.size = v ("cloud_size"); cp.spray = v ("cloud_spray");

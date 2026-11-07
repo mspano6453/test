@@ -94,7 +94,7 @@ CarouselEditor::~CarouselEditor() { setLookAndFeel (nullptr); }
 void CarouselEditor::timerCallback()
 {
     const int st = proc.uiState.load();
-    recButton.setButtonText (st == Empty ? "REC" : st == Recording ? (proc.uiWaitingForBar.load() ? "FINISHING BAR..." : "PLAY") : st == Overdubbing ? "PLAY" : st == Playing ? "OVERDUB" : "PLAY");
+    recButton.setButtonText (proc.uiArmed.load() ? "WAITING FOR SECTION..." : proc.uiSectionRec.load() ? "RECORDING SECTION" : st == Empty ? "REC" : st == Recording ? (proc.uiWaitingForBar.load() ? "FINISHING BAR..." : "PLAY") : st == Overdubbing ? "PLAY" : st == Playing ? "OVERDUB" : "PLAY");
     const uint32_t has = proc.uiSlotHas.load();
     const int cur = proc.uiSlot.load();
     for (int i = 0; i < kSlots; ++i)

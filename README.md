@@ -83,8 +83,11 @@ octave pops, descending gothic lines. Real samples (Karoryfer "Black And Blue Ba
 
 Put Bandleader on its own MIDI track (it makes no sound) and press play. It holds the song — key, chords per
 section, the song form (verse/chorus/verse/chorus/bridge/chorus), section changes, fills, drop-outs and energy —
-and shares it with the other plugins on this computer. Tea Towel's drummer and Undertow follow it automatically,
-and Undertow locks its notes to Tea Towel's kick drum. Footswitch: C2 next section, D2 fill, E2 drop out,
+and shares it with the other plugins on this computer. Everything follows it automatically:
+Tea Towel (sections, fills, drop-outs), Undertow (chords; locks to Tea Towel's kick), Loon (key and chords,
+swells in choruses, dips under the kick), Schaltwerk (Omnichord plays the chords, drum box drops out),
+Carousel (REC waits for the next section and records exactly one section; slots can follow sections),
+Tape Twin (echo throw on the last beat before each new section) and Lathe (loudness per section). Footswitch: C2 next section, D2 fill, E2 drop out,
 F2 all in, G2 verse, A2 chorus, B2 bridge (or CC 90-96). Each plugin still works on its own without it.
 
 ## Getting the plugin built

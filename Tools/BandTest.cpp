@@ -47,6 +47,14 @@ int main()
                          { 16.2, BandleaderProcessor::CAllIn, "ALL IN" }, { 22.1, BandleaderProcessor::CFill, "FILL" },
                          { 27.5, BandleaderProcessor::CBridge, "BRIDGE (manual)" } };
     size_t nextCmd = 0;
+    // Live runs plugins while stopped too: a moment of that before pressing play
+    head.playing = false;
+    for (int i = 0; i < 20; ++i)
+    {
+        juce::MidiBuffer m; b1.clear(); b2.clear(); b3.clear();
+        bass.processBlock (b2, m); m.clear(); drums.processBlock (b3, m); m.clear(); lead.processBlock (b1, m);
+    }
+    head.playing = true;
     for (int pos = 0; pos < total; pos += bs)
     {
         head.ppq = pos / spb;
