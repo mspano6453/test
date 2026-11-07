@@ -33,6 +33,7 @@ private:
     juce::Rectangle<int> ringArea, sidePanel, memArea, legendArea, lastExportArea;
     juce::String lastExport;
     float inShown = 0;
+    int64_t lastSig = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CarouselEditor)
 };

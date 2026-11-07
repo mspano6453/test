@@ -366,4 +366,33 @@ if(TEATOWEL_RENDER_DEMO)
     target_compile_definitions(SuiteTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1
         LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 CAROUSEL_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
     target_link_libraries(SuiteTest PRIVATE TeaTowelSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(LiveSim PRODUCT_NAME "LiveSim")
+    target_sources(LiveSim PRIVATE Tools/LiveSim.cpp
+        Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp
+        Loon/LoonProcessor.cpp Loon/LoonEditor.cpp
+        Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp
+        Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp
+        TapeTwin/TapeTwinProcessor.cpp TapeTwin/TapeTwinEditor.cpp
+        Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp
+        Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(LiveSim PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 CAROUSEL_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
+    target_link_libraries(LiveSim PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(StyleTest PRODUCT_NAME "StyleTest")
+    target_sources(StyleTest PRIVATE Tools/StyleTest.cpp
+        Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp
+        Loon/LoonProcessor.cpp Loon/LoonEditor.cpp
+        Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp
+        TapeTwin/TapeTwinProcessor.cpp TapeTwin/TapeTwinEditor.cpp
+        Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp
+        Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

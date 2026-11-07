@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/BandStyles.h"
 #include <juce_dsp/juce_dsp.h>
 #include "LatheDSP.h"
 
@@ -84,6 +85,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
 
     // Module order (message thread writes, audio thread reads)
     std::array<std::atomic<int>, lt::NumModules> order;

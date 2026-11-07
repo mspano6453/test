@@ -71,7 +71,7 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
     guitarKnobs = { knob ("sens", "SENSITIVITY", true), knob ("guitar_dry", "GTR BLEND", true) };
 
     setSize (1080, 760);
-    startTimerHz (30);
+    startTimerHz (25);
 }
 
 UndertowEditor::~UndertowEditor() { setLookAndFeel (nullptr); }
@@ -94,7 +94,18 @@ void UndertowEditor::timerCallback()
     feelBox->setEnabled (player); regBox->setEnabled (player); stopBox->setEnabled (player); followBox->setEnabled (player);
     guitarKnobs[0]->setEnabled (mode == MTracked);
     guitarKnobs[1]->setEnabled (mode == MOctave || mode == MTracked);
-    repaint();
+
+    // repaint only what changed: the static labels when settings change, the live area when the music moves
+    juce::String st;
+    for (auto* id : { "mode", "follow", "key", "prog_verse", "prog_chorus", "prog_bridge", "chord_bars", "song", "section_bars" })
+        st << (int) proc.apvts.getRawParameterValue (id)->load() << ",";
+    st << (int) proc.uiSidechain.load() << (int) proc.samplesLoaded();
+    if (st != lastStatic) { lastStatic = st; repaint(); return; }
+    int64_t dyn = proc.uiChord.load() * 131 + proc.uiNote.load() * 7 + proc.uiStep.load() * 1031 + proc.uiSection.load() * 17
+                + (proc.uiTransport.load() ? 3 : 0) + (proc.uiBandPlaying.load() ? 5 : 0) + (proc.uiLinked.load() ? 11 : 0)
+                + (int64_t) (inShown * 60.0f) * 100003;
+    for (int i = 0; i < kSteps; ++i) dyn = dyn * 31 + proc.uiMotif[i].load();
+    if (dyn != lastDyn) { lastDyn = dyn; repaint (earArea); }
 }
 
 void UndertowEditor::paint (juce::Graphics& g)

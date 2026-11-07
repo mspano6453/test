@@ -38,6 +38,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TapeTwinProcessor::createLay
     add (AdtWobble, "Double Wobble", { 0, 1, 0.001f }, pct);
     add (Output, "Output", { -24, 12, 0.1f }, db);
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "band_throws", 1 }, "Section Throws (Bandleader)", juce::StringArray { "Off", "On" }, 1));
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -46,6 +47,7 @@ TapeTwinProcessor::TapeTwinProcessor()
                                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "TapeTwin", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     for (int p = 0; p < NumParams; ++p) prm[p] = apvts.getRawParameterValue (paramId (p));
 }
 
@@ -227,6 +229,18 @@ void TapeTwinProcessor::setStateInformation (const void* data, int size)
             currentProgram = (int) state.getProperty ("program", 0);
             apvts.replaceState (state);
         }
+}
+
+void TapeTwinProcessor::applyStyle (const band::StyleDef& s)
+{
+    band::setParam (apvts, "sync", (float) s.tSync);
+    if (s.tSync == 0) band::setParam (apvts, "time", 110.0f);    // free time in a style means slapback
+    band::setParam (apvts, "echo_mix", s.tMix);
+    band::setParam (apvts, "feedback", s.tFb);
+    band::setParam (apvts, "wow", s.tWow);
+    band::setParam (apvts, "flutter", s.tFlut);
+    band::setParam (apvts, "age", s.tAge);
+    band::setParam (apvts, "adt_mix", s.tAdt);
 }
 
 juce::AudioProcessorEditor* TapeTwinProcessor::createEditor() { return new TapeTwinEditor (*this); }

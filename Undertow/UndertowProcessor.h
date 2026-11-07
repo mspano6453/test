@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/BandStyles.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "UndertowPlayer.h"
 #include "../Source/BandBus.h"
@@ -18,7 +19,7 @@ enum Follow { FollowSelf = 0, FollowGuitar, FollowMidi };
 constexpr int kKeyVerse = 12, kKeyChorus = 13, kKeyBridge = 14, kKeyFill = 15;
 }
 
-class UndertowProcessor : public juce::AudioProcessor
+class UndertowProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
 public:
     UndertowProcessor();
@@ -46,6 +47,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
 
     // Report the audio input as a sidechain so Live treats this as an instrument and
     // offers your guitar track in the Sidechain menu.
@@ -68,6 +72,8 @@ public:
 private:
     struct Ev { int t; int type; int note; float vel; float len; };    // type 1 on, 2 off
     void readParams();
+    void handleAsyncUpdate() override;
+    std::atomic<int> keySection { -1 };
     void loadSamples();
     void handleMidi (const juce::MidiMessage&, std::vector<Ev>&, int pos);
     void runPlayer (int n, std::vector<Ev>& evs);

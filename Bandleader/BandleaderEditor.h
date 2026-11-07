@@ -11,7 +11,8 @@ public:
     void resized() override;
 
 private:
-    void timerCallback() override { repaint(); updateButtons(); }
+    void timerCallback() override;
+    juce::String lastStatic; int64_t lastDyn = 0; int tick = 0;
     void updateButtons();
     juce::ComboBox* combo (const char* id, const char* label);
 
@@ -24,6 +25,10 @@ private:
     juce::TextButton secB[3];
     juce::ComboBox* progBox[3] {};
     juce::ComboBox* keyBox = nullptr;
+    juce::ComboBox styleBox;
+    juce::TextButton applyAgainB { "APPLY AGAIN" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt;
+    juce::Rectangle<int> styleText;
     ttui::Knob* energyK = nullptr;
     juce::Rectangle<int> nowArea, formArea, songArea, bandArea, legendArea;
 

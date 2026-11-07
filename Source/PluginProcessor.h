@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "BandStyles.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
@@ -50,6 +51,9 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
     juce::MidiKeyboardState keyboardState;                     // lets the UI play the kit
     std::array<std::atomic<float>, tt::NumPieces> hitFlash;    // UI hit lights
     std::atomic<float> gainReductionDb { 0.0f };               // Squash meter

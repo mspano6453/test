@@ -1,3 +1,4 @@
+#include "BandBus.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
@@ -97,6 +98,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::swing, 1 }, "Player Swing", juce::NormalisableRange<float> (0, 1, 0.001f), 0.0f, pctAttr));
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { PID::variation, 1 }, "Player Variation", juce::NormalisableRange<float> (0, 1, 0.001f), 0.5f, pctAttr));
 
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -104,6 +106,7 @@ TeaTowelProcessor::TeaTowelProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "TeaTowel", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     for (int p = 0; p < NumPieces; ++p)
     {
         hitFlash[(size_t) p].store (0.0f);
@@ -486,6 +489,19 @@ void TeaTowelProcessor::setStateInformation (const void* data, int sizeInBytes)
             clearSample (p);
     }
     apvts.replaceState (state);
+}
+
+void TeaTowelProcessor::applyStyle (const band::StyleDef& s)
+{
+    setCurrentProgram (s.dKit);
+    band::setParam (apvts, PID::style, (float) s.dStyle);
+    band::setParam (apvts, PID::intensity, s.dInt);
+    band::setParam (apvts, PID::looseness, s.dLoose);
+    band::setParam (apvts, PID::swing, s.dSwing);
+    band::setParam (apvts, PID::variation, s.dVar);
+    band::setParam (apvts, PID::fillEvery, (float) s.dFill);
+    if (s.dRoom >= 0) band::setParam (apvts, "m_roomlvl", s.dRoom);
+    if (s.dRoomSize >= 0) band::setParam (apvts, "m_roomsize", s.dRoomSize);
 }
 
 juce::AudioProcessorEditor* TeaTowelProcessor::createEditor() { return new TeaTowelEditor (*this); }

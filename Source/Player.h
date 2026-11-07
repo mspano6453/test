@@ -14,13 +14,16 @@
 // ---------------------------------------------------------------------------
 namespace tt
 {
-enum PlayerStyle { StSixties = 0, StMotorik, StKraut, StCrazyHorse, StPowerPop, StBallad, NumStyles };
+enum PlayerStyle { StSixties = 0, StMotorik, StKraut, StCrazyHorse, StPowerPop, StBallad,
+                   StPunk, StPostPunk, StShoegaze, StGrunge, StHalfTime, StFourFloor, StGlam, StSurf, StShuffle, StFolk, StPostRock, StGarage, NumStyles };
 enum PlayerSection { SecVerse = 0, SecChorus, SecBridge, NumSections };
 enum FillEvery { FillOff = 0, Fill4, Fill8, Fill16 };
 
 inline const char* styleName (int s)
 {
-    static const char* n[] = { "Sixties Pop (Ringo)", "Motorik", "Kraut Funk (Can)", "Crazy Horse", "Power Pop", "Ballad" };
+    static const char* n[] = { "Sixties Pop (Ringo)", "Motorik", "Kraut Funk (Can)", "Crazy Horse", "Power Pop", "Ballad",
+                               "Punk", "Post-Punk", "Shoegaze Wash", "Grunge", "Half-Time Heavy", "Four on the Floor", "Glam Stomp",
+                               "Surf", "Shuffle", "Folk Rock", "Post-Rock Build", "Garage Bash" };
     return n[s];
 }
 inline const char* sectionName (int s)
@@ -116,6 +119,121 @@ inline const std::array<StyleDef, NumStyles>& styles()
         d[StBallad].extra[SecBridge] = G ({ { LF, "......o.......o." } });
         d[StBallad].fill[0] = G ({ { LS, "........x.xx.xxx" }, { LT1, "...........x...." }, { LF, "..............x." } });
         d[StBallad].fill[1] = G ({ { LS, "........x...xoxx" }, { LF, "..........x....." }, { LK, "........x......." } });
+        // ---- more rock: punk, post-punk, shoegaze, grunge, half-time, four-on-the-floor, glam, surf, shuffle, folk, post-rock, garage
+        const char* H16 = "x-o-x-o-x-o-x-o-";
+        const char* Q = "x...x...x...x...";
+        const char* RF = "........xoxoxoxx";   // a standard snare run
+        const char* TOMDOWN_S = "........xo......"; const char* TOMDOWN_1 = "..........xo...."; const char* TOMDOWN_2 = "............xo.."; const char* TOMDOWN_F = "..............xx";
+        auto tomFill = [&] { return G ({ { LS, TOMDOWN_S }, { LT1, TOMDOWN_1 }, { LT2, TOMDOWN_2 }, { LF, TOMDOWN_F }, { LK, "........x......." } }); };
+
+        d[StPunk].sec[SecVerse]  = G ({ { LH, "x.x.x.x.x.x.x.x." }, { LK, "x.....x.x......." }, { LS, BBX } });
+        d[StPunk].sec[SecChorus] = G ({ { LC, "x.......x......." }, { LRD, "..x.x.x...x.x.x." }, { LK, "x...x...x...x..." }, { LS, "..X...X...X...X." } });   // two-beat
+        d[StPunk].sec[SecBridge] = G ({ { LF, "x.x.x.x.x.x.x.x." }, { LK, "x...x...x...x..." }, { LS, BBX } });
+        d[StPunk].extra[SecVerse]  = G ({ { LK, "..........x....." } });
+        d[StPunk].extra[SecChorus] = G ({ { LC, "....x.......x..." } });
+        d[StPunk].extra[SecBridge] = G ({ { LS, "..............x." } });
+        d[StPunk].fill[0] = G ({ { LS, "........XxXxXxXx" }, { LK, "........x...x..." } });
+        d[StPunk].fill[1] = tomFill();
+
+        d[StPostPunk].sec[SecVerse]  = G ({ { LH, "x.x.x.x.x.x.x.x." }, { LF, "o...o...o...o..." }, { LK, "x.......x.x....." }, { LS, BB } });
+        d[StPostPunk].sec[SecChorus] = G ({ { LO, "..o...o...o...o." }, { LH, "x...x...x...x..." }, { LK, Q }, { LS, BBX } });
+        d[StPostPunk].sec[SecBridge] = G ({ { LF, "x..x..x.x..x..x." }, { LT2, "..x...x...x...x." }, { LK, "x.......x......." }, { LS, "............o..." } });
+        d[StPostPunk].extra[SecVerse]  = G ({ { LT2, "...........o...." } });
+        d[StPostPunk].extra[SecChorus] = G ({ { LS, "..............g." } });
+        d[StPostPunk].extra[SecBridge] = G ({ { LT1, ".......o........" } });
+        d[StPostPunk].fill[0] = G ({ { LF, "........x.x.x.x." }, { LT2, ".........x.x.x.x" }, { LK, "........x......." } });
+        d[StPostPunk].fill[1] = G ({ { LS, RF }, { LK, "........x......." } });
+
+        d[StShoegaze].sec[SecVerse]  = G ({ { LRD, "x.o.x.o.x.o.x.o." }, { LK, "x.....x.x......." }, { LS, BB } });
+        d[StShoegaze].sec[SecChorus] = G ({ { LC, "x...x...x...x..." }, { LRD, "..o...o...o...o." }, { LK, "x.....x.x.x....." }, { LS, BBX } });    // the wash
+        d[StShoegaze].sec[SecBridge] = G ({ { LF, "x.o.x.o.x.o.x.o." }, { LK, Q }, { LS, "............x..." } });
+        d[StShoegaze].extra[SecVerse]  = G ({ { LK, "...........x...." }, { LS, "..............g." } });
+        d[StShoegaze].extra[SecChorus] = G ({ { LK, "...x............" } });
+        d[StShoegaze].extra[SecBridge] = G ({ { LC, "x..............." } });
+        d[StShoegaze].fill[0] = G ({ { LS, "........x.x.x.xx" }, { LF, "..........x...x." }, { LC, "..............x." }, { LK, "........x......." } });
+        d[StShoegaze].fill[1] = tomFill();
+
+        d[StGrunge].sec[SecVerse]  = G ({ { LH, "x.o.x.o.x.o.x.o." }, { LK, "x..x..x.x......." }, { LS, BBX } });
+        d[StGrunge].sec[SecChorus] = G ({ { LC, "x.......x......." }, { LO, "..o.o.o...o.o.o." }, { LK, "x.x...x.x.x....." }, { LS, BBX } });
+        d[StGrunge].sec[SecBridge] = G ({ { LRD, "x.o.x.o.x.o.x.o." }, { LK, "x.......x.x....." }, { LS, "........X......." } });                   // half-time
+        d[StGrunge].extra[SecVerse]  = G ({ { LK, "...........x...." }, { LS, "...............g" } });
+        d[StGrunge].extra[SecChorus] = G ({ { LK, "...x............" } });
+        d[StGrunge].extra[SecBridge] = G ({ { LK, "..x............." } });
+        d[StGrunge].fill[0] = G ({ { LS, "........X.X.X.XX" }, { LF, "............x.x." }, { LK, "........x...x..." } });
+        d[StGrunge].fill[1] = tomFill();
+
+        d[StHalfTime].sec[SecVerse]  = G ({ { LH, "x.o.x.o.x.o.x.o." }, { LK, "x.........x....." }, { LS, "........X......." } });
+        d[StHalfTime].sec[SecChorus] = G ({ { LC, "x.......x......." }, { LRD, "..x.x.x...x.x.x." }, { LK, "x.....x...x....." }, { LS, "........X......." } });
+        d[StHalfTime].sec[SecBridge] = G ({ { LF, "x...x...x...x..." }, { LK, "x.......x......." }, { LS, "........o......." } });
+        d[StHalfTime].extra[SecVerse]  = G ({ { LK, "..............x." } });
+        d[StHalfTime].extra[SecChorus] = G ({ { LK, "...x............" } });
+        d[StHalfTime].extra[SecBridge] = G ({ { LT2, "......o........." } });
+        d[StHalfTime].fill[0] = G ({ { LS, "........x...x.x." }, { LF, "..........x...x." }, { LK, "........x......." } });
+        d[StHalfTime].fill[1] = G ({ { LT2, "........x.x....." }, { LF, "............x.xx" }, { LK, "........x......." } });
+
+        d[StFourFloor].sec[SecVerse]  = G ({ { LH, "x.x.x.x.x.x.x.x." }, { LK, Q }, { LS, BB } });
+        d[StFourFloor].sec[SecChorus] = G ({ { LH, H16 }, { LO, "..o...o...o...o." }, { LK, Q }, { LS, BBX } });
+        d[StFourFloor].sec[SecBridge] = G ({ { LRD, "x.o.x.o.x.o.x.o." }, { LK, Q }, { LT2, "......x.......x." } });
+        d[StFourFloor].extra[SecVerse]  = G ({ { LO, "..............o." } });
+        d[StFourFloor].extra[SecChorus] = G ({ { LS, "...............g" } });
+        d[StFourFloor].extra[SecBridge] = G ({ { LS, "....o.......o..." } });
+        d[StFourFloor].fill[0] = G ({ { LS, RF }, { LK, "........x...x..." } });
+        d[StFourFloor].fill[1] = tomFill();
+
+        d[StGlam].sec[SecVerse]  = G ({ { LK, "x...x...x...x..." }, { LF, "x...x...x...x..." }, { LS, BBX }, { LH, "..o...o...o...o." } });   // stomp
+        d[StGlam].sec[SecChorus] = G ({ { LK, "x.....x.x.....x." }, { LS, BBX }, { LC, "x..............." }, { LO, "x.o.x.o.x.o.x.o." } });
+        d[StGlam].sec[SecBridge] = G ({ { LT1, "x.x.x.x........." }, { LF, "........x.x.x.x." }, { LK, Q }, { LS, BBX } });
+        d[StGlam].extra[SecVerse]  = G ({ { LK, "......x........." } });
+        d[StGlam].extra[SecChorus] = G ({ { LC, "........x......." } });
+        d[StGlam].extra[SecBridge] = G ({ { LS, "...............o" } });
+        d[StGlam].fill[0] = G ({ { LS, "........X.X.XXXX" }, { LK, "........x...x..." } });
+        d[StGlam].fill[1] = tomFill();
+
+        d[StSurf].sec[SecVerse]  = G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.....x.x.....x." }, { LS, BB } });
+        d[StSurf].sec[SecChorus] = G ({ { LT2, "xoxo....xoxo...." }, { LF, "....xoxo....xoxo" }, { LK, Q } });                                     // the tom gallop
+        d[StSurf].sec[SecBridge] = G ({ { LS, "x-o-x-o-x-o-x-o-" }, { LK, "x.......x......." } });
+        d[StSurf].extra[SecVerse]  = G ({ { LS, ".......g.......g" } });
+        d[StSurf].extra[SecChorus] = G ({ { LS, "....o.......o..." } });
+        d[StSurf].extra[SecBridge] = G ({ { LC, "x..............." } });
+        d[StSurf].fill[0] = G ({ { LT2, "........xoxoxo.." }, { LF, "..............xx" }, { LK, "........x......." } });
+        d[StSurf].fill[1] = G ({ { LS, "........xoxoxoxo" }, { LK, "........x...x..." } });
+
+        // shuffle: hits on the beat and the last 16th, pushed toward a triplet by Swing
+        d[StShuffle].sec[SecVerse]  = G ({ { LH, "x..ox..ox..ox..o" }, { LK, "x.......x......." }, { LS, BB } });
+        d[StShuffle].sec[SecChorus] = G ({ { LRD, "x..ox..ox..ox..o" }, { LK, "x.....x.x......." }, { LS, BBX } });
+        d[StShuffle].sec[SecBridge] = G ({ { LH, "x..ox..ox..ox..o" }, { LK, "x..ox..ox..ox..o" }, { LS, BB } });        // train beat
+        d[StShuffle].extra[SecVerse]  = G ({ { LS, "...g...g...g...g" } });
+        d[StShuffle].extra[SecChorus] = G ({ { LK, "...........o...." } });
+        d[StShuffle].extra[SecBridge] = G ({ { LS, "...g.......g...." } });
+        d[StShuffle].fill[0] = G ({ { LS, "........x..xx..x" }, { LF, "..............x." }, { LK, "........x......." } });
+        d[StShuffle].fill[1] = G ({ { LS, "........x..x...." }, { LT1, "............x..x" }, { LF, "..............x." }, { LK, "........x......." } });
+
+        d[StFolk].sec[SecVerse]  = G ({ { LH, "-.-.-.-.-.-.-.-." }, { LK, "x.....x.x......." }, { LSS, "....o.......o..." } });
+        d[StFolk].sec[SecChorus] = G ({ { LO, "o.o.o.o.o.o.o.o." }, { LK, "x.....x.x......." }, { LS, BB } });
+        d[StFolk].sec[SecBridge] = G ({ { LRD, "o.-.o.-.o.-.o.-." }, { LK, "x.......x......." }, { LSS, "....o.......o..." } });
+        d[StFolk].extra[SecVerse]  = G ({ { LK, "...........o...." } });
+        d[StFolk].extra[SecChorus] = G ({ { LS, "..............g." } });
+        d[StFolk].extra[SecBridge] = G ({ { LK, "..............o." } });
+        d[StFolk].fill[0] = G ({ { LS, "........o.o.o.xx" }, { LK, "........x......." } });
+        d[StFolk].fill[1] = G ({ { LS, "........o...o..." }, { LT1, "..........o....." }, { LF, "..............x." } });
+
+        d[StPostRock].sec[SecVerse]  = G ({ { LRD, "o.-.o.-.o.-.o.-." }, { LK, "x.......x......." }, { LSS, "....o.......o..." } });
+        d[StPostRock].sec[SecChorus] = G ({ { LC, "x.x.x.x.x.x.x.x." }, { LK, "x.x.x.x.x.x.x.x." }, { LS, BBX } });                                    // the climax
+        d[StPostRock].sec[SecBridge] = G ({ { LF, "x.x.x.x.x.x.x.x." }, { LT2, "...x.......x...." }, { LK, "x.......x......." } });                     // the build
+        d[StPostRock].extra[SecVerse]  = G ({ { LT2, "..........o....." } });
+        d[StPostRock].extra[SecChorus] = G ({ { LS, "...............x" } });
+        d[StPostRock].extra[SecBridge] = G ({ { LS, "....o.......o..." } });
+        d[StPostRock].fill[0] = G ({ { LF, "........xxxxxxxx" }, { LS, "............XXXX" }, { LK, "........x......." } });
+        d[StPostRock].fill[1] = tomFill();
+
+        d[StGarage].sec[SecVerse]  = G ({ { LO, "o.o.o.o.o.o.o.o." }, { LK, "x.x...x.x.x....." }, { LS, BBX } });
+        d[StGarage].sec[SecChorus] = G ({ { LC, "x.x.x.x.x.x.x.x." }, { LK, "x.x...x.x.x....." }, { LS, BBX } });
+        d[StGarage].sec[SecBridge] = G ({ { LF, "x.x.x.x.x.x.x.x." }, { LK, "x.......x......." }, { LS, BBX } });
+        d[StGarage].extra[SecVerse]  = G ({ { LS, ".......o.......o" } });
+        d[StGarage].extra[SecChorus] = G ({ { LK, "...x.......x...." } });
+        d[StGarage].extra[SecBridge] = G ({ { LS, "..............o." } });
+        d[StGarage].fill[0] = G ({ { LS, "........XoXoXoXX" }, { LK, "........x......." } });
+        d[StGarage].fill[1] = tomFill();
         return d;
     }();
     return s;

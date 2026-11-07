@@ -105,8 +105,14 @@ void CarouselEditor::timerCallback()
     undoButton.setEnabled (proc.uiLayers.load() > 1 || st == Recording);
     redoButton.setEnabled (proc.uiRedo.load() > 0);
     exportButton.setEnabled (st != Recording && st != Empty);
+    const float before = inShown;
     inShown = juce::jmax (proc.uiInLevel.load(), inShown * 0.88f);
-    repaint();
+    // full repaint only when the looper's state changes; otherwise just the moving ring
+    const int64_t sig = st * 7 + cur * 131 + (int64_t) has * 1031 + proc.uiLayers.load() * 17 + proc.uiRedo.load() * 19 + proc.uiFreeChunks.load() * 100003LL
+                      + (int64_t) (proc.uiLenSec.load() * 10.0f) * 1000003LL;
+    if (sig != lastSig) { lastSig = sig; repaint(); return; }
+    const bool moving = st == Playing || st == Overdubbing || st == Recording || st >= StoppingFade;
+    if (moving || std::abs (inShown - before) > 0.0005f) repaint (ringArea.getUnion (memArea));
 }
 
 void CarouselEditor::paint (juce::Graphics& g)

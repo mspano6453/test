@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/BandStyles.h"
 #include "LoonDSP.h"
 
 class LoonProcessor : public juce::AudioProcessor
@@ -30,6 +31,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
 
     // read by the UI
     std::atomic<int> uiRoot { 9 }, uiMinor { 1 }, uiLastNote { -1 }, uiNoteKind { 0 };
@@ -49,7 +53,7 @@ private:
     std::vector<float> mono, gL, gR, sL, sR;
     double journeyTime = 0;
     int followedRoot = 9, followedMinor = 1;
-    float liftS = 0, dropS = 0, duck = 0;
+    float liftS = 0, dropS = 0, duck = 0, waitGain = 1;
     int64_t lastDuckStep = -1;
     int currentProgram = 0;
 

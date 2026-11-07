@@ -46,7 +46,7 @@ int main()
     const Cmd cmds[] = { { 6.3, BandleaderProcessor::CNext, "NEXT" }, { 13.4, BandleaderProcessor::CDrop, "DROP" },
                          { 16.2, BandleaderProcessor::CAllIn, "ALL IN" }, { 22.1, BandleaderProcessor::CFill, "FILL" },
                          { 27.5, BandleaderProcessor::CBridge, "BRIDGE (manual)" } };
-    size_t nextCmd = 0;
+    size_t nextCmd = 0; double bassCpu = 0;
     // Live runs plugins while stopped too: a moment of that before pressing play
     head.playing = false;
     for (int i = 0; i < 20; ++i)
@@ -68,7 +68,7 @@ int main()
         for (int o : ord)
         {
             if (o == 0) lead.processBlock (b1, m1);
-            if (o == 1) bass.processBlock (b2, m2);
+            if (o == 1) { const auto t0 = juce::Time::getHighResolutionTicks(); bass.processBlock (b2, m2); bassCpu += juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0); }
             if (o == 2) drums.processBlock (b3, m3);
         }
         const int bar = (int) barF;
@@ -111,6 +111,7 @@ int main()
     for (double q : bassNotes) for (double k : kicks) if (std::abs (q - k) * 0.5 < 0.03) { ++withKick; break; }
     std::printf ("sections agree %d/%d bars; bass on chord root at downbeats %d/%d; %zu kicks, %zu bass notes, %d bass notes with a kick\n",
                  agree, bars, rootOk, rootN, kicks.size(), bassNotes.size(), withKick);
+    std::printf ("CPU Undertow %.2f%% of real time\n", 100.0 * bassCpu / (total / sr));
     std::printf ("present: teatowel %d undertow %d bandleader %d\n", band::isPresent (band::WTeaTowel), band::isPresent (band::WUndertow), band::isPresent (band::WBandleader));
 
     {

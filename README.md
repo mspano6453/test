@@ -90,6 +90,9 @@ Carousel (REC waits for the next section and records exactly one section; slots 
 Tape Twin (echo throw on the last beat before each new section) and Lathe (loudness per section). Footswitch: C2 next section, D2 fill, E2 drop out,
 F2 all in, G2 verse, A2 chorus, B2 bridge (or CC 90-96). Each plugin still works on its own without it.
 
+**Styles:** pick a genre in Bandleader's Style menu (29 rock styles, from 60s Beat to Shoegaze to Stoner/Doom) and every
+plugin in the set moves its knobs to suit it. APPLY AGAIN resets them. Reopening a set keeps your tweaks.
+
 ## Getting the plugin built
 
 The plugin has to be compiled for your machine. The easiest way needs no tools installed:

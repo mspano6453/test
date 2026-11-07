@@ -74,6 +74,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LoonProcessor::createLayout(
 
     F ("v_size", "Space Size", 0.7f); F ("v_mix", "Space", 0.6f); F ("shimmer", "Shimmer", 0.35f); F ("wobble", "Tape Wobble", 0.2f);
     F ("out", "Output", -3.0f, dB1, { -24, 6, 0.1f });
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -82,6 +83,7 @@ LoonProcessor::LoonProcessor()
                                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Loon", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     gen.midiOut = [this] (int note, float vel, bool)
     {
         if (pendingCount + 2 > 128) return;
@@ -141,6 +143,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     band::Leader leader;
     const int linkMode = (int) v ("band_link");
     bool led = linkMode > 0 && band::readLeader (leader);
+    const bool bandWaiting = led && ! leader.playing;   // a Bandleader runs the show: wait for play
     double ppq = 0, bpm = 120; bool playing = false;
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
@@ -167,6 +170,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
     const double sm = 1.0 - std::exp (-(double) n / (2.0 * sr));   // ~2 s glide
     liftS += (float) ((sectionLift - liftS) * sm);
+    waitGain += (float) (((bandWaiting ? 0.0f : 1.0f) - waitGain) * (1.0 - std::exp (-(double) n / (0.8 * sr))));
     dropS += (float) ((dropLift - dropS) * sm);
 
     Generator::Params gp;
@@ -188,7 +192,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
 
     // ---- generate
     std::fill (gL.begin(), gL.begin() + n, 0.0f); std::fill (gR.begin(), gR.begin() + n, 0.0f);
-    gen.render (gL.data(), gR.data(), n, gp, v ("gen_lvl") * (1.0f + 0.25f * liftS + 0.35f * dropS));
+    gen.render (gL.data(), gR.data(), n, gp, v ("gen_lvl") * (1.0f + 0.25f * liftS + 0.35f * dropS) * waitGain);
 
     // dip under Tea Towel's kick (no sidechain routing needed)
     if (led)
@@ -227,7 +231,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     const float w = gp.weather;
     np.wind = v ("wind") * (0.4f + w); np.rain = v ("rain") * (0.3f + w); np.creek = v ("creek");
     np.crickets = v ("crickets"); np.birds = v ("birds"); np.loons = v ("loons"); np.thunder = v ("thunder") * w;
-    nature.process (L, R, n, np, v ("nature_lvl"));
+    nature.process (L, R, n, np, v ("nature_lvl") * waitGain);
 
     // ---- output + gentle safety limiter
     const float g = juce::Decibels::decibelsToGain (v ("out"));
@@ -297,6 +301,22 @@ void LoonProcessor::setStateInformation (const void* data, int size)
             currentProgram = (int) st.getProperty ("program", 0);
             apvts.replaceState (st);
         }
+}
+
+void LoonProcessor::applyStyle (const band::StyleDef& s)
+{
+    band::setParam (apvts, "gen_on", s.lGen > 0.01f ? 1.0f : 0.0f);
+    band::setParam (apvts, "gen_lvl", s.lGen);
+    band::setParam (apvts, "mood", (float) s.lMood);
+    band::setParam (apvts, "pads", s.lPads);
+    band::setParam (apvts, "v_mix", s.lSpace);
+    band::setParam (apvts, "v_size", s.lSize);
+    band::setParam (apvts, "shimmer", s.lShimmer);
+    band::setParam (apvts, "cloud_amt", s.lCloud);
+    band::setParam (apvts, "wobble", s.lWobble);
+    band::setParam (apvts, "gtr_space", s.lGtr);
+    band::setParam (apvts, "dry", 1.0f);
+    band::setParam (apvts, "nature_lvl", 0.0f);     // no crickets in the rock band
 }
 
 juce::AudioProcessorEditor* LoonProcessor::createEditor() { return new LoonEditor (*this); }

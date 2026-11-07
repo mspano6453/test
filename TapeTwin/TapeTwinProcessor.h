@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/BandStyles.h"
 #include <array>
 #include <vector>
 
@@ -104,6 +105,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
     std::atomic<float> echoLevel { 0.0f }, currentDelayMs { 0.0f };
     std::atomic<bool> uiLinked { false };
 

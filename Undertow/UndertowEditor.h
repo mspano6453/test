@@ -30,6 +30,7 @@ private:
     juce::Rectangle<int> earArea, rollArea, playerPanel, rigPanel, legendArea, guitarArea;
     float inShown = 0;
     int fillFlash = 0;
+    juce::String lastStatic; int64_t lastDyn = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UndertowEditor)
 };

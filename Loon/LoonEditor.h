@@ -40,6 +40,7 @@ private:
     uint32_t lastCounter = 0;
     float inputShown = 0;
     juce::Rectangle<int> sky, panelA, panelB, panelC, meterArea;
+    int lastKeySig = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoonEditor)
 };

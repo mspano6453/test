@@ -35,6 +35,11 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
         secB[i].onClick = [this, i] { proc.command ((BandleaderProcessor::Cmd) (BandleaderProcessor::CVerse + i)); };
         addAndMakeVisible (secB[i]);
     }
+    styleBox.addItemList (band::styleNames(), 1);
+    styleAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "style", styleBox);
+    addAndMakeVisible (styleBox);
+    applyAgainB.onClick = [this] { proc.reapplyStyle(); };
+    addAndMakeVisible (applyAgainB);
     keyBox = combo ("key", "KEY");
     combo ("chord_bars", "BARS PER CHORD");
     combo ("song", "SONG");
@@ -45,11 +50,25 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     energyK = new ttui::Knob ("ENERGY", false, this);
     energyK->attach (proc.apvts, "energy");
     owned.add (energyK); addAndMakeVisible (energyK);
-    setSize (980, 660);
-    startTimerHz (20);
+    setSize (980, 740);
+    startTimerHz (12);
 }
 
 BandleaderEditor::~BandleaderEditor() { setLookAndFeel (nullptr); }
+
+void BandleaderEditor::timerCallback()
+{
+    updateButtons();
+    juce::String st;
+    for (auto* id : { "style", "key", "prog_verse", "prog_chorus", "prog_bridge", "chord_bars", "song", "section_bars" })
+        st << (int) proc.apvts.getRawParameterValue (id)->load() << ",";
+    if (st != lastStatic) { lastStatic = st; repaint(); return; }
+    const int64_t dyn = proc.uiSection.load() * 7 + proc.uiNextSection.load() * 131 + proc.uiBarsToNext.load() * 1031 + proc.uiBarIn.load() * 10007
+                      + proc.uiFormIndex.load() * 100003 + proc.uiChord.load() * 1000003LL + (proc.uiPlaying.load() ? 1 : 0)
+                      + (proc.uiOut.load() ? 2 : 0) + (proc.uiDropComing.load() ? 4 : 0) + (proc.uiFillComing.load() ? 8 : 0) * 77;
+    if (dyn != lastDyn) { lastDyn = dyn; repaint (nowArea); repaint (formArea); }
+    if (++tick % 12 == 0) repaint (bandArea);    // who's listening: once a second is plenty
+}
 
 void BandleaderEditor::updateButtons()
 {
@@ -122,7 +141,25 @@ void BandleaderEditor::paint (juce::Graphics& g)
     // ---- song settings labels
     g.setColour (col::panel); g.fillRoundedRectangle (songArea.toFloat(), 8.0f);
     g.setColour (kGold); g.setFont (font (13.0f, true));
-    g.drawText ("KEY AND CHORDS", songArea.reduced (18, 12).removeFromTop (18), juce::Justification::centredLeft);
+    g.drawText ("STYLE, KEY AND CHORDS", songArea.reduced (18, 12).removeFromTop (18), juce::Justification::centredLeft);
+    {
+        const int st = (int) proc.apvts.getRawParameterValue ("style")->load();
+        auto ta = styleText;
+        if (st > 0)
+        {
+            const auto& sd = band::styles()[(size_t) (st - 1)];
+            g.setColour (col::cream); g.setFont (font (12.0f, true));
+            g.drawText ("Suggested tempo: " + juce::String (juce::roundToInt (sd.bpm)) + " BPM (set it in Live)", ta.removeFromTop (16), juce::Justification::centredLeft);
+            g.setColour (col::muted); g.setFont (font (12.0f));
+            g.drawFittedText (sd.blurb, ta, juce::Justification::topLeft, 2, 1.0f);
+        }
+        else
+        {
+            g.setColour (col::muted); g.setFont (font (12.0f));
+            g.drawFittedText ("Pick a style and the whole band changes: drums, bass, Loon, Tape Twin, Schaltwerk and Lathe move their knobs to suit it. Tweak anything after.",
+                              ta, juce::Justification::topLeft, 2, 1.0f);
+        }
+    }
     const int key = keyBox->getSelectedItemIndex();
     g.setFont (font (11.0f, true));
     for (auto& [cb, label] : labelled)
@@ -210,7 +247,16 @@ void BandleaderEditor::resized()
     r.removeFromTop (12);
     songArea = r;
     auto sa = songArea.reduced (18, 12);
-    sa.removeFromTop (40);
+    sa.removeFromTop (24);
+    {
+        auto sr = sa.removeFromTop (28);
+        styleBox.setBounds (sr.removeFromLeft (260).reduced (4, 0));
+        sr.removeFromLeft (8);
+        applyAgainB.setBounds (sr.removeFromLeft (130).reduced (4, 0));
+        sa.removeFromTop (6);
+        styleText = sa.removeFromTop (48).reduced (4, 0);
+    }
+    sa.removeFromTop (16);
     auto row1 = sa.removeFromTop (26);
     energyK->setBounds (sa.withTrimmedTop (8).removeFromRight (110).withHeight (100));
     const int w4 = row1.getWidth() / 4;

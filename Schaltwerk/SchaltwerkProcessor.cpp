@@ -100,6 +100,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SchaltwerkProcessor::createL
     F ("ec_fb", "Echo Feedback", { 0, 0.9f, 0.001f }, 0.4f, pct);
     F ("ec_mix", "Echo Level", { 0, 1, 0.001f }, 0.6f, pct);
     F ("out", "Output", { -24, 6, 0.1f }, -3, dB1);
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -108,6 +109,7 @@ SchaltwerkProcessor::SchaltwerkProcessor()
                                        .withInput ("Sidechain (vocoder)", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Schaltwerk", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     loadPattern (0);
 }
 
@@ -402,6 +404,18 @@ void SchaltwerkProcessor::setStateInformation (const void* data, int size)
     currentProgram = (int) state.getProperty ("program", 0);
     patternFromString (state.getProperty ("pattern").toString());
     apvts.replaceState (state);
+}
+
+void SchaltwerkProcessor::applyStyle (const band::StyleDef& s)
+{
+    // 0 sits out, 1 Omnichord pad, 2 Omnichord strums, 3 drum machine + pad
+    const bool drums = s.sRole == 3;
+    if (drums && s.sPattern >= 0) loadPattern (s.sPattern);
+    band::setParam (apvts, "seq_on", drums ? 1.0f : 0.0f);
+    band::setParam (apvts, "om_chord", s.sRole == 1 ? 0.45f : s.sRole == 2 ? 0.15f : s.sRole == 3 ? 0.35f : 0.0f);
+    band::setParam (apvts, "om_harp", s.sRole == 2 ? 0.55f : 0.0f);
+    band::setParam (apvts, "om_bass", s.sRole == 3 ? 0.3f : 0.0f);
+    band::setParam (apvts, "om_auto", s.sRole == 2 ? 2.0f : 0.0f);
 }
 
 juce::AudioProcessorEditor* SchaltwerkProcessor::createEditor() { return new SchaltwerkEditor (*this); }

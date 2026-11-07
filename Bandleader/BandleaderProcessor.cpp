@@ -1,3 +1,4 @@
+#include "../Source/BandBus.h"
 #include "BandleaderProcessor.h"
 #include "BandleaderEditor.h"
 
@@ -14,13 +15,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout BandleaderProcessor::createL
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> ps;
     auto C = [&] (const char* id, const char* name, juce::StringArray items, int def)
     { ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name, items, def)); };
+    C ("style", "Style", band::styleNames(), 0);
     C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
     C ("prog_verse", "Verse Chords", ut::progressionNames(), 0);
     C ("prog_chorus", "Chorus Chords", ut::progressionNames(), 2);
     C ("prog_bridge", "Bridge Chords", ut::progressionNames(), 5);
     C ("chord_bars", "Bars Per Chord", { "1", "2", "4" }, 0);
     C ("song", "Song", { "Auto song", "Manual" }, 0);
-    C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars" }, 1);
+    C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars", "12 bars" }, 1);
     C ("section", "Section", { "Verse", "Chorus", "Bridge" }, 0);
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "energy", 1 }, "Energy", juce::NormalisableRange<float> (0, 1, 0.001f), 0.5f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v * 100)) + "%"; })));
@@ -34,9 +36,12 @@ BandleaderProcessor::BandleaderProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Bandleader", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
+    lastStyleParam = (int) apvts.getRawParameterValue ("style")->load();
+    startTimerHz (5);
 }
 
-int BandleaderProcessor::sectionBarsNow() const { return 4 << (int) apvts.getRawParameterValue ("section_bars")->load(); }
+int BandleaderProcessor::sectionBarsNow() const { return ut::sectionBarsFor ((int) apvts.getRawParameterValue ("section_bars")->load()); }
 
 // a command lands on the next bar line (or the one after, if this bar is nearly over)
 void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
@@ -51,8 +56,7 @@ void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
     };
     auto setManual = [&] (int sec)
     {
-        if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);
-        if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) sec));
+        postParams (sec, true);
         goTo (sec, false);
     };
     switch (c)
@@ -66,7 +70,7 @@ void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
             else
             {
                 const int s = (L.curSection + 1) % band::NumSec;
-                if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) s));
+                postParams (s, false);
                 goTo (s, false);
             }
             break;
@@ -96,6 +100,8 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         for (int i = 0; i < L.progLen[s]; ++i) { L.progOff[s][i] = (int8_t) p[(size_t) i].off; L.progMinor[s][i] = p[(size_t) i].minor ? 1 : 0; }
     }
     L.energy = g ("energy");
+    L.style = styleIdx.load(); L.styleStamp = styleStamp.load();
+    L.suggestedBpm = L.style >= 0 ? band::styles()[(size_t) L.style].bpm : 0.0f;
     const bool autoSong = g ("song") < 0.5f;
     const int secBars = sectionBarsNow();
 
@@ -158,7 +164,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     if (const int c = uiCmd.exchange (0)) handle ((Cmd) c, bar, frac);
 
     // manual: follow the Section parameter (automation, MIDI Map)
-    if (! autoSong && playing)
+    if (! autoSong && playing && ! paramsPending.load())
     {
         const int want = (int) g ("section");
         const int pending = L.nextStartBar < band::kNever ? L.nextSection : L.curSection;
@@ -208,7 +214,63 @@ void BandleaderProcessor::getStateInformation (juce::MemoryBlock& dest)
 void BandleaderProcessor::setStateInformation (const void* data, int size)
 {
     if (auto xml = getXmlFromBinary (data, size))
-        if (xml->hasTagName (apvts.state.getType())) apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        if (xml->hasTagName (apvts.state.getType()))
+        {
+            apvts.replaceState (juce::ValueTree::fromXml (*xml));
+            // a reopened set keeps its style without re-applying it to everyone
+            lastStyleParam = (int) apvts.getRawParameterValue ("style")->load();
+            styleIdx = lastStyleParam - 1;
+            styleStamp = (uint32_t) (juce::int64) apvts.state.getProperty ("styleStamp", 0);
+        }
+}
+
+// ---------------------------------------------------------------------------
+// Styles: watched on the message thread. Picking one sets Bandleader's own song
+// settings and stamps it, and every plugin in the set takes it from the bus.
+void BandleaderProcessor::timerCallback()
+{
+    const int st = (int) apvts.getRawParameterValue ("style")->load();
+    if (st == lastStyleParam) return;
+    lastStyleParam = st;
+    if (st <= 0) { styleIdx = -1; return; }      // Custom: keep everything as it is
+    applyStyle (st - 1);
+}
+
+void BandleaderProcessor::applyStyle (int idx)
+{
+    const auto& s = band::styles()[(size_t) idx];
+    band::setParam (apvts, "key", (float) s.key);
+    band::setParam (apvts, "prog_verse", (float) s.prog[0]);
+    band::setParam (apvts, "prog_chorus", (float) s.prog[1]);
+    band::setParam (apvts, "prog_bridge", (float) s.prog[2]);
+    band::setParam (apvts, "chord_bars", (float) s.chordBars);
+    band::setParam (apvts, "section_bars", (float) s.sectionBars);
+    band::setParam (apvts, "energy", s.energy);
+    band::setParam (apvts, "song", 0.0f);
+    uint32_t stamp = (uint32_t) juce::Random::getSystemRandom().nextInt();
+    if (stamp == 0) stamp = 1;
+    styleIdx = idx; styleStamp = stamp;
+    apvts.state.setProperty ("styleStamp", (juce::int64) stamp, nullptr);
+}
+
+void BandleaderProcessor::reapplyStyle()
+{
+    const int st = (int) apvts.getRawParameterValue ("style")->load();
+    if (st > 0) applyStyle (st - 1);
+}
+
+// the audio thread never touches parameters directly: it asks the message thread to
+void BandleaderProcessor::postParams (int sec, bool manual)
+{
+    pendingSection = sec; pendingManual = manual; paramsPending = true;
+    triggerAsyncUpdate();
+}
+
+void BandleaderProcessor::handleAsyncUpdate()
+{
+    if (pendingManual.load()) if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);
+    if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) pendingSection.load()));
+    paramsPending = false;
 }
 
 juce::AudioProcessorEditor* BandleaderProcessor::createEditor() { return new BandleaderEditor (*this); }

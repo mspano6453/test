@@ -1,7 +1,7 @@
 [Setup]
 AppId={{6E1B7C2A-5D4F-4A8B-9C3E-7A1F2B9D0E11}
 AppName=Tea Towel Suite
-AppVersion=1.9.0
+AppVersion=2.0.0
 AppPublisher=Tea Towel Audio
 DefaultDirName={commoncf64}\VST3
 DisableDirPage=yes

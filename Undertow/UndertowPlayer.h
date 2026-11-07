@@ -9,8 +9,8 @@
 // ---------------------------------------------------------------------------
 namespace ut
 {
-enum Feel { FPump = 0, FMelodic, FGothic, FOctaves, FWalk, NumFeels };
-inline const char* feelName (int f) { static const char* n[] = { "Pump", "Melodic", "Gothic", "Octaves", "Walk" }; return n[f]; }
+enum Feel { FPump = 0, FMelodic, FGothic, FOctaves, FWalk, FRoot, FHalf, FGallop, NumFeels };
+inline const char* feelName (int f) { static const char* n[] = { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop" }; return n[f]; }
 enum Section { SVerse = 0, SChorus, SBridge, NumSections };
 
 constexpr int kSteps = 32;           // 2 bars of 16ths
@@ -57,7 +57,10 @@ public:
             case FMelodic: melodic (m, r, section, hook, density); break;
             case FGothic:  gothic (m, r, section, hook, density); break;
             case FOctaves: octaves (m, r, section, hook, density); break;
-            default:       walk (m, r, section, hook, density); break;
+            case FWalk:    walk (m, r, section, hook, density); break;
+            case FRoot:    root8 (m, r, section, hook, density); break;
+            case FHalf:    halfHeavy (m, r, section, hook, density); break;
+            default:       gallop (m, r, section, hook, density); break;
         }
         if (section == SBridge) halfTime (m, r);
         if (section == SChorus) for (auto& s : m.s) if (s.on && ! s.ghost) s.vel = std::min (1.0f, s.vel + 0.07f);
@@ -235,6 +238,44 @@ private:
         }
     }
 
+    // straight root eighths, the engine of punk, shoegaze, krautrock and grunge
+    static void root8 (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int i = 0; i < kSteps; i += 2) put (m, i, 0, i % 8 == 0 ? 0.9f : 0.78f, 1.9f);
+        if (sec == SChorus && r.chance (0.5f)) { put (m, 28, 4, 0.85f, 1.8f); put (m, 30, 7, 0.88f, 1.8f); }
+        if (density > 0.75f) for (int i = 1; i < kSteps; i += 8) if (r.chance (density - 0.6f)) put (m, i, 0, 0.45f, 0.7f, 0, true);
+        if (hook > 0.6f && r.chance (hook - 0.3f)) { put (m, 12, 4, 0.8f, 1.8f); put (m, 14, 2, 0.8f, 1.8f); }
+        else if (r.chance (0.4f)) put (m, 30, 0, 0.8f, 1.8f, -1);                // chromatic lean into the next bar
+    }
+
+    // slow and heavy: long roots, octave drops, a slide-like approach
+    static void halfHeavy (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        put (m, 0, 0, 0.95f, 7.5f);
+        put (m, 8, sec == SChorus ? 0 : -7, 0.85f, 3.6f);        // root an octave down on 3 (folded back into range)
+        put (m, 12, r.chance (0.5f) ? 0 : 6, 0.8f, 3.6f);
+        put (m, 16, 0, 0.95f, 5.5f);
+        put (m, 22, r.chance (0.5f) ? 2 : 4, 0.82f, 1.8f);
+        put (m, 24, 4, 0.86f, 3.6f);
+        put (m, 28, hook > 0.5f ? 7 : 3, 0.82f, 1.7f);
+        put (m, 30, hook > 0.5f ? 6 : 1, 0.78f, 1.7f);
+        if (density > 0.6f) put (m, 6, 0, 0.7f, 1.6f);
+    }
+
+    // eighth + two sixteenths: surf, metal, galloping rock
+    static void gallop (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int b = 0; b < kSteps; b += 4)
+        {
+            const int deg = (b == 12 || b == 28) && hook > 0.4f ? (r.chance (0.5f) ? 4 : 7) : 0;
+            put (m, b, deg, 0.9f, 1.8f);
+            put (m, b + 2, deg, 0.7f, 0.9f);
+            put (m, b + 3, deg, 0.74f, 0.9f);
+        }
+        if (sec == SChorus) for (int b = 16; b < 24; b += 4) for (int k = 0; k < 4; ++k) if (m.s[(size_t) (b + k)].on) m.s[(size_t) (b + k)].deg = 7;
+        juce::ignoreUnused (density);
+    }
+
     static void halfTime (Motif& m, Rng& r)
     {
         for (int i = 0; i < kSteps; ++i)
@@ -299,6 +340,17 @@ inline const std::vector<Progression>& progressions()
         { "I - vi - IV - V",    { { 0, false }, { 9, true }, { 5, false }, { 7, false } } },
         { "I - IV",             { { 0, false }, { 5, false } } },
         { "I - bVII - IV - I",  { { 0, false }, { 10, false }, { 5, false }, { 0, false } } },
+        { "I - IV - V - IV",    { { 0, false }, { 5, false }, { 7, false }, { 5, false } } },
+        { "I - IV - I - V",     { { 0, false }, { 5, false }, { 0, false }, { 7, false } } },
+        { "I - bIII - IV - I",  { { 0, false }, { 3, false }, { 5, false }, { 0, false } } },
+        { "i - VII - VI - V",   { { 0, true }, { 10, false }, { 8, false }, { 7, false } } },
+        { "I - V",              { { 0, false }, { 7, false } } },
+        { "12-bar blues",       { { 0, false }, { 0, false }, { 0, false }, { 0, false }, { 5, false }, { 5, false },
+                                  { 0, false }, { 0, false }, { 7, false }, { 5, false }, { 0, false }, { 7, false } } },
+        { "I - iii - IV - iv",  { { 0, false }, { 4, true }, { 5, false }, { 5, true } } },
+        { "I - bVI - bVII - I", { { 0, false }, { 8, false }, { 10, false }, { 0, false } } },
+        { "i - v",              { { 0, true }, { 7, true } } },
+        { "I - vi - ii - V",    { { 0, false }, { 9, true }, { 2, true }, { 7, false } } },
     };
     return p;
 }
@@ -314,6 +366,7 @@ inline juce::String progressionChords (int prog, int key)
 
 // the song the band plays when it's on its own: verse, chorus, verse, chorus, bridge, chorus
 struct SongPos { int section; int barIn; bool lastBar; };
+inline int sectionBarsFor (int choiceIndex) { static const int b[] = { 4, 8, 16, 12 }; return b[std::clamp (choiceIndex, 0, 3)]; }
 inline SongPos songPosition (int64_t bar, int sectionBars)
 {
     static const int form[] = { SVerse, SChorus, SVerse, SChorus, SBridge, SChorus };

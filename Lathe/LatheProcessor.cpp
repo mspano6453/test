@@ -134,6 +134,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LatheProcessor::createLayout
     F ("mx_rel", "Maximizer Release", juce::NormalisableRange<float> (10, 1000, 1, 0.5f), 120, msT);
     B ("mx_tp", "Maximizer True Peak", true);
 
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -142,6 +143,7 @@ LatheProcessor::LatheProcessor()
                                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Lathe", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     const int def[NumModules] = { MEq, MDynEq, MTape, MDyn, MExciter, MImager, MMax };
     for (int i = 0; i < NumModules; ++i) order[(size_t) i].store (def[i]);
 }
@@ -484,6 +486,11 @@ void LatheProcessor::setStateInformation (const void* data, int size)
         if (ok) setOrder (arr);
     }
     apvts.replaceState (state);
+}
+
+void LatheProcessor::applyStyle (const band::StyleDef& s)
+{
+    setCurrentProgram (s.lathe);
 }
 
 juce::AudioProcessorEditor* LatheProcessor::createEditor() { return new LatheEditor (*this); }

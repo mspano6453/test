@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/BandStyles.h"
 #include "SchaltwerkDSP.h"
 
 namespace sw
@@ -45,6 +46,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
+    // genre styles from Bandleader (moves this plugin's knobs when a style is picked)
+    void applyStyle (const band::StyleDef&);
+    band::StyleFollower styleFollower { apvts, [this] (const band::StyleDef& s) { applyStyle (s); } };
 
     // Report the audio input as a sidechain (not a main input), so Live treats this as an
     // instrument and offers the input in its Sidechain menu for the vocoder.

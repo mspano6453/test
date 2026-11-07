@@ -40,8 +40,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout UndertowProcessor::createLay
     C ("prog_bridge", "Bridge Chords", progressionNames(), 5);
     C ("chord_bars", "Bars Per Chord", { "1", "2", "4" }, 0);
     C ("song", "Song", { "Auto song", "Manual" }, 0);
-    C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars" }, 1);
-    C ("feel", "Feel", { "Pump", "Melodic", "Gothic", "Octaves", "Walk" }, 0);
+    C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars", "12 bars" }, 1);
+    C ("feel", "Feel", { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop" }, 0);
     C ("section", "Section", { "Verse", "Chorus", "Bridge" }, 0);
     C ("fill_now", "Footswitch: Fill", onOff(), 0);
     C ("register", "Register", { "Low (E-D#)", "Mid (A-G#)", "High (octave up)" }, 0);
@@ -71,6 +71,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout UndertowProcessor::createLay
     F ("treble_db", "Treble", { -12, 12, 0.1f }, 2.5f, dB1);
     C ("bright", "Bright", onOff(), 1);
     F ("out", "Output", { -24, 6, 0.1f }, -3, dB1);
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "take_style", 1 }, "Take Style From Bandleader", juce::StringArray { "Off", "On" }, 1));
     return { ps.begin(), ps.end() };
 }
 
@@ -79,6 +80,7 @@ UndertowProcessor::UndertowProcessor()
                                        .withInput ("Sidechain (guitar)", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Undertow", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     for (auto& m : uiMotif) m = -1;
     loadSamples();
 }
@@ -139,7 +141,7 @@ void UndertowProcessor::readParams()
     auto g = [&] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
     mode = (int) g ("mode"); follow = (int) g ("follow"); feel = (int) g ("feel"); section = (int) g ("section");
     key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
-    chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = 4 << (int) g ("section_bars");
+    chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = ut::sectionBarsFor ((int) g ("section_bars"));
     lockDrums = g ("lock_drums") > 0.5f;
     reg = (int) g ("register"); stopWithBand = g ("band_stop") < 0.5f; keysOct = (int) g ("octave") - 2;
     variation = g ("variation"); fills = g ("fills"); hook = g ("hook"); density = g ("density");
@@ -169,8 +171,8 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
             if (nn == kKeyFill) fillPending = true;
             else
             {
-                if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (nn - kKeyVerse)));
-                if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);   // you're steering now
+                keySection = nn - kKeyVerse;      // applied on the message thread (you're steering now: manual song)
+                triggerAsyncUpdate();
             }
             return;
         }
@@ -322,7 +324,7 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
         uint16_t kicks = 0;
         if (band::readKicks (bar, kicks))
         {
-            const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk;
+            const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk || feel == FRoot || feel == FGallop;
             for (int i = 0; i < 16; ++i)
             {
                 auto& stp = inst.s[(size_t) (motifPos + i)];
@@ -589,6 +591,32 @@ void UndertowProcessor::setStateInformation (const void* data, int size)
             apvts.replaceState (t);
             baseFeel = -1;
         }
+}
+
+void UndertowProcessor::handleAsyncUpdate()
+{
+    const int sec = keySection.exchange (-1);
+    if (sec < 0) return;
+    if (auto* p = apvts.getParameter ("section")) p->setValueNotifyingHost (p->convertTo0to1 ((float) sec));
+    if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);
+}
+
+void UndertowProcessor::applyStyle (const band::StyleDef& s)
+{
+    band::setParam (apvts, "feel", (float) s.bFeel);
+    band::setParam (apvts, "register", (float) s.bReg);
+    band::setParam (apvts, "hook", s.bHook);
+    band::setParam (apvts, "density", s.bBusy);
+    band::setParam (apvts, "push", s.bPush);
+    band::setParam (apvts, "swing", s.bSwing);
+    band::setParam (apvts, "length", s.bLen);
+    band::setParam (apvts, "comp", s.bComp);
+    band::setParam (apvts, "grit", s.bGrit);
+    band::setParam (apvts, "ch_mix", s.bChorus);
+    band::setParam (apvts, "fl_mix", s.bFlanger);
+    band::setParam (apvts, "bass_db", s.bBass);
+    band::setParam (apvts, "mid_db", s.bMid);
+    band::setParam (apvts, "treble_db", s.bTreble);
 }
 
 juce::AudioProcessorEditor* UndertowProcessor::createEditor() { return new UndertowEditor (*this); }

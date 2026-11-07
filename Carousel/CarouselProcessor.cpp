@@ -46,6 +46,7 @@ CarouselProcessor::CarouselProcessor()
                                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Carousel", createLayout())
 {
+    band::available();   // open the band link here (message thread), not on the audio thread
     slots.resize (kSlots);
 }
 

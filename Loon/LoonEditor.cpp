@@ -116,8 +116,13 @@ void LoonEditor::timerCallback()
     }
     for (auto& b : bubbles) { b.y -= 0.0025f; b.life -= 0.004f; }
     bubbles.erase (std::remove_if (bubbles.begin(), bubbles.end(), [] (const Bubble& b) { return b.life <= 0 || b.y < 0; }), bubbles.end());
+    const float shownBefore = inputShown;
     inputShown = juce::jmax (proc.uiInput.load(), inputShown * 0.9f);
-    repaint();
+    // repaint only the moving parts
+    const int keySig = proc.uiRoot.load() * 4 + proc.uiMinor.load() * 2 + (proc.uiLinked.load() || proc.uiFollowing.load() ? 1 : 0) + (int) (proc.uiJourney.load() * 200) * 64;
+    if (page == 0 && (! bubbles.empty() || keySig != lastKeySig)) repaint (sky);
+    if (keySig != lastKeySig) lastKeySig = keySig;
+    if (std::abs (inputShown - shownBefore) > 0.0005f) repaint (meterArea);
 }
 
 void LoonEditor::paint (juce::Graphics& g)

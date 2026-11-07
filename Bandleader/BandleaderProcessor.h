@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Source/BandBus.h"
+#include "../Source/BandStyles.h"
 #include "../Undertow/UndertowPlayer.h"
 
 // ---------------------------------------------------------------------------
@@ -16,7 +17,7 @@ constexpr int kCCBase = 90;   // CC 90..96 in the same order
 inline const int kForm[6] = { band::Verse, band::Chorus, band::Verse, band::Chorus, band::Bridge, band::Chorus };
 }
 
-class BandleaderProcessor : public juce::AudioProcessor
+class BandleaderProcessor : public juce::AudioProcessor, private juce::AsyncUpdater, private juce::Timer
 {
 public:
     BandleaderProcessor();
@@ -45,6 +46,10 @@ public:
 
     enum Cmd { CNone = 0, CNext, CFill, CDrop, CAllIn, CVerse, CChorus, CBridge };
     void command (Cmd c) { uiCmd.store ((int) c); }
+    void reapplyStyle();                 // "Apply again": put every plugin's knobs back to the style
+    void timerCallback() override;      // public so offline tests can drive it
+    std::atomic<int> styleIdx { -1 };
+    std::atomic<uint32_t> styleStamp { 0 };
 
     // audio -> UI
     std::atomic<int> uiSection { 0 }, uiNextSection { -1 }, uiBarIn { 0 }, uiBarsToNext { -1 }, uiFormIndex { 0 }, uiChord { -1 };
@@ -53,6 +58,11 @@ public:
 
 private:
     void handle (Cmd c, int64_t bar, double frac);
+    void postParams (int sec, bool manual);
+    void handleAsyncUpdate() override;
+    void applyStyle (int idx);
+    int lastStyleParam = 0;
+    std::atomic<int> pendingSection { 0 }; std::atomic<bool> pendingManual { false }, paramsPending { false };
     int sectionBarsNow() const;
 
     std::atomic<int> uiCmd { 0 };

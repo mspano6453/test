@@ -17,7 +17,7 @@ namespace band
 {
 enum Who { WTeaTowel = 0, WUndertow, WLoon, WSchaltwerk, WCarousel, WTapeTwin, WLathe, WBandleader, NumWho };
 enum Sec { Verse = 0, Chorus, Bridge, NumSec };
-constexpr int kMaxProg = 8;
+constexpr int kMaxProg = 16;
 constexpr int64_t kNever = std::numeric_limits<int64_t>::max() / 4;
 
 struct Leader
@@ -36,6 +36,9 @@ struct Leader
     int64_t fillBar = -kNever;             // the band fills at the end of this bar
     int64_t dropStart = kNever, dropEnd = kNever;
     float energy = 0.5f;
+    int32_t style = -1;                    // genre style (index into band::styles()), -1 = custom
+    uint32_t styleStamp = 0;               // changes every time a style is (re)applied
+    float suggestedBpm = 0;
 
     // ---- helpers every follower uses
     int sectionAt (int64_t bar, int64_t* barIn = nullptr) const

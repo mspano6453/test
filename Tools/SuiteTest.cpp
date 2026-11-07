@@ -44,7 +44,7 @@ int main()
     int loonOk = 0, loonN = 0, swOk = 0, swN = 0;
     bool carPressed = false, dropped = false, back = false;
     float carLen = 0; int carState = -1; float carRecStartBar = -1;
-    double ph = 0;
+    double ph = 0; double cpu[7] {}, worst[7] {}, worstAt[7] {};
     for (int pos = 0; pos < total; pos += bs)
     {
         head.ppq = pos / spb;
@@ -53,10 +53,11 @@ int main()
         if (! dropped && barF > 9.3) { lead.command (BandleaderProcessor::CDrop); dropped = true; }
         if (! back && barF > 12.2) { lead.command (BandleaderProcessor::CAllIn); back = true; }
         juce::MidiBuffer m;
-        b0.clear(); lead.processBlock (b0, m); m.clear();
-        bD.clear(); drums.processBlock (bD, m); m.clear();
-        bL.clear(); loon.processBlock (bL, m); m.clear();
-        bS.clear(); sw.processBlock (bS, m); m.clear();
+        auto T = [&] (int idx, auto&& fn) { const auto t0 = juce::Time::getHighResolutionTicks(); fn(); const double d = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0); cpu[idx] += d; if (d > worst[idx]) { worst[idx] = d; worstAt[idx] = barF; } };
+        T (0, [&] { b0.clear(); lead.processBlock (b0, m); m.clear(); });
+        T (1, [&] { bD.clear(); drums.processBlock (bD, m); m.clear(); });
+        T (2, [&] { bL.clear(); loon.processBlock (bL, m); m.clear(); });
+        T (3, [&] { bS.clear(); sw.processBlock (bS, m); m.clear(); });
         // Carousel hears a steady tone; Tape Twin hears a click on every beat
         for (int i = 0; i < bs; ++i)
         {
@@ -67,9 +68,10 @@ int main()
             bT.setSample (0, i, click); bT.setSample (1, i, click);
         }
         juce::AudioBuffer<float> tIn; tIn.makeCopyOf (bT);
-        car.processBlock (bC, m); m.clear();
-        tape.processBlock (bT, m); m.clear();
-        bM.makeCopyOf (bD); lathe.processBlock (bM, m); m.clear();
+        T (4, [&] { car.processBlock (bC, m); m.clear(); });
+        T (5, [&] { tape.processBlock (bT, m); m.clear(); });
+        bM.makeCopyOf (bD);
+        T (6, [&] { lathe.processBlock (bM, m); m.clear(); });
 
         const int bar = (int) barF;
         if (bar >= bars) break;
@@ -87,6 +89,11 @@ int main()
         tapeWet[(size_t) juce::jmin (bars * 4 - 1, (int) (head.ppq))] += wet;
         if (car.uiState.load() == cr::Recording && carRecStartBar < 0) carRecStartBar = (float) barF;
         carLen = car.uiLenSec.load(); carState = car.uiState.load();
+    }
+    {
+        const char* nm[] = { "Bandleader", "Tea Towel", "Loon", "Schaltwerk", "Carousel", "Tape Twin", "Lathe" };
+        const double audioSec = total / sr;
+        for (int i = 0; i < 7; ++i) std::printf ("CPU %-10s %.2f%% of real time, worst block %.2f ms (block = %.2f ms) at bar %.2f\n", nm[i], 100.0 * cpu[i] / audioSec, worst[i] * 1000, bs / sr * 1000, worstAt[i]);
     }
     std::printf ("Loon follows the chord: %d/%d checks\n", loonOk, loonN);
     std::printf ("Schaltwerk Omnichord on the chord: %d/%d checks\n", swOk, swN);
