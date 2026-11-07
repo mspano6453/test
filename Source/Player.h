@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include "BandBus.h"
 
 // ---------------------------------------------------------------------------
 // PLAYER: a drummer that follows Live's transport and plays the kit.
@@ -128,6 +129,7 @@ public:
         bool on = false;
         int style = 0, section = 0, fillEvery = Fill8;
         float intensity = 0.5f, looseness = 0.3f, swing = 0.0f, variation = 0.5f;
+        const band::Leader* link = nullptr;   // set when a Bandleader is running the song
     };
 
     // UI / key-switch requests (any thread)
@@ -209,8 +211,12 @@ public:
             const double stepPpq = (double) k * 0.25;
             const int offset = juce::jlimit (0, numSamples - 1, (int) ((stepPpq - ppq) / ppqPerSample));
             const int step = (int) (((k % 16) + 16) % 16);
+            const int64_t bar = (k - step) / 16;
             lastStep = k;
-            playStep (step, now + offset, stepLenSamples, s, wanted);
+            int w = wanted;
+            // following the Bandleader: this bar's section on the downbeat, the coming one after it
+            if (s.link != nullptr) w = s.link->sectionAt (step == 0 ? bar : bar + 1);
+            playStep (step, now + offset, stepLenSamples, s, w, bar);
         }
 
         flush (midi, out, numSamples, now);
@@ -271,7 +277,7 @@ private:
         pendingCount = w;
     }
 
-    void playStep (int step, int64_t t, double stepLen, const Settings& s, int wanted)
+    void playStep (int step, int64_t t, double stepLen, const Settings& s, int wanted, int64_t bar)
     {
         uiStep = step;
         const auto& st = styles()[(size_t) juce::jlimit (0, NumStyles - 1, s.style)];
@@ -300,6 +306,15 @@ private:
             }
             if (wanted != section) { section = wanted; barInSection = 0; sectionStart = true; }
             else if (! sectionStart) ++barInSection;
+            if (s.link != nullptr)
+            {
+                int64_t in = 0; s.link->sectionAt (bar, &in); barInSection = (int) in;
+                const bool out = s.link->isOut (bar);
+                if (wasOut && ! out) sectionStart = true;      // everybody back in: crash
+                wasOut = outBar = out;
+                if (s.link->fillAt (bar)) fillNextBar = true;  // the band fills at the end of this bar
+            }
+            else outBar = wasOut = false;
 
             fillThisBar = fillNextBar;
             const bool requested = fillNextBar;
@@ -321,13 +336,37 @@ private:
             uiSection = section;
             uiBar = barInSection + 1;
 
-            if (sectionStart && barInSection == 0)
+            if (sectionStart && (barInSection == 0 || s.link != nullptr) && ! outBar)
                 hit (laneNote[LC], 112 + 10 * s.intensity, t, s, LC);
+
+            // tell the bass player where the kicks are (this bar, and a guess at the next)
+            {
+                auto mask = [&] (int sec, bool fill)
+                {
+                    uint16_t m = 0;
+                    const Groove& gg = st.sec[juce::jlimit (0, NumSections - 1, sec)];
+                    for (int i = 0; i < 16; ++i)
+                    {
+                        const bool inF = fill && i >= fillStart;
+                        const char* lane = inF ? (useGenFill ? nullptr : st.fill[fillAlt].lane[LK]) : gg.lane[LK];
+                        const char c = inF && useGenFill ? genFill[LK][i] : (lane != nullptr ? lane[i] : '.');
+                        if (c != '.') m |= (uint16_t) (1u << i);
+                    }
+                    return m;
+                };
+                const uint16_t thisBar = outBar ? (fillThisBar ? (uint16_t) (mask (section, true) & (0xFFFFu << fillStart)) : (uint16_t) 0) : mask (section, fillThisBar);
+                band::publishKicks (bar, thisBar);
+                const int nextSec = s.link != nullptr ? s.link->sectionAt (bar + 1) : section;
+                band::publishKicks (bar + 1, s.link != nullptr && s.link->isOut (bar + 1) ? (uint16_t) 0 : mask (nextSec, false));
+            }
 
             pendingSectionStart = sectionStart;
         }
 
         if (ended || section < 0) return;
+        // the Bandleader called a fill after this bar had started: take it if there's room
+        if (s.link != nullptr && step > 0 && step <= 8 && ! fillThisBar && s.link->fillAt (bar)) { fillThisBar = true; chooseFill (s, false); }
+        if (outBar && ! (fillThisBar && step >= fillStart && s.link != nullptr && ! s.link->isOut (bar + 1))) return;   // dropped out (but play the fill that brings everyone back)
 
         // requests land on the second half of the current bar if there's time, otherwise the next bar
         if (requestFill.exchange (false)) { if (step < 8) { fillThisBar = true; chooseFill (s, false); } else fillNextBar = true; }
@@ -385,7 +424,7 @@ private:
         if (step == 15) pendingSectionStart = false;
     }
 
-    bool pendingSectionStart = false;
+    bool pendingSectionStart = false, outBar = false, wasOut = false;
     bool nowInFill = false, useGenFill = false;
     int fillStart = 8, barsLeftInPhrase = 7;
     float energy = 1.0f, timeBiasMs = 0.0f, hatAccent = 1.0f;

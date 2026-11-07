@@ -39,7 +39,7 @@ set_target_properties(TeaTowelSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_sources(TeaTowel PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(TeaTowel PUBLIC
     JUCE_WEB_BROWSER=0
@@ -75,7 +75,7 @@ juce_add_plugin(TapeTwin
 target_sources(TapeTwin PRIVATE
     TapeTwin/TapeTwinProcessor.cpp
     TapeTwin/TapeTwinEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(TapeTwin PUBLIC
     JUCE_WEB_BROWSER=0
@@ -108,7 +108,7 @@ juce_add_plugin(Lathe
 target_sources(Lathe PRIVATE
     Lathe/LatheProcessor.cpp
     Lathe/LatheEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(Lathe PUBLIC
     JUCE_WEB_BROWSER=0
@@ -143,7 +143,7 @@ juce_add_plugin(Schaltwerk
 target_sources(Schaltwerk PRIVATE
     Schaltwerk/SchaltwerkProcessor.cpp
     Schaltwerk/SchaltwerkEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(Schaltwerk PUBLIC
     JUCE_WEB_BROWSER=0
@@ -176,7 +176,7 @@ juce_add_plugin(Loon
 target_sources(Loon PRIVATE
     Loon/LoonProcessor.cpp
     Loon/LoonEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(Loon PUBLIC
     JUCE_WEB_BROWSER=0
@@ -210,7 +210,7 @@ juce_add_plugin(Carousel
 target_sources(Carousel PRIVATE
     Carousel/CarouselProcessor.cpp
     Carousel/CarouselEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(Carousel PUBLIC
     JUCE_WEB_BROWSER=0
@@ -228,7 +228,7 @@ target_link_libraries(Carousel
 # ---------------------------------------------------------------------------
 # Undertow - post-punk bass player (real picked-bass samples, follows your guitar)
 file(GLOB UNDERTOW_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Undertow/Samples/*.flac")
-juce_add_binary_data(UndertowSamples SOURCES ${UNDERTOW_SAMPLES})
+juce_add_binary_data(UndertowSamples NAMESPACE UndertowData HEADER_NAME UndertowData.h SOURCES ${UNDERTOW_SAMPLES})
 set_target_properties(UndertowSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(Undertow
@@ -248,7 +248,7 @@ juce_add_plugin(Undertow
 target_sources(Undertow PRIVATE
     Undertow/UndertowProcessor.cpp
     Undertow/UndertowEditor.cpp
-    Source/UiKit.cpp)
+    Source/UiKit.cpp Source/BandBus.cpp)
 
 target_compile_definitions(Undertow PUBLIC
     JUCE_WEB_BROWSER=0
@@ -265,6 +265,41 @@ target_link_libraries(Undertow
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Bandleader - runs the song for the whole band (no sound of its own)
+juce_add_plugin(Bandleader
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.bandleader"
+    PRODUCT_NAME "Bandleader"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Bndl
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Bandleader PRIVATE
+    Bandleader/BandleaderProcessor.cpp
+    Bandleader/BandleaderEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Bandleader PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Bandleader
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -273,7 +308,7 @@ if(TEATOWEL_RENDER_DEMO)
         Tools/RenderDemo.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
-        Source/UiKit.cpp
+        Source/UiKit.cpp Source/BandBus.cpp
         TapeTwin/TapeTwinProcessor.cpp
         TapeTwin/TapeTwinEditor.cpp)
     target_compile_definitions(RenderDemo PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 TAPETWIN_NO_ENTRY=1)
@@ -285,27 +320,36 @@ if(TEATOWEL_RENDER_DEMO)
         juce::juce_recommended_config_flags)
 
     juce_add_console_app(LatheTest PRODUCT_NAME "LatheTest")
-    target_sources(LatheTest PRIVATE Tools/LatheTest.cpp Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp Source/UiKit.cpp)
+    target_sources(LatheTest PRIVATE Tools/LatheTest.cpp Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(LatheTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LATHE_NO_ENTRY=1)
     target_link_libraries(LatheTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(SchaltwerkTest PRODUCT_NAME "SchaltwerkTest")
-    target_sources(SchaltwerkTest PRIVATE Tools/SchaltwerkTest.cpp Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp Source/UiKit.cpp)
+    target_sources(SchaltwerkTest PRIVATE Tools/SchaltwerkTest.cpp Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(SchaltwerkTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 SCHALTWERK_NO_ENTRY=1)
     target_link_libraries(SchaltwerkTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 
     juce_add_console_app(LoonTest PRODUCT_NAME "LoonTest")
-    target_sources(LoonTest PRIVATE Tools/LoonTest.cpp Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Source/UiKit.cpp)
+    target_sources(LoonTest PRIVATE Tools/LoonTest.cpp Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(LoonTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LOON_NO_ENTRY=1)
     target_link_libraries(LoonTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(CarouselTest PRODUCT_NAME "CarouselTest")
-    target_sources(CarouselTest PRIVATE Tools/CarouselTest.cpp Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp Source/UiKit.cpp)
+    target_sources(CarouselTest PRIVATE Tools/CarouselTest.cpp Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(CarouselTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 CAROUSEL_NO_ENTRY=1)
     target_link_libraries(CarouselTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 
     juce_add_console_app(UndertowTest PRODUCT_NAME "UndertowTest")
-    target_sources(UndertowTest PRIVATE Tools/UndertowTest.cpp Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp Source/UiKit.cpp)
+    target_sources(UndertowTest PRIVATE Tools/UndertowTest.cpp Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(UndertowTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 UNDERTOW_NO_ENTRY=1)
     target_link_libraries(UndertowTest PRIVATE UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(BandTest PRODUCT_NAME "BandTest")
+    target_sources(BandTest PRIVATE Tools/BandTest.cpp
+        Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
+        Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(BandTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 UNDERTOW_NO_ENTRY=1 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1)
+    target_link_libraries(BandTest PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

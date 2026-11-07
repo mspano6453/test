@@ -1,6 +1,7 @@
 #include "UndertowProcessor.h"
 #include "UndertowEditor.h"
-#include "BinaryData.h"
+#include "UndertowData.h"
+#include "../Source/BandBus.h"
 
 using namespace ut;
 
@@ -31,7 +32,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout UndertowProcessor::createLay
     { ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name, items, def)); };
 
     C ("mode", "Mode", { "Bass Player", "Play It (MIDI keys)", "Guitar to Bass: Octave", "Guitar to Bass: Tracked" }, 0);
-    C ("follow", "Chords From", { "Self (plays by itself)", "Guitar (sidechain)", "MIDI chords" }, 0);
+    C ("follow", "Chords From", { "Self / Bandleader", "Guitar (sidechain)", "MIDI chords" }, 0);
+    C ("lock_drums", "Lock To Tea Towel", onOff(), 1);
     C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
     C ("prog_verse", "Verse Chords", progressionNames(), 0);
     C ("prog_chorus", "Chorus Chords", progressionNames(), 2);
@@ -100,7 +102,7 @@ void UndertowProcessor::loadSamples()
             {
                 const juce::String name = "b_" + juce::String (note) + "_" + juce::String (layer) + "_" + juce::String (rr) + "_flac";
                 int size = 0;
-                const char* data = BinaryData::getNamedResource (name.toRawUTF8(), size);
+                const char* data = UndertowData::getNamedResource (name.toRawUTF8(), size);
                 if (data == nullptr) continue;
                 std::unique_ptr<juce::AudioFormatReader> reader (flac.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
                 if (reader == nullptr) continue;
@@ -138,6 +140,7 @@ void UndertowProcessor::readParams()
     mode = (int) g ("mode"); follow = (int) g ("follow"); feel = (int) g ("feel"); section = (int) g ("section");
     key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
     chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = 4 << (int) g ("section_bars");
+    lockDrums = g ("lock_drums") > 0.5f;
     reg = (int) g ("register"); stopWithBand = g ("band_stop") < 0.5f; keysOct = (int) g ("octave") - 2;
     variation = g ("variation"); fills = g ("fills"); hook = g ("hook"); density = g ("density");
     push = g ("push"); human = g ("human"); swing = g ("swing"); lengthK = g ("length");
@@ -195,6 +198,7 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
 ut::Chord UndertowProcessor::selfChordAt (int64_t k) const
 {
     const int64_t bar = k / 16;
+    if (led) { Chord c; leader.chordAt (bar, c.root, c.minor); return c; }
     int sec = section; int64_t barIn = bar;
     if (autoSong) { const auto sp = songPosition (bar, sectionBars); sec = sp.section; barIn = sp.barIn; }
     const auto& prog = progressions()[(size_t) juce::jlimit (0, (int) progressions().size() - 1, progs[sec])].chords;
@@ -275,7 +279,14 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     const bool selfSong = follow == FollowSelf && autoSong;
     if (motifPos % 16 == 0)
     {
-        if (selfSong)
+        if (follow == FollowSelf && led)
+        {
+            int64_t in = 0;
+            const int sec = leader.sectionAt (bar, &in);
+            if (sec != activeSection) { activeSection = sec; motifPos = (int) (in % 2) * 16; barsInSection = (int) in; if (motifPos != 0) newPass (k); }
+            barsInSection = (int) in;
+        }
+        else if (selfSong)
         {
             const auto sp = songPosition (bar, sectionBars);
             if (sp.section != activeSection) { activeSection = sp.section; motifPos = (sp.barIn % 2) * 16; barsInSection = sp.barIn; if (motifPos != 0) newPass (k); }
@@ -297,6 +308,35 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
         fillPending = false;
         publishMotif();
     }
+    // the Bandleader's fills: at the end of this bar (even if it was called mid-bar)
+    if (follow == FollowSelf && led && leader.fillAt (bar) && filledBar != bar && motifPos % 16 <= 8)
+    {
+        const int barStart = motifPos - motifPos % 16;
+        MotifWriter::fill (inst, rng, feel, motifPos % 16 == 0 && rng.chance (0.5f), barStart + 16);
+        filledBar = bar;
+        publishMotif();
+    }
+    // lock to the drummer: lean on the kicks, and catch the syncopated ones
+    if (motifPos % 16 == 0 && lockDrums)
+    {
+        uint16_t kicks = 0;
+        if (band::readKicks (bar, kicks))
+        {
+            const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk;
+            for (int i = 0; i < 16; ++i)
+            {
+                auto& stp = inst.s[(size_t) (motifPos + i)];
+                if ((kicks >> i) & 1u)
+                {
+                    if (stp.on && ! stp.ghost) stp.vel = juce::jmin (1.0f, stp.vel + 0.1f);
+                    else if (! stp.on && catchKicks && i % 4 != 0 && rng.chance (0.75f))
+                        stp = { true, 0, 0, 0.82f, (i % 2 == 1) ? 0.9f : 1.6f, false };
+                }
+                else if (stp.on && ! stp.ghost && i % 4 != 0 && feel == FPump) stp.vel *= 0.94f;   // a touch softer between kicks
+            }
+            publishMotif();
+        }
+    }
     uiStep = motifPos;
     uiSection = activeSection;
 
@@ -305,15 +345,16 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     if (motifPos % 16 == 0) ++barsInSection;
 
     const Chord c = currentChord();
-    const bool bandOn = follow == FollowSelf || (follow == FollowMidi ? heldChord.valid() : ears.playing());
-    if (! c.valid() || (stopWithBand && ! bandOn))
+    bool bandOn = follow == FollowSelf || (follow == FollowMidi ? heldChord.valid() : ears.playing());
+    if (follow == FollowSelf && led && leader.isOut (bar)) bandOn = false;   // the Bandleader dropped the band out
+    if (! c.valid() || ((stopWithBand || led) && ! bandOn))
     {
         if (sampler.currentNote >= 0) evs.push_back ({ t, 2, 0, 0, 0 });
         return;
     }
     if (! st.on) return;
     const int pitch = pitchFor (c, st);
-    float vel = juce::jlimit (0.15f, 1.0f, st.vel + rng.n() * 0.07f * human);
+    float vel = juce::jlimit (0.15f, 1.0f, st.vel + rng.n() * 0.07f * human + (led ? (leader.energy - 0.5f) * 0.2f : 0.0f));
     const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
     float lenSec = (float) (st.len * lengthK * sixteenth / sr) * (1.0f + rng.n() * 0.08f * human);
     if (st.ghost) { vel = juce::jmin (vel, 0.45f); lenSec = juce::jmin (lenSec, 0.07f); }
@@ -352,7 +393,13 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
         activeSection = section;
         if (follow == FollowSelf)
         {
-            if (autoSong)
+            if (led)
+            {
+                int64_t in = 0;
+                activeSection = leader.sectionAt (k / 16, &in); barsInSection = (int) in;
+                motifPos = (int) (in % 2) * 16 + (int) (((k % 16) + 16) % 16);
+            }
+            else if (autoSong)
             {
                 const auto sp = songPosition (k / 16, sectionBars);
                 activeSection = sp.section; barsInSection = sp.barIn;
@@ -360,8 +407,15 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
             }
             selfChord = selfChordAt (k);
             // let the harmony know the key before the first note
-            for (int s = 0; s < NumSections; ++s)
-                for (auto& pc : progressions()[(size_t) progs[s]].chords) harmony.hear ({ (key + pc.off) % 12, pc.minor }, 0.5f);
+            if (led)
+            {
+                for (int s = 0; s < NumSections; ++s)
+                    for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
+                        harmony.hear ({ (leader.key + leader.progOff[s][i]) % 12, leader.progMinor[s][i] != 0 }, 0.5f);
+            }
+            else
+                for (int s = 0; s < NumSections; ++s)
+                    for (auto& pc : progressions()[(size_t) progs[s]].chords) harmony.hear ({ (key + pc.off) % 12, pc.minor }, 0.5f);
         }
         if (! wasPlaying) runSeed = hash ((uint64_t) juce::Time::getHighResolutionTicks());
         newPass (k);
@@ -448,6 +502,11 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             const float left = lastNoteLen - (float) (sampleClock - lastNoteAt) / (float) sr;
             if (left > 0.04f) { events.push_back ({ 0, 1, pitchFor (c, lastStepPlayed), lastStepPlayed.vel * 0.92f, left }); lastNoteChord = c; }
         }
+        band::markPresent (band::WUndertow);
+        const bool wasLed = led;
+        led = follow == FollowSelf && band::readLeader (leader);
+        uiLinked = led;
+        if (led != wasLed) lastPpqEnd = -1e9;   // re-sync to (or away from) the Bandleader's song
         runPlayer (n, events);
     }
     else

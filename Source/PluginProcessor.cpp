@@ -82,6 +82,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     }
     // Player
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::on, 1 }, "Player On", juce::StringArray { "Off", "On" }, 0));
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "band_link", 1 }, "Follow Bandleader", juce::StringArray { "Off", "On" }, 1));
     {
         juce::StringArray st; for (int i = 0; i < NumStyles; ++i) st.add (styleName (i));
         ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::style, 1 }, "Player Style", st, 0));
@@ -213,6 +214,17 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         ps.looseness = playerParams[5]->load();
         ps.swing = playerParams[6]->load();
         ps.variation = playerParams[7]->load();
+        // a Bandleader in the set runs the song: section, fills, drop-outs, energy
+        band::markPresent (band::WTeaTowel);
+        band::Leader leader;
+        const bool led = apvts.getRawParameterValue ("band_link")->load() > 0.5f && band::readLeader (leader);
+        uiLinked = led;
+        if (led)
+        {
+            ps.link = &leader;
+            ps.on = true;
+            ps.intensity = juce::jlimit (0.0f, 1.0f, ps.intensity + (leader.energy - 0.5f) * 0.8f);
+        }
         playerOut.clear();
         player.process (midi, playerOut, n, sampleCounter, ps, getPlayHead());
     }
@@ -478,4 +490,6 @@ void TeaTowelProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 juce::AudioProcessorEditor* TeaTowelProcessor::createEditor() { return new TeaTowelEditor (*this); }
 
+#ifndef TEATOWEL_NO_ENTRY
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new TeaTowelProcessor(); }
+#endif

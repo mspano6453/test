@@ -727,7 +727,10 @@ void PlayerView::paint (juce::Graphics& g)
     g.setFont (font (13.0f, true));
     g.setColour (running ? col::cream : col::muted);
     juce::String status;
-    if (! (bool) proc.apvts.getRawParameterValue (PID::on)->load())
+    if (proc.uiLinked.load())
+        status = running ? "Following Bandleader  -  " + juce::String (sectionName (proc.player.uiSection.load())) + "  -  bar " + juce::String (proc.player.uiBar.load())
+                         : juce::String ("Following Bandleader - press play in Live.");
+    else if (! (bool) proc.apvts.getRawParameterValue (PID::on)->load())
         status = "Player is off - tick the box above, then press play in Live.";
     else if (! running)
         status = "Waiting for Live to play...";

@@ -125,7 +125,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     if (mode == MPlayer)
     {
         g.setColour (col::muted); g.setFont (font (11.0f, true));
-        g.drawText (follow == FollowSelf ? "CHORD (playing by itself)" : follow == FollowGuitar ? "CHORD (from your guitar)" : "CHORD (from MIDI)", big.removeFromTop (16), juce::Justification::centredLeft);
+        g.drawText (follow == FollowSelf ? (proc.uiLinked.load() ? "CHORD (from Bandleader)" : "CHORD (playing by itself)") : follow == FollowGuitar ? "CHORD (from your guitar)" : "CHORD (from MIDI)", big.removeFromTop (16), juce::Justification::centredLeft);
         g.setColour (ch >= 0 ? col::cream : col::muted); g.setFont (font (46.0f, true));
         g.drawText (ch >= 0 ? juce::String (pcName (ch & 15)) + ((ch & 16) ? "m" : "") : juce::String ("--"), big.removeFromTop (52), juce::Justification::centredLeft);
     }
@@ -144,7 +144,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     {
         if (! proc.uiTransport.load()) status = "Press play in Live - it plays along to the tempo.";
         else if (! proc.uiBandPlaying.load()) status = follow == FollowSelf ? juce::String ("Starting...") : follow == FollowGuitar ? "Waiting for the guitar..." : "Waiting for a chord on the MIDI track...";
-        else status = "Playing " + juce::String (note >= 0 ? noteName (note) : "") + "  -  " + kSectionNames[proc.uiSection.load()];
+        else status = juce::String (proc.uiLinked.load() ? "Following Bandleader: " : "Playing ") + juce::String (note >= 0 ? noteName (note) : "") + "  -  " + kSectionNames[proc.uiSection.load()];
     }
     else if (mode == MKeys) status = "Play it from your KeyStep or a MIDI clip.";
     else if (mode == MTracked) status = "Play single notes on the guitar; it plays them on the bass an octave down.";
@@ -232,7 +232,7 @@ void UndertowEditor::paint (juce::Graphics& g)
 
     g.setColour (col::muted); g.setFont (font (12.0f));
     g.drawFittedText ("Put Undertow on a MIDI track and press play - it plays a whole song by itself (pick the key and chords above). "
-                      "Or set Chords From to Guitar and its Sidechain to your guitar track and it plays along with you, or feed it chords from a MIDI clip. Keyswitches: C0 verse, C#0 chorus, D0 bridge, D#0 fill. "
+                      "Or set Chords From to Guitar and its Sidechain to your guitar track and it plays along with you, or feed it chords from a MIDI clip. Keyswitches (Live note names): C-1 verse, C#-1 chorus, D-1 bridge, D#-1 fill. "
                       "Map 'Footswitch: Fill' or Section to your MIDI Captain. Drag its MIDI out to another track to record the bass line as a clip.",
                       legendArea, juce::Justification::topLeft, 3, 1.0f);
 }

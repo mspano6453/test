@@ -13,6 +13,7 @@
 class TeaTowelProcessor : public juce::AudioProcessor
 {
 public:
+    std::atomic<bool> uiLinked { false };
     TeaTowelProcessor();
     ~TeaTowelProcessor() override = default;
 

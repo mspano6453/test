@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "UndertowPlayer.h"
+#include "../Source/BandBus.h"
 
 // ---------------------------------------------------------------------------
 // Undertow: a virtual post-punk bass player. Real picked-bass samples, a
@@ -13,7 +14,7 @@ namespace ut
 {
 enum Mode { MPlayer = 0, MKeys, MOctave, MTracked };
 enum Follow { FollowSelf = 0, FollowGuitar, FollowMidi };
-// keyswitches for the player (Ableton names: C-1.. is 0; these are C0, C#0, D0, D#0)
+// keyswitches for the player (MIDI 12-15; Live calls these C-1, C#-1, D-1, D#-1)
 constexpr int kKeyVerse = 12, kKeyChorus = 13, kKeyBridge = 14, kKeyFill = 15;
 }
 
@@ -57,6 +58,7 @@ public:
 
     // audio -> UI
     std::atomic<int> uiChord { -1 }, uiNote { -1 }, uiStep { -1 }, uiSection { 0 }, uiFillCountdown { 0 };
+    std::atomic<bool> uiLinked { false };
     std::atomic<bool> uiBandPlaying { false }, uiTransport { false }, uiSidechain { false };
     std::atomic<float> uiInput { 0 };
     std::atomic<int> uiMotif[ut::kSteps];    // pitch per step (-1 rest), +1000 for ghost notes
@@ -90,6 +92,7 @@ private:
     int mode = 0, follow = 0, feel = 0, section = 0, reg = 0, keysOct = 0;
     int key = 9, progs[ut::NumSections] { 0, 2, 5 }, chordBars = 1, sectionBars = 8; bool autoSong = true;
     ut::Chord selfChord;
+    band::Leader leader; bool led = false, lockDrums = true; int64_t filledBar = -1;
     ut::Chord selfChordAt (int64_t k) const;
     float variation = 0.4f, fills = 0.5f, hook = 0.5f, density = 0.55f, push = 0.25f, human = 0.6f, swing = 0, lengthK = 0.9f;
     float sens = 0.5f, guitarDry = 0, lastFillParam = 0;

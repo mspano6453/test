@@ -73,11 +73,19 @@ octave pops, descending gothic lines. Real samples (Karoryfer "Black And Blue Ba
 * **Bass Player** mode: put Undertow on a MIDI track, set its Sidechain to your guitar track and press play.
   It hears your chords and plays along to Live's tempo (or follows chords from a MIDI clip).
   VERSE / CHORUS / BRIDGE, FILL, NEW LINE, plus Variation, Fills, Hook, Busy, Push, Human, Swing, Length.
-  Keyswitches: C0 verse, C#0 chorus, D0 bridge, D#0 fill. The bass line also comes out as MIDI.
+  Keyswitches (Live note names): C-1 verse, C#-1 chorus, D-1 bridge, D#-1 fill. The bass line also comes out as MIDI.
 * **Play It**: play the bass yourself from a keyboard.
 * **Guitar to Bass: Octave** — your guitar an octave down through the bass rig.
 * **Guitar to Bass: Tracked** — play single notes on guitar and the real bass plays them an octave down (~35 ms behind).
 * **The rig**: compressor, grit, chorus, flanger, amp EQ with a bright cab.
+
+## Bandleader — runs the band
+
+Put Bandleader on its own MIDI track (it makes no sound) and press play. It holds the song — key, chords per
+section, the song form (verse/chorus/verse/chorus/bridge/chorus), section changes, fills, drop-outs and energy —
+and shares it with the other plugins on this computer. Tea Towel's drummer and Undertow follow it automatically,
+and Undertow locks its notes to Tea Towel's kick drum. Footswitch: C2 next section, D2 fill, E2 drop out,
+F2 all in, G2 verse, A2 chorus, B2 bridge (or CC 90-96). Each plugin still works on its own without it.
 
 ## Getting the plugin built
 
