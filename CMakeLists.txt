@@ -225,6 +225,46 @@ target_link_libraries(Carousel
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Undertow - post-punk bass player (real picked-bass samples, follows your guitar)
+file(GLOB UNDERTOW_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Undertow/Samples/*.flac")
+juce_add_binary_data(UndertowSamples SOURCES ${UNDERTOW_SAMPLES})
+set_target_properties(UndertowSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+juce_add_plugin(Undertow
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.undertow"
+    PRODUCT_NAME "Undertow"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Undr
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Synth
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Undertow PRIVATE
+    Undertow/UndertowProcessor.cpp
+    Undertow/UndertowEditor.cpp
+    Source/UiKit.cpp)
+
+target_compile_definitions(Undertow PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Undertow
+    PRIVATE
+        UndertowSamples
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -263,4 +303,9 @@ if(TEATOWEL_RENDER_DEMO)
     target_sources(CarouselTest PRIVATE Tools/CarouselTest.cpp Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp Source/UiKit.cpp)
     target_compile_definitions(CarouselTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 CAROUSEL_NO_ENTRY=1)
     target_link_libraries(CarouselTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
+
+    juce_add_console_app(UndertowTest PRODUCT_NAME "UndertowTest")
+    target_sources(UndertowTest PRIVATE Tools/UndertowTest.cpp Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp Source/UiKit.cpp)
+    target_compile_definitions(UndertowTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 UNDERTOW_NO_ENTRY=1)
+    target_link_libraries(UndertowTest PRIVATE UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

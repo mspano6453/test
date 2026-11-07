@@ -65,6 +65,20 @@ The **Load sample…** button (or drag-and-drop) swaps in your own one-shot; Tun
 
 The `Grooves` folder has five MIDI clips (straight eighths, shuffle, floor-tom groove, ride with a tom fill, half-time). Drag them onto the Tea Towel track in Live.
 
+## Undertow — post-punk bass player
+
+A virtual bass player in the late-70s/80s post-punk style: picked bass, pumping eighths, high melodic hooks,
+octave pops, descending gothic lines. Real samples (Karoryfer "Black And Blue Basses", CC0, the picked bass).
+
+* **Bass Player** mode: put Undertow on a MIDI track, set its Sidechain to your guitar track and press play.
+  It hears your chords and plays along to Live's tempo (or follows chords from a MIDI clip).
+  VERSE / CHORUS / BRIDGE, FILL, NEW LINE, plus Variation, Fills, Hook, Busy, Push, Human, Swing, Length.
+  Keyswitches: C0 verse, C#0 chorus, D0 bridge, D#0 fill. The bass line also comes out as MIDI.
+* **Play It**: play the bass yourself from a keyboard.
+* **Guitar to Bass: Octave** — your guitar an octave down through the bass rig.
+* **Guitar to Bass: Tracked** — play single notes on guitar and the real bass plays them an octave down (~35 ms behind).
+* **The rig**: compressor, grit, chorus, flanger, amp EQ with a bright cab.
+
 ## Getting the plugin built
 
 The plugin has to be compiled for your machine. The easiest way needs no tools installed:
