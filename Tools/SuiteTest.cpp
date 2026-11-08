@@ -96,7 +96,7 @@ int main()
         for (int i = 0; i < 7; ++i) std::printf ("CPU %-10s %.2f%% of real time, worst block %.2f ms (block = %.2f ms) at bar %.2f\n", nm[i], 100.0 * cpu[i] / audioSec, worst[i] * 1000, bs / sr * 1000, worstAt[i]);
     }
     std::printf ("Loon follows the chord: %d/%d checks\n", loonOk, loonN);
-    std::printf ("Schaltwerk Omnichord on the chord: %d/%d checks\n", swOk, swN);
+    std::printf ("Schaltwerk Strumchord on the chord: %d/%d checks\n", swOk, swN);
     std::printf ("Schaltwerk level per bar:");
     for (int b = 0; b < bars; ++b) std::printf (" %.3f", swRms[(size_t) b] / 344);
     std::printf ("\nTape Twin echo per beat (x = section change or drop next bar):\n  ");

@@ -125,7 +125,7 @@ target_link_libraries(Lathe
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
-# Schaltwerk - electronic rhythm box, robot synth/vocoder, Omnichord
+# Schaltwerk - electronic rhythm box, robot synth/vocoder, Strumchord
 juce_add_plugin(Schaltwerk
     COMPANY_NAME "Tea Towel Audio"
     BUNDLE_ID "com.teatowelaudio.schaltwerk"

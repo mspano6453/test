@@ -1,4 +1,4 @@
-// Offline test for Schaltwerk: drums from the sequencer, robot synth, Omnichord, vowel choir, vocoder.
+// Offline test for Schaltwerk: drums from the sequencer, robot synth, Strumchord, vowel choir, vocoder.
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Schaltwerk/SchaltwerkProcessor.h"

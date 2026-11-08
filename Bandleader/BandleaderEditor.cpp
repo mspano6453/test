@@ -180,7 +180,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
     const M members[] = { { "Tea Towel", band::WTeaTowel, "drums: sections, fills, drop-outs" },
                           { "Undertow", band::WUndertow, "bass: chords, locks to the kick" },
                           { "Loon", band::WLoon, "key + chords, swells, ducks the kick" },
-                          { "Schaltwerk", band::WSchaltwerk, "Omnichord plays the chords" },
+                          { "Schaltwerk", band::WSchaltwerk, "Strumchord plays the chords" },
                           { "Carousel", band::WCarousel, "records whole sections" },
                           { "Tape Twin", band::WTapeTwin, "echo throws into new sections" },
                           { "Lathe", band::WLathe, "loudness per section" } };

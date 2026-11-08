@@ -6,7 +6,7 @@
 
 // ---------------------------------------------------------------------------
 // Tape Twin: a tape echo (wow, flutter, worn tape, runaway feedback) plus
-// Abbey Road-style artificial double tracking (ADT).
+// Classic studio-style artificial double tracking (ADT).
 // ---------------------------------------------------------------------------
 namespace tw
 {
@@ -36,8 +36,8 @@ inline const std::array<Preset, 6>& presets()
     //                   drive time  sync fb    wow   flut  age   sprd  echo  adt   adtT  adtW  out
     static const std::array<Preset, 6> p { {
         { "Slapback '57",       { 0.30f, 110,  0, 0.10f, 0.15f, 0.25f, 0.35f, 0.00f, 0.40f, 0.00f, 25, 0.3f, 0 } },
-        { "Abbey Road ADT",     { 0.15f, 300,  0, 0.00f, 0.10f, 0.20f, 0.20f, 0.00f, 0.00f, 0.80f, 28, 0.5f, -1 } },
-        { "Echorec Space",      { 0.25f, 380,  2, 0.55f, 0.30f, 0.35f, 0.50f, 0.60f, 0.45f, 0.00f, 25, 0.3f, 0 } },
+        { "Studio ADT",         { 0.15f, 300,  0, 0.00f, 0.10f, 0.20f, 0.20f, 0.00f, 0.00f, 0.80f, 28, 0.5f, -1 } },
+        { "Multi-Head Space",   { 0.25f, 380,  2, 0.55f, 0.30f, 0.35f, 0.50f, 0.60f, 0.45f, 0.00f, 25, 0.3f, 0 } },
         { "Runaway Feedback",   { 0.40f, 420,  3, 0.92f, 0.35f, 0.40f, 0.55f, 0.50f, 0.50f, 0.00f, 25, 0.3f, -3 } },
         { "Worn-Out Cassette",  { 0.50f, 260,  3, 0.45f, 0.75f, 0.70f, 0.85f, 0.30f, 0.40f, 0.20f, 22, 0.6f, 0 } },
         { "Double + Echo",      { 0.20f, 250,  3, 0.30f, 0.20f, 0.25f, 0.35f, 0.40f, 0.30f, 0.60f, 30, 0.4f, -1 } },

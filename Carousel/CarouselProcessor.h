@@ -6,7 +6,7 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
-// Carousel: a stereo looper in the spirit of the EHX 720 / 1440.
+// Carousel: a stereo looper in the spirit of the classic stereo looper pedals.
 // Memory is a pool of 1-second stereo chunks shared by 10 loop slots; each loop
 // is a stack of layers (the first recording + one per overdub) so undo/redo is free.
 // ---------------------------------------------------------------------------

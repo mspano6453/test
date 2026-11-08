@@ -1,8 +1,8 @@
 # Tea Towel — dead drum instrument
 
-A VST3 / AU drum instrument for that towel-on-the-heads, late-60s Ringo sound: thuddy toms, a fat low snare with short wires, a kick with no boom, and dark cymbals — all squashed through a valve-style compressor and tape.
+A VST3 / AU drum instrument for that towel-on-the-heads, late-60s studio sound: thuddy toms, a fat low snare with short wires, a kick with no boom, and dark cymbals — all squashed through a valve-style compressor and tape.
 
-The workflow follows the Addictive Drums 2 layout (Kit page with mixer, per-drum Edit page, FX page for the bus). It's an independent project, not affiliated with XLN Audio, and uses none of their sounds.
+The workflow is laid out in pages: a Kit page with mixer, a per-drum Edit page, and an FX page for the drum bus.
 
 ## The sounds
 
@@ -10,13 +10,13 @@ Every drum is a real recording — nothing is synthesised. The kit is built from
 
 | Drum | Recording |
 |---|---|
-| Kick | Ludwig 26" |
-| Snare | Pearl (plus rimshot and side-stick) |
-| Rack tom | Ludwig 14" |
-| Floor toms | Ludwig 16" (note 43) and 18" (note 41) |
-| Hi-hat | Sabian (closed, pedal, open) |
-| Ride | Zildjian A 24" (plus bell) |
-| Crash | Zildjian A 20" |
+| Kick | 26" kick |
+| Snare | Snare (plus rimshot and side-stick) |
+| Rack tom | 14" tom |
+| Floor toms | 16" (note 43) and 18" (note 41) |
+| Hi-hat | Closed, pedal, open |
+| Ride | 24" ride (plus bell) |
+| Crash | 20" crash |
 
 The samples are embedded in the plugin, so there's nothing extra to install. Credits and license are in `Samples/CREDITS.txt`; keep them with the samples if you ever share the plugin.
 
@@ -46,7 +46,7 @@ The **Load sample…** button (or drag-and-drop) swaps in your own one-shot; Tun
 
 ## Kits (presets menu, top right)
 
-- **Studio Two '69 – Towels** — the default; damped and squashed
+- **Studio '69 – Towels** — the default; damped and squashed
 - **Rooftop '69** — a bit more open and roomy
 - **Cellar Club '63 – Open** — no towels, brighter, livelier
 - **Full Towel** — maximum deadness
@@ -85,7 +85,7 @@ Put Bandleader on its own MIDI track (it makes no sound) and press play. It hold
 section, the song form (verse/chorus/verse/chorus/bridge/chorus), section changes, fills, drop-outs and energy —
 and shares it with the other plugins on this computer. Everything follows it automatically:
 Tea Towel (sections, fills, drop-outs), Undertow (chords; locks to Tea Towel's kick), Loon (key and chords,
-swells in choruses, dips under the kick), Schaltwerk (Omnichord plays the chords, drum box drops out),
+swells in choruses, dips under the kick), Schaltwerk (Strumchord plays the chords, drum box drops out),
 Carousel (REC waits for the next section and records exactly one section; slots can follow sections),
 Tape Twin (echo throw on the last beat before each new section) and Lathe (loudness per section). Footswitch: C2 next section, D2 fill, E2 drop out,
 F2 all in, G2 verse, A2 chorus, B2 bridge (or CC 90-96). Each plugin still works on its own without it.

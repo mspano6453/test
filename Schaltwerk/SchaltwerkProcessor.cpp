@@ -83,18 +83,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout SchaltwerkProcessor::createL
     F ("sy_send", "Robot Echo Send", { 0, 1, 0.001f }, 0.25f, pct);
 
     juce::StringArray roots; for (int i = 0; i < 12; ++i) roots.add (noteName (i));
-    C ("om_root", "Omnichord Root", roots, 0);
-    C ("om_type", "Omnichord Chord", { "Major", "Minor", "7th" }, 0);
-    C ("om_hold", "Omnichord Hold", onOff(), 0);
-    F ("om_chord", "Omnichord Chord Level", { 0, 1, 0.001f }, 0.5f, pct);
-    F ("om_tone", "Omnichord Chord Tone", { 0, 1, 0.001f }, 0.4f, pct);
-    F ("om_bass", "Omnichord Bass", { 0, 1, 0.001f }, 0.5f, pct);
-    F ("om_harp", "Omnichord Harp Level", { 0, 1, 0.001f }, 0.7f, pct);
-    F ("om_decay", "Omnichord Harp Decay", { 0, 1, 0.001f }, 0.45f, pct);
-    F ("om_vib", "Omnichord Vibrato", { 0, 1, 0.001f }, 0.3f, pct);
-    C ("om_oct", "Omnichord Harp Octave", { "-1", "0", "+1" }, 1);
-    C ("om_auto", "Omnichord Auto Strum", { "Off", "1/4", "1/8", "1/16" }, 0);
-    F ("om_send", "Omnichord Echo Send", { 0, 1, 0.001f }, 0.3f, pct);
+    C ("om_root", "Strumchord Root", roots, 0);
+    C ("om_type", "Strumchord Chord", { "Major", "Minor", "7th" }, 0);
+    C ("om_hold", "Strumchord Hold", onOff(), 0);
+    F ("om_chord", "Strumchord Chord Level", { 0, 1, 0.001f }, 0.5f, pct);
+    F ("om_tone", "Strumchord Chord Tone", { 0, 1, 0.001f }, 0.4f, pct);
+    F ("om_bass", "Strumchord Bass", { 0, 1, 0.001f }, 0.5f, pct);
+    F ("om_harp", "Strumchord Harp Level", { 0, 1, 0.001f }, 0.7f, pct);
+    F ("om_decay", "Strumchord Harp Decay", { 0, 1, 0.001f }, 0.45f, pct);
+    F ("om_vib", "Strumchord Vibrato", { 0, 1, 0.001f }, 0.3f, pct);
+    C ("om_oct", "Strumchord Harp Octave", { "-1", "0", "+1" }, 1);
+    C ("om_auto", "Strumchord Auto Strum", { "Off", "1/4", "1/8", "1/16" }, 0);
+    F ("om_send", "Strumchord Echo Send", { 0, 1, 0.001f }, 0.3f, pct);
 
     C ("ec_time", "Echo Time", { "1/4", "1/8 dotted", "1/8", "1/16" }, 1);
     F ("ec_fb", "Echo Feedback", { 0, 0.9f, 0.001f }, 0.4f, pct);
@@ -262,7 +262,7 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
         }
     const bool seqOn = apvts.getRawParameterValue ("seq_on")->load() > 0.5f;
     const int autoRate = (int) apvts.getRawParameterValue ("om_auto")->load();   // 0 off, 1 = 1/4, 2 = 1/8, 3 = 1/16
-    // the band: the Omnichord holds the song's chords, the drum box drops out with everyone
+    // the band: the Strumchord holds the song's chords, the drum box drops out with everyone
     band::markPresent (band::WSchaltwerk);
     band::Leader leader;
     const bool led = playing && apvts.getRawParameterValue ("band_link")->load() > 0.5f && band::readLeader (leader) && leader.playing;
@@ -408,7 +408,7 @@ void SchaltwerkProcessor::setStateInformation (const void* data, int size)
 
 void SchaltwerkProcessor::applyStyle (const band::StyleDef& s)
 {
-    // 0 sits out, 1 Omnichord pad, 2 Omnichord strums, 3 drum machine + pad
+    // 0 sits out, 1 Strumchord pad, 2 Strumchord strums, 3 drum machine + pad
     const bool drums = s.sRole == 3;
     if (drums && s.sPattern >= 0) loadPattern (s.sPattern);
     band::setParam (apvts, "seq_on", drums ? 1.0f : 0.0f);

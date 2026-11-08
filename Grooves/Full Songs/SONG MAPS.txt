@@ -3,7 +3,7 @@ Full drum tracks with pop song structure. In each folder:
   01, 02 ...    = each section on its own (drop them into Session view to rearrange)
 Set Live's tempo to the bpm in the file name.
 
-01 Sixties Pop (Ringo feel)  -  120 bpm, 73 bars, about 2:26
+01 Sixties Pop  -  120 bpm, 73 bars, about 2:26
   bar   1  Intro (4 bars)
   bar   5  Verse 1 (8 bars)
   bar  13  Pre-Chorus (4 bars)
@@ -37,7 +37,7 @@ Set Live's tempo to the bpm in the file name.
   bar  73  Last Chorus (16 bars)
   bar  89  Outro (long fade groove) (16 bars)
 
-04 Crazy Horse-style Rocker  -  88 bpm, 81 bars, about 3:40
+04 Ragged Rocker  -  88 bpm, 81 bars, about 3:40
   bar   1  Intro (4 bars)
   bar   5  Verse 1 (8 bars)
   bar  13  Chorus (8 bars)

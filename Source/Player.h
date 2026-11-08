@@ -21,7 +21,7 @@ enum FillEvery { FillOff = 0, Fill4, Fill8, Fill16 };
 
 inline const char* styleName (int s)
 {
-    static const char* n[] = { "Sixties Pop (Ringo)", "Motorik", "Kraut Funk (Can)", "Crazy Horse", "Power Pop", "Ballad",
+    static const char* n[] = { "Sixties Pop", "Motorik", "Kraut Funk", "Ragged Rock", "Power Pop", "Ballad",
                                "Punk", "Post-Punk", "Shoegaze Wash", "Grunge", "Half-Time Heavy", "Four on the Floor", "Glam Stomp",
                                "Surf", "Shuffle", "Folk Rock", "Post-Rock Build", "Garage Bash" };
     return n[s];

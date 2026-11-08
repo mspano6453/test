@@ -412,8 +412,8 @@ void TeaTowelProcessor::clearSample (int piece)
 
 juce::String TeaTowelProcessor::builtInName (int piece)
 {
-    static const char* n[] = { "Ludwig 26\" kick", "Pearl snare", "Ludwig 14\" tom", "Ludwig 16\" & 18\" floor toms",
-                               "Sabian hi-hats", "Zildjian A 24\" ride", "Zildjian A 20\" crash" };
+    static const char* n[] = { "26\" kick", "Snare", "14\" rack tom", "16\" & 18\" floor toms",
+                               "Hi-hats", "24\" ride", "20\" crash" };
     return n[piece];
 }
 

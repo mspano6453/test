@@ -68,7 +68,7 @@ private:
 
     ttui::LookAndFeel lnf;
     SchaltwerkProcessor& proc;
-    juce::TextButton tabRhythm { "RHYTHM" }, tabRobot { "ROBOT" }, tabOmni { "OMNICHORD" };
+    juce::TextButton tabRhythm { "RHYTHM" }, tabRobot { "ROBOT" }, tabOmni { "STRUMCHORD" };
     int page = 0;
 
     juce::OwnedArray<ttui::Knob> knobs;
@@ -91,7 +91,7 @@ private:
     juce::ComboBox* modeBox = nullptr;
     std::vector<ttui::Knob*> robotKnobs;
 
-    // omnichord page
+    // strumchord page
     swui::ChordPad chordPad;
     swui::StrumPlate strum;
     std::vector<juce::Component*> omniCtl;

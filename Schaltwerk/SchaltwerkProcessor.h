@@ -6,7 +6,7 @@
 namespace sw
 {
 // MIDI zones
-//   C-1..B-1 (0-11)  Omnichord 7th chords      C0..B0 (12-23) minor chords      (24-35) major chords
+//   C-1..B-1 (0-11)  Strumchord 7th chords      C0..B0 (12-23) minor chords      (24-35) major chords
 //   C1..B1  (36-47)  drums                     C2 and up (48+)  robot synth / vocoder carrier
 //   Mod wheel (CC1)  strums the strumplate
 constexpr int kSynthLowNote = 48;
@@ -84,7 +84,7 @@ private:
     double sr = 44100;
     sw::DrumBox drums;
     sw::RobotSynth synth;
-    sw::Omnichord omni;
+    sw::Strumchord omni;
     sw::Echo echo;
     sw::DrumSettings drumSet[sw::NumDrums];
     sw::SynthParams synthP;

@@ -5,7 +5,7 @@
 namespace tt
 {
 // ---------------------------------------------------------------------------
-// The kit: a late-60s four-piece-plus-cymbals, the way Ringo set up.
+// The kit: a late-60s four-piece-plus-cymbals, the classic late-60s setup.
 // ---------------------------------------------------------------------------
 enum Piece { Kick = 0, Snare, RackTom, FloorTom, HiHat, Ride, Crash, NumPieces };
 
@@ -90,7 +90,7 @@ inline const std::array<Preset, 4>& presets()
 {
     static const std::array<Preset, 4> p { {
         // tune, towel, decay, tone, vol, pan, room
-        { "Studio Two '69 - Towels",
+        { "Studio '69 - Towels",
           { {  0.0f, 0.70f, 0.40f, 0.50f,  0.0f,  0.00f, 0.08f },
             { -1.5f, 0.65f, 0.40f, 0.50f, -1.0f, -0.08f, 0.15f },
             { -1.0f, 0.75f, 0.40f, 0.45f, -2.0f, -0.15f, 0.12f },

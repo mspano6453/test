@@ -1,7 +1,7 @@
 [Setup]
 AppId={{6E1B7C2A-5D4F-4A8B-9C3E-7A1F2B9D0E11}
 AppName=Tea Towel Suite
-AppVersion=2.0.0
+AppVersion=2.0.1
 AppPublisher=Tea Towel Audio
 DefaultDirName={commoncf64}\VST3
 DisableDirPage=yes
@@ -19,6 +19,9 @@ UninstallDisplayName=Tea Towel Suite (Tea Towel, Tape Twin, Lathe, Schaltwerk, L
 WizardStyle=modern
 
 [InstallDelete]
+Type: filesandordirs; Name: "{commondocs}\Tea Towel\Grooves\Neil Young + Crazy Horse style"
+Type: filesandordirs; Name: "{commondocs}\Tea Towel\Grooves\Full Songs\01 Sixties Pop (Ringo feel)"
+Type: filesandordirs; Name: "{commondocs}\Tea Towel\Grooves\Full Songs\04 Crazy Horse-style Rocker"
 ; clear out old copies (including the nested folders an earlier installer left behind)
 Type: filesandordirs; Name: "{commoncf64}\VST3\Tea Towel.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Tape Twin.vst3"

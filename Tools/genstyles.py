@@ -94,7 +94,7 @@ struct StyleDef
     int bFeel, bReg; float bHook, bBusy, bPush, bSwing, bLen, bComp, bGrit, bChorus, bFlanger, bBass, bMid, bTreble;
     float lGen; int lMood; float lPads, lSpace, lSize, lShimmer, lCloud, lWobble, lGtr;
     int tSync; float tMix, tFb, tWow, tFlut, tAge, tAdt;
-    int sRole, sPattern;     // Schaltwerk: 0 sits out, 1 Omnichord pad, 2 Omnichord strums, 3 drum machine + pad
+    int sRole, sPattern;     // Schaltwerk: 0 sits out, 1 Strumchord pad, 2 Strumchord strums, 3 drum machine + pad
     int lathe;               // Lathe preset
 };
 

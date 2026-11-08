@@ -8,7 +8,7 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
-// Schaltwerk DSP: electronic drum box, robot synth (+ vowel / vocoder), Omnichord, echo.
+// Schaltwerk DSP: electronic drum box, robot synth (+ vowel / vocoder), Strumchord, echo.
 // Everything here is synthesised - the originals were electronic machines too.
 // ---------------------------------------------------------------------------
 namespace sw
@@ -414,7 +414,7 @@ private:
 };
 
 // ===========================================================================
-// OMNICHORD: chord section + strumplate harp
+// STRUMCHORD: chord section + strumplate harp
 // ===========================================================================
 enum ChordType { ChMajor = 0, ChMinor, ChSeventh, NumChordTypes };
 constexpr int kStrings = 13;
@@ -426,7 +426,7 @@ struct OmniParams
     bool hold = false;
 };
 
-class Omnichord
+class Strumchord
 {
 public:
     void prepare (double newSr)

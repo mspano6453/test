@@ -92,7 +92,7 @@ void StepGrid::mouseDrag (const juce::MouseEvent& e)
 }
 
 // ===========================================================================
-// Omnichord chord buttons
+// Strumchord chord buttons
 // ===========================================================================
 juce::Rectangle<float> ChordPad::button (int type, int root) const
 {
@@ -270,7 +270,7 @@ SchaltwerkEditor::SchaltwerkEditor (SchaltwerkProcessor& p)
     robotComps = { modeBox, &keyboard };
     for (auto* k : robotKnobs) robotComps.push_back (k);
 
-    // ---- OMNICHORD
+    // ---- STRUMCHORD
     addAndMakeVisible (chordPad);
     addAndMakeVisible (strum);
     omniCtl = { knob ("om_chord", "CHORDS"), knob ("om_tone", "TONE"), knob ("om_bass", "BASS"), knob ("om_harp", "HARP"),
@@ -329,8 +329,8 @@ void SchaltwerkEditor::paint (juce::Graphics& g)
     g.drawText ("SCHALTWERK", 22, 8, 320, 32, juce::Justification::centredLeft);
     g.setColour (kRed);
     g.setFont (font (11.0f, true));
-    g.drawText ("RHYTHMUS  -  ROBOTER  -  OMNICHORD", 24, 38, 400, 14, juce::Justification::centredLeft);
-    if (proc.uiLinked.load()) g.drawText ("FOLLOWING BANDLEADER: OMNICHORD PLAYS THE SONG'S CHORDS", 340, 38, 500, 14, juce::Justification::centredLeft);
+    g.drawText ("RHYTHMUS  -  ROBOTER  -  STRUMCHORD", 24, 38, 400, 14, juce::Justification::centredLeft);
+    if (proc.uiLinked.load()) g.drawText ("FOLLOWING BANDLEADER: STRUMCHORD PLAYS THE SONG'S CHORDS", 340, 38, 500, 14, juce::Justification::centredLeft);
 
     auto panel = [&] (juce::Rectangle<int> a, const juce::String& title)
     {
@@ -373,7 +373,7 @@ void SchaltwerkEditor::paint (juce::Graphics& g)
     }
     else
     {
-        panel (omniPanel, "OMNICHORD");
+        panel (omniPanel, "STRUMCHORD");
         g.setColour (kMuted);
         g.setFont (font (12.0f));
         g.setColour (kMuted);
@@ -460,7 +460,7 @@ void SchaltwerkEditor::resized()
         keyboard.setBounds (a.reduced (0, 4));
         keyboard.setKeyWidth ((float) keyboard.getWidth() / 29.0f);
     }
-    // OMNICHORD
+    // STRUMCHORD
     {
         auto a = c;
         omniPanel = a.removeFromTop (a.getHeight() - 54);
