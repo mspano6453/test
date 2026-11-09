@@ -6,8 +6,8 @@ using ttui::font;
 
 namespace
 {
-const int kNormalNote[NumPieces] = { 36, 38, 48, 43, 42, 51, 49 };
-const int kAltNote[NumPieces]    = { 36, 37, 48, 43, 46, 53, 49 };
+const int kNormalNote[NumPieces] = { 36, 38, 48, 43, 42, 51, 49, 54 };
+const int kAltNote[NumPieces]    = { 36, 37, 48, 43, 46, 53, 49, 39 };
 
 void audition (TeaTowelProcessor& p, int piece, bool alt, float vel)
 {
@@ -44,11 +44,12 @@ void KitView::resized()
     box[RackTom]  = R (0.465f, 0.31f, 0.15f, 0.19f);
     box[FloorTom] = R (0.765f, 0.63f, 0.17f, 0.32f);
     box[Snare]    = R (0.255f, 0.57f, 0.17f, 0.16f);
+    box[Perc]     = R (0.93f, 0.80f, 0.11f, 0.17f);
 }
 
 int KitView::pieceAt (juce::Point<float> pt) const
 {
-    static const int order[] = { RackTom, Snare, HiHat, FloorTom, Crash, Ride };
+    static const int order[] = { Perc, RackTom, Snare, HiHat, FloorTom, Crash, Ride };
     for (int p : order)
         if (box[p].contains (pt)) return p;
     if (pt.getDistanceFrom (kickCentre) < kickR) return Kick;
@@ -318,6 +319,27 @@ void KitView::paint (juce::Graphics& g)
         drawDrum (g, shell, headH, damp (Snare), true);
     }
 
+    // percussion: a tambourine and a shaker on a little table
+    {
+        const auto b = box[Perc];
+        g.setColour (juce::Colour (0xff3a2a20));
+        g.fillRoundedRectangle (b.getX(), b.getBottom() - b.getHeight() * 0.22f, b.getWidth(), b.getHeight() * 0.12f, 2.0f);
+        g.setColour (juce::Colour (0xff8d9096));
+        g.drawLine (b.getCentreX(), b.getBottom() - b.getHeight() * 0.1f, b.getCentreX(), floorY, 2.0f);
+        const auto t = juce::Rectangle<float> (b.getWidth() * 0.62f, b.getWidth() * 0.62f).withCentre ({ b.getX() + b.getWidth() * 0.38f, b.getY() + b.getHeight() * 0.42f });
+        g.setColour (juce::Colour (0xffd9c9a3)); g.fillEllipse (t.reduced (t.getWidth() * 0.16f));
+        g.setColour (juce::Colour (0xff6b4a2e)); g.drawEllipse (t.reduced (t.getWidth() * 0.08f), t.getWidth() * 0.14f);
+        g.setColour (juce::Colour (0xffc8ccd2));
+        for (int k = 0; k < 6; ++k)
+        {
+            const float a = (float) k * juce::MathConstants<float>::twoPi / 6.0f;
+            const auto c = t.getCentre() + juce::Point<float> (std::cos (a), std::sin (a)) * t.getWidth() * 0.42f;
+            g.fillEllipse (c.x - 3.0f, c.y - 3.0f, 6.0f, 6.0f);
+        }
+        g.setColour (juce::Colour (0xffb84a32));
+        g.fillRoundedRectangle (b.getRight() - b.getWidth() * 0.26f, b.getY() + b.getHeight() * 0.25f, b.getWidth() * 0.16f, b.getHeight() * 0.42f, 6.0f);
+    }
+
     // selection, hover, hit flash, labels
     for (int p = 0; p < NumPieces; ++p)
     {
@@ -545,6 +567,9 @@ FxView::FxView (TeaTowelProcessor& p, juce::Component* popupParent) : proc (p)
         knobs[k]->attach (p.apvts, masterId (k));
         addAndMakeVisible (*knobs[k]);
     }
+    for (int i = 0; i < NumKitTypes; ++i) kitTypeBox.addItem (kitTypeName (i), i + 1);
+    kitTypeAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, "kit_type", kitTypeBox);
+    addAndMakeVisible (kitTypeBox);
     startTimerHz (30);
 }
 
@@ -579,7 +604,8 @@ void FxView::paint (juce::Graphics& g)
     drawGroup (top.withTrimmedLeft (8), "ROOM", "A small, dead, carpeted space. Each drum's Room knob sends into it.");
 
     auto bottom = r.withTrimmedTop (16).withHeight (230);
-    drawGroup (bottom, "OUTPUT", "Stereo width and final level.");
+    drawGroup (bottom.removeFromLeft ((int) (bottom.getWidth() * 0.36f)).withTrimmedRight (8), "OUTPUT", "Stereo width and final level.");
+    drawGroup (bottom.withTrimmedLeft (8), "CHARACTER", "Kit sound, old-sampler crunch, vinyl, and an 80s gated reverb on snare and toms.");
 
     // squash meter
     g.setColour (col::muted);
@@ -615,10 +641,17 @@ void FxView::resized()
     knobs[RoomLevel]->setBounds (room.removeFromLeft (rw).reduced (6, 0));
     knobs[RoomSize]->setBounds (room.reduced (6, 0));
 
-    auto out = r.withTrimmedTop (16).withHeight (230).reduced (16, 10).withTrimmedTop (56);
-    const int ow = juce::jmin (160, out.getWidth() / 2);
+    auto bottom = r.withTrimmedTop (16).withHeight (230);
+    auto out = bottom.removeFromLeft ((int) (bottom.getWidth() * 0.36f)).withTrimmedRight (8).reduced (16, 10).withTrimmedTop (56);
+    const int ow = out.getWidth() / 2;
     knobs[Width]->setBounds (out.removeFromLeft (ow).reduced (6, 0));
-    knobs[Output]->setBounds (out.removeFromLeft (ow).reduced (6, 0));
+    knobs[Output]->setBounds (out.reduced (6, 0));
+    auto ch = bottom.withTrimmedLeft (8).reduced (16, 10).withTrimmedTop (56);
+    kitTypeBox.setBounds (ch.removeFromLeft (190).withSizeKeepingCentre (180, 26));
+    const int cw = ch.getWidth() / 3;
+    knobs[Crunch]->setBounds (ch.removeFromLeft (cw).reduced (6, 0));
+    knobs[Vinyl]->setBounds (ch.removeFromLeft (cw).reduced (6, 0));
+    knobs[GateVerb]->setBounds (ch.reduced (6, 0));
 }
 
 // ===========================================================================

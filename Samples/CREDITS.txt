@@ -24,3 +24,15 @@ Files used (renamed; audio unchanged, 5 velocity layers each):
 
 If you share or sell anything that includes these samples, keep this credit and the
 CC BY-SA 3.0 license with them.
+
+Percussion (tambourine, hand claps, shaker, cowbell, congas, claves): Versilian Community
+Sample Library (VCSL) by Versilian Studios / Samuel Gossner, released under CC0 1.0
+(public domain). https://github.com/sgossner/VCSL  Trimmed, mixed to mono, converted to FLAC.
+  perc_tamb_1..2    <- Tambourine 1 / Tamb1_Hit_v1..v2
+  perc_tshake_1..2  <- Tambourine 1 / Tamb1_Shake_rr1..rr2
+  perc_clap_1..5    <- Claps / Clap_rr1..rr5
+  perc_shaker_1..4  <- Shaker, Small / Mid_ShakerDouble_Up/Down
+  perc_cowbell_1..3 <- Cowbells / Cowbell1_Hit_v2..v4
+  perc_congahi_1..3 <- Conga / Quinto_HitN_v1..v3
+  perc_congalo_1..3 <- Conga / Conga_HitN_v1..v3
+  perc_claves_1..3  <- Claves / Claves1_Hit_v1..v3

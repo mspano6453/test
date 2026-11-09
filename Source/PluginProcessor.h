@@ -10,6 +10,7 @@
 #include "Params.h"
 #include "DrumEngine.h"
 #include "Player.h"
+#include "MachineKits.h"
 
 class TeaTowelProcessor : public juce::AudioProcessor
 {
@@ -68,6 +69,8 @@ private:
 
     void loadBuiltInKit();
     tt::KitBank bank;
+    tt::KitBank machineBanks[3];          // synthesized drum machines
+    int kitType = 0;
     tt::DrumEngine engine;
     tt::PieceSettings settings[tt::NumPieces];
     std::shared_ptr<const tt::SampleData> samples[tt::NumPieces];
@@ -83,7 +86,12 @@ private:
     double sr = 44100.0;
     std::vector<float> scratch;
     juce::AudioBuffer<float> roomBuf;
-    juce::Reverb reverb;
+    juce::Reverb reverb, gateReverb;
+    juce::AudioBuffer<float> gateBuf;
+    std::vector<float> gateEnv;
+    int gateHold = 0; float gateGain = 0;
+    float crushHold[2] {}; int crushCount = 0; float crackle = 0; uint32_t vinylRng = 0x9E3779B9u;
+    tt::Biquad crushLp[2], vinylLp[2], vinylHp[2];
     tt::Biquad lowCut[2], thudEq[2], tapeLp[2], dcBlock[2];
     float grState = 0.0f;
     int currentProgram = 0;

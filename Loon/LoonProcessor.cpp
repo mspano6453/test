@@ -162,7 +162,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
         bandRoot = leader.key; bandMinor = true;
         for (int s = 0; s < band::NumSec; ++s)
             for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
-                if (leader.progOff[s][i] == 0) bandMinor = leader.progMinor[s][i] != 0;
+                if (leader.progOff[s][i] == 0) bandMinor = band::qualityIsMinor (leader.progMinor[s][i]);
         if (linkMode == 2) { int r; bool m; leader.chordAt (bar, r, m); bandRoot = r; bandMinor = m; }
         const int sec = leader.sectionAt (bar);
         sectionLift = sec == band::Chorus ? 1.0f : sec == band::Bridge ? -0.6f : 0.0f;

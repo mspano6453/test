@@ -35,7 +35,17 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
         secB[i].onClick = [this, i] { proc.command ((BandleaderProcessor::Cmd) (BandleaderProcessor::CVerse + i)); };
         addAndMakeVisible (secB[i]);
     }
-    styleBox.addItemList (band::styleNames(), 1);
+    // the style menu, grouped under pack headings (headings don't count as items, so the parameter index still lines up)
+    styleBox.addItem ("Custom (no style)", 1);
+    {
+        juce::String pack;
+        int id = 2;
+        for (auto& sd : band::styles())
+        {
+            if (pack != sd.pack) { pack = sd.pack; styleBox.addSectionHeading (pack.toUpperCase()); }
+            styleBox.addItem (sd.name, id++);
+        }
+    }
     styleAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "style", styleBox);
     addAndMakeVisible (styleBox);
     applyAgainB.onClick = [this] { proc.reapplyStyle(); };
@@ -102,7 +112,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
     g.drawText (playing ? juce::String (kSecNames[juce::jlimit (0, 2, sec)]) : juce::String ("STOPPED"), na.removeFromTop (50), juce::Justification::centredLeft);
     g.setFont (font (15.0f));
     const int ch = proc.uiChord.load();
-    const juce::String chord = ch >= 0 ? juce::String (ut::pcName (ch & 15)) + ((ch & 16) ? "m" : "") : "";
+    const juce::String chord = ch >= 0 ? juce::String (ut::pcName (ch & 15)) + band::qualitySuffix (ch >> 4) : "";
     juce::String line = playing ? "bar " + juce::String (proc.uiBarIn.load()) + "   -   chord " + chord : "Press play in Live and the band starts.";
     g.drawText (line, na.removeFromTop (22), juce::Justification::centredLeft);
     g.setFont (font (15.0f, true));
@@ -183,10 +193,12 @@ void BandleaderEditor::paint (juce::Graphics& g)
                           { "Schaltwerk", band::WSchaltwerk, "Strumchord plays the chords" },
                           { "Carousel", band::WCarousel, "records whole sections" },
                           { "Tape Twin", band::WTapeTwin, "echo throws into new sections" },
-                          { "Lathe", band::WLathe, "loudness per section" } };
+                          { "Lathe", band::WLathe, "loudness per section" },
+                          { "Parlour", band::WParlour, "keys: comps the chords" },
+                          { "Ether", band::WEther, "early electronic melody" } };
     for (auto& m : members)
     {
-        auto r = ba.removeFromTop (24);
+        auto r = ba.removeFromTop (20);
         const bool here = band::isPresent (m.who);
         g.setColour (here ? kGreen : col::line); g.fillEllipse (r.removeFromLeft (14).withSizeKeepingCentre (10, 10).toFloat());
         r.removeFromLeft (6);

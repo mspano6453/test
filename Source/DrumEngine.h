@@ -65,7 +65,8 @@ struct SampleData
 using SamplePtr = std::shared_ptr<const SampleData>;
 
 // Articulations a MIDI note can ask for
-enum Artic { Normal = 0, SideStick, Rim, HatClosed, HatPedal, HatOpen, RideBell, FloorLow, NumArtics };
+enum Artic { Normal = 0, SideStick, Rim, HatClosed, HatPedal, HatOpen, RideBell, FloorLow,
+             Clap, Tamb, TambShake, Shaker, Cowbell, CongaHi, CongaLo, Claves, NumArtics };
 
 constexpr int kLayers = 5;
 struct Layers
@@ -134,7 +135,7 @@ public:
                  const KitBank& bank, const SamplePtr& userSample)
     {
         // Humanize every hit: a real stick never lands the same way twice.
-        const bool cym = piece == HiHat || piece == Ride || piece == Crash;
+        const bool cym = piece == HiHat || piece == Ride || piece == Crash || piece == Perc;
         float layerGain = 1.0f;
         SamplePtr smp = userSample;
         if (smp == nullptr)

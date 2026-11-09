@@ -61,7 +61,7 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
     modeBox = combo ("mode"); followBox = combo ("follow"); feelBox = combo ("feel");
     keyBox = combo ("key"); progBox[0] = combo ("prog_verse"); progBox[1] = combo ("prog_chorus"); progBox[2] = combo ("prog_bridge");
     chordBarsBox = combo ("chord_bars"); songBox = combo ("song"); secBarsBox = combo ("section_bars");
-    regBox = combo ("register"); octBox = combo ("octave"); stopBox = combo ("band_stop");
+    regBox = combo ("register"); octBox = combo ("octave"); stopBox = combo ("band_stop"); typeBox = combo ("bass_type");
 
     playerKnobs = { knob ("variation", "VARIATION"), knob ("fills", "FILLS"), knob ("hook", "HOOK"), knob ("density", "BUSY"),
                     knob ("push", "PUSH"), knob ("human", "HUMAN"), knob ("swing", "SWING"), knob ("length", "LENGTH") };
@@ -117,7 +117,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     g.setColour (col::cream); g.setFont (font (28.0f, true));
     g.drawText ("UNDERTOW", 20, 8, 300, 30, juce::Justification::centredLeft);
     g.setColour (kTeal); g.setFont (font (11.0f, true));
-    g.drawText ("POST-PUNK BASS PLAYER", 22, 38, 300, 14, juce::Justification::centredLeft);
+    g.drawText ("BASS PLAYER", 22, 38, 300, 14, juce::Justification::centredLeft);
     if (! proc.samplesLoaded()) { g.setColour (kPink); g.drawText ("samples missing", 320, 20, 200, 20, juce::Justification::centredLeft); }
 
     const int mode = (int) proc.apvts.getRawParameterValue ("mode")->load();
@@ -225,10 +225,10 @@ void UndertowEditor::paint (juce::Graphics& g)
         g.setColour (kTeal); g.drawText ("WHEN IT PLAYS BY ITSELF", selfHdr, juce::Justification::centredLeft);
         g.setColour (col::muted);
     }
-    for (auto* cb : { modeBox, followBox, feelBox, regBox, octBox, stopBox })
+    for (auto* cb : { modeBox, followBox, feelBox, regBox, octBox, stopBox, typeBox })
     {
         const char* t = cb == modeBox ? "MODE" : cb == followBox ? "CHORDS FROM" : cb == feelBox ? "FEEL"
-                      : cb == regBox ? "REGISTER" : cb == octBox ? "OCTAVE" : "WHEN THE BAND STOPS";
+                      : cb == regBox ? "REGISTER" : cb == octBox ? "OCTAVE" : cb == typeBox ? "BASS" : "WHEN THE BAND STOPS";
         g.drawText (t, cb->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
     }
 
@@ -237,7 +237,7 @@ void UndertowEditor::paint (juce::Graphics& g)
     g.setColour (kTeal); g.setFont (font (13.0f, true));
     g.drawText ("THE RIG", rigPanel.reduced (16, 10).removeFromTop (18), juce::Justification::centredLeft);
     g.setColour (col::muted); g.setFont (font (11.0f));
-    g.drawText ("picked bass > comp > grit > chorus > flanger > amp", rigPanel.reduced (16, 10).removeFromTop (18), juce::Justification::centredRight);
+    g.drawText ("bass > comp > grit > chorus > flanger > amp", rigPanel.reduced (16, 10).removeFromTop (18), juce::Justification::centredRight);
     g.setColour (col::muted); g.setFont (font (11.0f, true));
     g.drawText ("GUITAR INPUT", guitarArea.withHeight (14), juce::Justification::centredLeft);
 
@@ -280,8 +280,10 @@ void UndertowEditor::resized()
     feelBox->setBounds (combos.reduced (3, 0));
     pp.removeFromTop (22);
     auto combos2 = pp.removeFromTop (26);
-    regBox->setBounds (combos2.removeFromLeft (cw).reduced (3, 0));
-    octBox->setBounds (combos2.removeFromLeft (cw).reduced (3, 0));
+    const int c4 = combos2.getWidth() / 4;
+    typeBox->setBounds (combos2.removeFromLeft (c4).reduced (3, 0));
+    regBox->setBounds (combos2.removeFromLeft (c4).reduced (3, 0));
+    octBox->setBounds (combos2.removeFromLeft (c4).reduced (3, 0));
     stopBox->setBounds (combos2.reduced (3, 0));
     pp.removeFromTop (40);
     auto combos3 = pp.removeFromTop (26);

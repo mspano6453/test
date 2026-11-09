@@ -3,6 +3,7 @@
 #include "../Source/BandStyles.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "UndertowPlayer.h"
+#include "SynthBass.h"
 #include "../Source/BandBus.h"
 
 // ---------------------------------------------------------------------------
@@ -70,11 +71,13 @@ public:
     bool samplesLoaded() const { return sampler.hasBank(); }
 
 private:
-    struct Ev { int t; int type; int note; float vel; float len; };    // type 1 on, 2 off
+    struct Ev { int t; int type; int note; float vel; float len; bool slide = false; };    // type 1 on, 2 off
     void readParams();
     void handleAsyncUpdate() override;
     std::atomic<int> keySection { -1 };
     void loadSamples();
+    std::shared_ptr<const ut::Bank> loadBank (const char* prefix, int layers, int rrs);
+    int activeNote() const { return bassType >= 2 ? synth.currentNote : sampler.currentNote; }
     void handleMidi (const juce::MidiMessage&, std::vector<Ev>&, int pos);
     void runPlayer (int n, std::vector<Ev>& evs);
     void playStep (int64_t k, int t, std::vector<Ev>& evs);
@@ -87,6 +90,9 @@ private:
 
     double sr = 44100;
     ut::BassSampler sampler;
+    ut::SynthBass synth;
+    std::shared_ptr<const ut::Bank> pickedBank, fingerBank;
+    int bassType = 0, loadedType = -1;
     ut::ChordDetector ears;
     ut::PitchTracker tracker;
     ut::OctaveDown octave;

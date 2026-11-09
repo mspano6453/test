@@ -41,7 +41,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout UndertowProcessor::createLay
     C ("chord_bars", "Bars Per Chord", { "1", "2", "4" }, 0);
     C ("song", "Song", { "Auto song", "Manual" }, 0);
     C ("section_bars", "Section Length", { "4 bars", "8 bars", "16 bars", "12 bars" }, 1);
-    C ("feel", "Feel", { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop" }, 0);
+    C ("feel", "Feel", feelNames(), 0);
+    C ("bass_type", "Bass", { "Picked", "Fingers", "Synth Sub", "Synth Acid", "Synth Reese", "Synth 80s Pulse" }, 0);
     C ("section", "Section", { "Verse", "Chorus", "Bridge" }, 0);
     C ("fill_now", "Footswitch: Fill", onOff(), 0);
     C ("register", "Register", { "Low (E-D#)", "Mid (A-G#)", "High (octave up)" }, 0);
@@ -92,8 +93,9 @@ bool UndertowProcessor::isBusesLayoutSupported (const BusesLayout& l) const
     return in.isDisabled() || in == juce::AudioChannelSet::stereo() || in == juce::AudioChannelSet::mono();
 }
 
-// Real picked bass: Karoryfer "Black And Blue Basses" (CC0), the pick + bridge pickup bass
-void UndertowProcessor::loadSamples()
+// Real basses: Karoryfer "Black And Blue Basses" (CC0) - the pick + bridge pickup bass ("b_")
+// and darkblack's fingered bass ("f_")
+std::shared_ptr<const ut::Bank> UndertowProcessor::loadBank (const char* prefix, int layers, int rrs)
 {
     auto bank = std::make_shared<Bank>();
     juce::FlacAudioFormat flac;
@@ -102,29 +104,42 @@ void UndertowProcessor::loadSamples()
         for (int layer = 0; layer < kLayers; ++layer)
             for (int rr = 0; rr < kRR; ++rr)
             {
-                const juce::String name = "b_" + juce::String (note) + "_" + juce::String (layer) + "_" + juce::String (rr) + "_flac";
+                // a bank with fewer takes reuses the ones it has
+                const int l = juce::jmin (layer, layers - 1), r = rr % juce::jmax (1, rrs);
+                const juce::String name = juce::String (prefix) + juce::String (note) + "_" + juce::String (l) + "_" + juce::String (r) + "_flac";
                 int size = 0;
                 const char* data = UndertowData::getNamedResource (name.toRawUTF8(), size);
+                if (data == nullptr && r > 0)   // fewer round robins at this layer: reuse the first
+                    data = UndertowData::getNamedResource ((juce::String (prefix) + juce::String (note) + "_" + juce::String (l) + "_0_flac").toRawUTF8(), size);
                 if (data == nullptr) continue;
                 std::unique_ptr<juce::AudioFormatReader> reader (flac.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
                 if (reader == nullptr) continue;
                 const int len = (int) reader->lengthInSamples;
                 juce::AudioBuffer<float> tmp ((int) juce::jmax (1u, reader->numChannels), len);
                 reader->read (&tmp, 0, len, 0, true, true);
-                auto s = std::make_shared<Sample>();
-                s->data.assign (tmp.getReadPointer (0), tmp.getReadPointer (0) + len);
-                s->data.push_back (0); s->data.push_back (0);
-                s->sr = reader->sampleRate;
-                bank->s[(size_t) (note - kLowSample)][(size_t) layer][(size_t) rr] = s;
+                auto smp = std::make_shared<Sample>();
+                smp->data.assign (tmp.getReadPointer (0), tmp.getReadPointer (0) + len);
+                smp->data.push_back (0); smp->data.push_back (0);
+                smp->sr = reader->sampleRate;
+                bank->s[(size_t) (note - kLowSample)][(size_t) layer][(size_t) rr] = smp;
                 ++loaded;
             }
-    if (loaded > 0) sampler.setBank (bank);
+    return loaded > 0 ? bank : nullptr;
+}
+
+void UndertowProcessor::loadSamples()
+{
+    pickedBank = loadBank ("b_", 2, 3);
+    fingerBank = loadBank ("f_", 2, 3);
+    if (fingerBank == nullptr) fingerBank = pickedBank;
+    if (pickedBank != nullptr) sampler.setBank (pickedBank);
+    loadedType = 0;
 }
 
 void UndertowProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
-    sampler.prepare (sr); ears.prepare (sr); tracker.prepare (sr); octave.prepare (sr); rig.prepare (sr);
+    sampler.prepare (sr); synth.prepare (sr); ears.prepare (sr); tracker.prepare (sr); octave.prepare (sr); rig.prepare (sr);
     const size_t n = (size_t) juce::jmax (512, samplesPerBlock);
     sc.assign (n, 0.0f); mono.assign (n, 0.0f); tmpR.assign (n, 0.0f);
     events.reserve (512);
@@ -143,6 +158,16 @@ void UndertowProcessor::readParams()
     key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
     chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = ut::sectionBarsFor ((int) g ("section_bars"));
     lockDrums = g ("lock_drums") > 0.5f;
+    bassType = (int) g ("bass_type");
+    if (bassType != loadedType)
+    {
+        // swap instruments: both banks stay loaded, so this never allocates or frees on the audio thread
+        sampler.noteOff(); synth.noteOff();
+        if (bassType == 1 && fingerBank != nullptr) sampler.setBank (fingerBank);
+        else if (bassType == 0 && pickedBank != nullptr) sampler.setBank (pickedBank);
+        if (bassType >= 2) synth.setModel (bassType - 2);
+        loadedType = bassType;
+    }
     reg = (int) g ("register"); stopWithBand = g ("band_stop") < 0.5f; keysOct = (int) g ("octave") - 2;
     variation = g ("variation"); fills = g ("fills"); hook = g ("hook"); density = g ("density");
     push = g ("push"); human = g ("human"); swing = g ("swing"); lengthK = g ("length");
@@ -200,12 +225,12 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
 ut::Chord UndertowProcessor::selfChordAt (int64_t k) const
 {
     const int64_t bar = k / 16;
-    if (led) { Chord c; leader.chordAt (bar, c.root, c.minor); return c; }
+    if (led) { Chord c; leader.chordAt (bar, c.root, c.minor); c.q = leader.qualityAt (bar); return c; }
     int sec = section; int64_t barIn = bar;
     if (autoSong) { const auto sp = songPosition (bar, sectionBars); sec = sp.section; barIn = sp.barIn; }
     const auto& prog = progressions()[(size_t) juce::jlimit (0, (int) progressions().size() - 1, progs[sec])].chords;
     const auto& pc = prog[(size_t) ((barIn / chordBars) % (int64_t) prog.size())];
-    return { (key + pc.off) % 12, pc.minor };
+    return { (key + pc.off) % 12, band::qualityIsMinor (pc.quality()), pc.quality() };
 }
 
 ut::Chord UndertowProcessor::currentChord() const
@@ -324,7 +349,8 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
         uint16_t kicks = 0;
         if (band::readKicks (bar, kicks))
         {
-            const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk || feel == FRoot || feel == FGallop;
+            const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk || feel == FRoot || feel == FGallop
+                                    || feel == FTrap || feel == FBoomBap || feel == FFunk || feel == FNewJack;
             for (int i = 0; i < 16; ++i)
             {
                 auto& stp = inst.s[(size_t) (motifPos + i)];
@@ -332,7 +358,7 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
                 {
                     if (stp.on && ! stp.ghost) stp.vel = juce::jmin (1.0f, stp.vel + 0.1f);
                     else if (! stp.on && catchKicks && i % 4 != 0 && rng.chance (0.75f))
-                        stp = { true, 0, 0, 0.82f, (i % 2 == 1) ? 0.9f : 1.6f, false };
+                        stp = { true, 0, 0, 0.82f, feel == FTrap ? 3.0f : ((i % 2 == 1) ? 0.9f : 1.6f), false };
                 }
                 else if (stp.on && ! stp.ghost && i % 4 != 0 && feel == FPump) stp.vel *= 0.94f;   // a touch softer between kicks
             }
@@ -351,7 +377,7 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     if (follow == FollowSelf && led && leader.isOut (bar)) bandOn = false;   // the Bandleader dropped the band out
     if (! c.valid() || ((stopWithBand || led) && ! bandOn))
     {
-        if (sampler.currentNote >= 0) evs.push_back ({ t, 2, 0, 0, 0 });
+        if (activeNote() >= 0) evs.push_back ({ t, 2, 0, 0, 0 });
         return;
     }
     if (! st.on) return;
@@ -360,7 +386,7 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
     float lenSec = (float) (st.len * lengthK * sixteenth / sr) * (1.0f + rng.n() * 0.08f * human);
     if (st.ghost) { vel = juce::jmin (vel, 0.45f); lenSec = juce::jmin (lenSec, 0.07f); }
-    evs.push_back ({ t, 1, pitch, vel, lenSec });
+    evs.push_back ({ t, 1, pitch, vel, lenSec, st.slide });
     lastStepPlayed = st; lastNoteChord = c; lastNoteAt = sampleClock + t; lastNoteLen = lenSec;
 }
 
@@ -413,7 +439,7 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
             {
                 for (int s = 0; s < NumSections; ++s)
                     for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
-                        harmony.hear ({ (leader.key + leader.progOff[s][i]) % 12, leader.progMinor[s][i] != 0 }, 0.5f);
+                        harmony.hear ({ (leader.key + leader.progOff[s][i]) % 12, band::qualityIsMinor (leader.progMinor[s][i]) }, 0.5f);
             }
             else
                 for (int s = 0; s < NumSections; ++s)
@@ -498,7 +524,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (follow == FollowGuitar && changed) harmony.hear (c, 1.0f);
         if (follow == FollowGuitar) { if (++harmonyTick % 64 == 0) harmony.hear (c, 0.3f); }
         lastChordChanges = ch;
-        if (follow != FollowSelf && changed && c.valid() && lastNoteChord.valid() && lastStepPlayed.on && sampler.currentNote >= 0
+        if (follow != FollowSelf && changed && c.valid() && lastNoteChord.valid() && lastStepPlayed.on && activeNote() >= 0
             && sampleClock - lastNoteAt < (int64_t) (sr * 0.12))
         {
             const float left = lastNoteLen - (float) (sampleClock - lastNoteAt) / (float) sr;
@@ -541,17 +567,18 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             if (midiOutNote >= 0) { midi.addEvent (juce::MidiMessage::noteOff (1, midiOutNote), i); midiOutNote = -1; midiOffIn = -1; }
             if (ev.type == 1)
             {
-                sampler.noteOn (ev.note, ev.vel, ev.len, rng.n() * (1.5f + 3.5f * human));
+                if (bassType >= 2) synth.noteOn (ev.note, ev.vel, ev.len, ev.slide);
+                else sampler.noteOn (ev.note, ev.vel, ev.len, rng.n() * (1.5f + 3.5f * human));
                 midi.addEvent (juce::MidiMessage::noteOn (1, ev.note, (juce::uint8) juce::jlimit (1, 127, (int) (ev.vel * 127.0f))), i);
                 midiOutNote = ev.note; midiOffIn = ev.len > 0 ? (int) (ev.len * sr) : -1;
                 uiNote = ev.note;
             }
-            else { sampler.noteOff(); uiNote = -1; }
+            else { sampler.noteOff(); synth.noteOff(); uiNote = -1; }
         }
         if (midiOffIn > 0 && --midiOffIn == 0) { midi.addEvent (juce::MidiMessage::noteOff (1, midiOutNote), i); midiOutNote = -1; midiOffIn = -1; }
-        mono[(size_t) i] = sampler.render();
+        mono[(size_t) i] = bassType >= 2 ? synth.render() : sampler.render();
     }
-    if (sampler.currentNote < 0 && midiOutNote < 0) uiNote = -1;
+    if (activeNote() < 0 && midiOutNote < 0) uiNote = -1;
 
     if (mode == MOctave)
         for (int i = 0; i < n; ++i) mono[(size_t) i] += octave.process (sc[(size_t) i]) * 1.8f;
@@ -560,6 +587,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     float* L = buffer.getWritePointer (0);
     float* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : tmpR.data();
     rig.process (mono.data(), L, R, n);
+    if (bassType == 2) for (int i = 0; i < n; ++i) { L[i] *= 0.7f; R[i] *= 0.7f; }   // the sub is felt more than heard: keep it from swamping the mix
     if ((mode == MOctave || mode == MTracked) && guitarDry > 0.001f)
         for (int i = 0; i < n; ++i) { L[i] += sc[(size_t) i] * guitarDry; R[i] += sc[(size_t) i] * guitarDry; }
     // safety: never let a runaway setting blow up the monitors
@@ -604,6 +632,7 @@ void UndertowProcessor::handleAsyncUpdate()
 void UndertowProcessor::applyStyle (const band::StyleDef& s)
 {
     band::setParam (apvts, "feel", (float) s.bFeel);
+    band::setParam (apvts, "bass_type", (float) s.uBass);
     band::setParam (apvts, "register", (float) s.bReg);
     band::setParam (apvts, "hook", s.bHook);
     band::setParam (apvts, "density", s.bBusy);

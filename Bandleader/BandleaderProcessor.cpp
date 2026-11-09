@@ -97,7 +97,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     {
         const auto& p = ut::progressions()[(size_t) juce::jlimit (0, (int) ut::progressions().size() - 1, (int) g (progIds[s]))].chords;
         L.progLen[s] = juce::jmin ((int) p.size(), band::kMaxProg);
-        for (int i = 0; i < L.progLen[s]; ++i) { L.progOff[s][i] = (int8_t) p[(size_t) i].off; L.progMinor[s][i] = p[(size_t) i].minor ? 1 : 0; }
+        for (int i = 0; i < L.progLen[s]; ++i) { L.progOff[s][i] = (int8_t) p[(size_t) i].off; L.progMinor[s][i] = (int8_t) p[(size_t) i].quality(); }
     }
     L.energy = g ("energy");
     L.style = styleIdx.load(); L.styleStamp = styleStamp.load();
@@ -203,7 +203,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     uiDropComing = playing && L.dropStart > bar && L.dropStart < band::kNever;
     uiFillComing = playing && (L.fillBar == bar || L.fillBar == bar + 1);
     int r; bool mn; L.chordAt (playing ? bar : 0, r, mn);
-    uiChord = r | (mn ? 16 : 0);
+    uiChord = r | (L.qualityAt (playing ? bar : 0) << 4);   juce::ignoreUnused (mn);
 }
 
 void BandleaderProcessor::getStateInformation (juce::MemoryBlock& dest)

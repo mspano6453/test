@@ -172,13 +172,17 @@ int main (int argc, char** argv)
     // ------------------------------------------------------------------ 2. MIDI chords, every feel
     if (only.isEmpty() || only == "midi")
     {
+        // each feel with the bass that suits it (genre pairings)
+        auto bassFor = [] (int f) { switch (f) { case ut::FMotor: case ut::FPhilly: case ut::FFunk: case ut::FBoomBap: case ut::FNewJack: return 1;
+                                                  case ut::FTrap: return 2; case ut::FAcid: return 3; case ut::FTechno: return 4; case ut::FHouse: return 5; default: return 0; } };
         for (int feel = 0; feel < ut::NumFeels; ++feel)
         {
             UndertowProcessor p;
             p.setPlayConfigDetails (2, 2, sr, bs);
             p.prepareToPlay (sr, bs);
             Head head; p.setPlayHead (&head);
-            setP (p, "feel", (float) feel); setP (p, "follow", 2);
+            setP (p, "feel", (float) feel); setP (p, "follow", 2); setP (p, "bass_type", (float) bassFor (feel));
+            if (bassFor (feel) >= 2) { setP (p, "ch_mix", 0); setP (p, "grit", 0.1f); }
             const int bars = 8, total = (int) (spb * 4 * bars);
             juce::AudioBuffer<float> out (2, total), block (2, bs);
             int lastBar = -1; std::vector<int> cur; int ok = 0, tot = 0; bool nan = false;

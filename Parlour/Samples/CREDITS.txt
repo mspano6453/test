@@ -1,0 +1,14 @@
+Parlour sample credits
+======================
+
+All samples come from the Versilian Community Sample Library (VCSL) by Versilian Studios,
+released under CC0 1.0 (public domain): https://github.com/sgossner/VCSL
+
+  pn_*  Upright Piano (Yamaha)        - Chordophones/Zithers/Upright Piano, Yamaha/Sustains (soft + hard layers)
+  vb_*  Vibraphone, soft mallets      - Idiophones/Struck Idiophones/Vibraphone/Soft Mallets
+  gl_*  Glockenspiel                  - Idiophones/Struck Idiophones/Glockenspiel (medium + loud)
+
+Trimmed, faded and normalised for Parlour. File names: <set>_<midi note>_<layer>.flac
+
+The electric piano, digital piano, organ, clav, string machine, synth brass and poly pad are
+modelled in code (no samples).

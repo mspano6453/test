@@ -1,5 +1,6 @@
 #pragma once
 #include "UndertowDSP.h"
+#include "../Source/BandBus.h"
 
 // ---------------------------------------------------------------------------
 // The player: writes 2-bar bass motifs in a late-70s/80s post-punk style
@@ -9,8 +10,17 @@
 // ---------------------------------------------------------------------------
 namespace ut
 {
-enum Feel { FPump = 0, FMelodic, FGothic, FOctaves, FWalk, FRoot, FHalf, FGallop, NumFeels };
-inline const char* feelName (int f) { static const char* n[] = { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop" }; return n[f]; }
+enum Feel { FPump = 0, FMelodic, FGothic, FOctaves, FWalk, FRoot, FHalf, FGallop,
+            FMotor, FPhilly, FFunk, FTrap, FBoomBap, FHouse, FTechno, FAcid, FNewJack, NumFeels };
+inline const char* feelName (int f)
+{
+    static const char* n[] = { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop",
+                               "Motor City", "Philly", "Funk 16ths", "Trap Sub", "Boom Bap", "House", "Techno", "Acid", "New Jack" };
+    return n[f];
+}
+inline juce::StringArray feelNames() { juce::StringArray a; for (int i = 0; i < NumFeels; ++i) a.add (feelName (i)); return a; }
+// the electronic feels keep their groove in the bridge instead of going half-time
+inline bool feelIsMachine (int f) { return f == FTrap || f == FHouse || f == FTechno || f == FAcid; }
 enum Section { SVerse = 0, SChorus, SBridge, NumSections };
 
 constexpr int kSteps = 32;           // 2 bars of 16ths
@@ -23,13 +33,14 @@ struct Step
     float vel = 0.8f;
     float len = 1.7f;     // in 16ths
     bool ghost = false;
+    bool slide = false;   // synth basses glide into this note from the last one
 };
 struct Motif { std::array<Step, kSteps> s; };
 
-inline void put (Motif& m, int i, int deg, float vel, float len, int semis = 0, bool ghost = false)
+inline void put (Motif& m, int i, int deg, float vel, float len, int semis = 0, bool ghost = false, bool slide = false)
 {
     if (i < 0 || i >= kSteps) return;
-    m.s[(size_t) i] = { true, deg, semis, vel, len, ghost };
+    m.s[(size_t) i] = { true, deg, semis, vel, len, ghost, slide };
 }
 
 // fill each note's length up to the next note (legato), scaled
@@ -60,9 +71,19 @@ public:
             case FWalk:    walk (m, r, section, hook, density); break;
             case FRoot:    root8 (m, r, section, hook, density); break;
             case FHalf:    halfHeavy (m, r, section, hook, density); break;
+            case FMotor:   motorCity (m, r, section, hook, density); break;
+            case FPhilly:  philly (m, r, section, hook, density); break;
+            case FFunk:    funk (m, r, section, hook, density); break;
+            case FTrap:    trap (m, r, section, hook, density); break;
+            case FBoomBap: boomBap (m, r, section, hook, density); break;
+            case FHouse:   house (m, r, section, hook, density); break;
+            case FTechno:  techno (m, r, section, hook, density); break;
+            case FAcid:    acid (m, r, section, hook, density); break;
+            case FNewJack: newJack (m, r, section, hook, density); break;
             default:       gallop (m, r, section, hook, density); break;
         }
-        if (section == SBridge) halfTime (m, r);
+        if (section == SBridge && ! feelIsMachine (feel)) halfTime (m, r);
+        else if (section == SBridge) for (auto& s : m.s) if (s.on && r.chance (0.25f)) s.on = false;   // thin it out a little
         if (section == SChorus) for (auto& s : m.s) if (s.on && ! s.ghost) s.vel = std::min (1.0f, s.vel + 0.07f);
         return m;
     }
@@ -82,6 +103,13 @@ public:
         }
         const int from = big ? 24 : 28;
         for (int i = from; i < kSteps; ++i) m.s[(size_t) i].on = false;
+        if (feelIsMachine (feel))
+        {
+            // machine fills: an octave stutter or a slide up into the next bar
+            if (r.chance (0.5f)) for (int k = 0; k < 4; ++k) put (m, 28 + k, k % 2 ? 7 : 0, 0.8f + 0.05f * (float) k, 0.9f);
+            else { put (m, 28, 0, 0.9f, 2.2f); put (m, 30, 7, 0.95f, 2.0f, 0, false, true); }
+            return;
+        }
         if (feel == FGothic)
         {
             static const int a[][4] = { { 7, 6, 4, 2 }, { 0, -1, -2, -3 }, { 4, 5, 6, 7 } };
@@ -276,6 +304,165 @@ private:
         juce::ignoreUnused (density);
     }
 
+    // Detroit soul: busy, melodic fingered lines that never sit still, with chromatic approaches
+    static void motorCity (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int bar = 0; bar < 2; ++bar)
+        {
+            const int b = bar * 16;
+            put (m, b, 0, 0.92f, 1.8f);
+            if (r.chance (0.5f + density * 0.3f)) put (m, b + 3, 0, 0.62f, 0.8f);                  // the 16th pickup into beat 2
+            for (int beat = 1; beat < 4; ++beat)
+            {
+                const int p = b + beat * 4;
+                const float x = r.u();
+                static const int tones[] = { 4, 7, 2, 5, 9, 4 };
+                if (x < 0.35f) { put (m, p, tones[r.i (6)], 0.82f, 1.8f); put (m, p + 2, tones[r.i (6)], 0.74f, 1.6f); }
+                else if (x < 0.6f) { put (m, p, tones[r.i (6)], 0.84f, 2.8f); put (m, p + 3, tones[r.i (6)], 0.66f, 0.9f); }
+                else if (x < 0.8f) { put (m, p + 2, tones[r.i (6)], 0.8f, 1.8f); }
+                else { put (m, p, 7, 0.84f, 1.6f); put (m, p + 1, 6, 0.6f, 0.9f); put (m, p + 2, 4, 0.72f, 1.6f); }   // a little run down
+            }
+            // lean into the next chord from a half step below
+            put (m, b + 15, 0, 0.72f, 0.9f, -1);
+            if (hook > 0.6f && r.chance (hook - 0.2f)) { put (m, b + 12, 9, 0.84f, 1.6f); put (m, b + 14, 11, 0.8f, 1.0f); }
+        }
+        if (sec == SChorus) for (int i = 0; i < kSteps; i += 8) if (! m.s[(size_t) i + 2].on) put (m, i + 2, 7, 0.8f, 1.6f);
+        legato (m, 0.85f);
+    }
+
+    // Philadelphia: octaves bouncing on the off-beats with 16th pickups, lush and driving
+    static void philly (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int b = 0; b < kSteps; b += 4)
+        {
+            put (m, b, 0, b % 16 == 0 ? 0.92f : 0.84f, 1.4f);
+            put (m, b + 2, 7, 0.82f, 1.2f);
+            if (r.chance (0.35f + density * 0.5f)) put (m, b + 3, 7, 0.6f, 0.8f);                  // the pickup
+        }
+        if (hook > 0.4f && r.chance (hook))
+        {
+            put (m, 24, 4, 0.86f, 1.4f); put (m, 26, 5, 0.82f, 1.2f); put (m, 28, 6, 0.84f, 1.4f); put (m, 30, 7, 0.86f, 1.2f);   // walk up into the change
+        }
+        if (sec == SChorus) for (int b = 1; b < kSteps; b += 8) if (r.chance (0.4f)) put (m, b, 0, 0.45f, 0.6f, 0, true);
+    }
+
+    // funk: the ONE hits hard, then syncopated 16ths with ghost notes and octave pops
+    static void funk (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int bar = 0; bar < 2; ++bar)
+        {
+            const int b = bar * 16;
+            put (m, b, 0, 1.0f, 1.6f);
+            static const int spots[] = { 3, 6, 7, 10, 11, 13, 14 };
+            for (int k : spots)
+            {
+                const float x = r.u();
+                if (x < 0.25f + density * 0.25f) put (m, b + k, (k == 6 || k == 14) ? 7 : (k == 10 ? 4 : 0), 0.8f, 0.9f);
+                else if (x < 0.45f + density * 0.3f) put (m, b + k, 0, 0.4f, 0.5f, 0, true);
+            }
+            if (r.chance (0.5f)) put (m, b + 12, 6, 0.82f, 0.9f);                                  // the flat seven
+        }
+        if (hook > 0.5f && r.chance (hook)) { put (m, 28, 7, 0.88f, 0.9f); put (m, 29, 6, 0.8f, 0.9f); put (m, 30, 4, 0.84f, 0.9f); put (m, 31, 2, 0.8f, 0.9f); }
+        juce::ignoreUnused (sec);
+    }
+
+    // trap: long booming sub notes on the kick spots, octave slides, rolls at the end
+    static void trap (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        static const int pats[][6] = { { 0, 6, 10, -1, -1, -1 }, { 0, 3, 10, 14, -1, -1 }, { 0, 7, 10, -1, -1, -1 }, { 0, 6, 11, 14, -1, -1 } };
+        for (int bar = 0; bar < 2; ++bar)
+        {
+            const auto& p = pats[r.i (4)];
+            int n = 0; while (n < 6 && p[n] >= 0) ++n;
+            for (int k = 0; k < n; ++k)
+            {
+                const int at = bar * 16 + p[k], next = k + 1 < n ? bar * 16 + p[k + 1] : bar * 16 + 16;
+                put (m, at, 0, k == 0 ? 0.95f : 0.85f, (float) (next - at) * 0.95f);
+            }
+        }
+        // the slide: up an octave (or down to the fifth) and back, gliding
+        if (r.chance (0.5f + hook * 0.4f)) { put (m, 14, 7, 0.88f, 1.8f, 0, false, true); put (m, 15, 0, 0.84f, 1.0f, 0, false, true); }
+        if (r.chance (0.3f + hook * 0.3f)) put (m, 26, r.chance (0.5f) ? 4 : -3, 0.86f, 3.6f, 0, false, true);
+        if (density > 0.6f && r.chance (density)) for (int k = 0; k < 3; ++k) put (m, 29 + k, 0, 0.7f, 0.8f);    // a quick roll
+        juce::ignoreUnused (sec);
+    }
+
+    // boom bap: a fat root on one, a lazy syncopation on the 'a' of two, a turn at the end
+    static void boomBap (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int bar = 0; bar < 2; ++bar)
+        {
+            const int b = bar * 16;
+            put (m, b, 0, 0.92f, 5.0f);
+            put (m, b + 7, 0, 0.74f, 2.0f);
+            put (m, b + 10, r.chance (0.5f) ? 0 : 4, 0.82f, 2.6f);
+            if (r.chance (0.4f + density * 0.4f)) put (m, b + 14, r.chance (0.5f) ? 6 : 4, 0.76f, 1.6f);
+        }
+        if (hook > 0.5f && r.chance (hook)) { put (m, 26, 4, 0.82f, 1.8f); put (m, 28, 2, 0.78f, 1.8f); put (m, 30, 1, 0.74f, 1.8f); }
+        if (sec == SChorus) put (m, 20, 7, 0.82f, 2.0f);
+    }
+
+    // house: the bass lives on the off-beats between the four-on-the-floor kicks
+    static void house (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int b = 0; b < kSteps; b += 4)
+        {
+            const bool oct = hook > 0.5f && (b % 8 == 4) && r.chance (hook);
+            put (m, b + 2, oct ? 7 : 0, 0.88f, 1.4f);
+            if (density > 0.55f && r.chance (density - 0.3f)) put (m, b + 3, 0, 0.62f, 0.8f);
+        }
+        if (sec == SChorus && r.chance (0.6f)) { put (m, 27, 4, 0.8f, 0.9f); put (m, 30, 6, 0.86f, 1.4f); }
+    }
+
+    // techno: rolling 16ths that duck out of the way of the kick
+    static void techno (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int b = 0; b < kSteps; b += 4)
+            for (int k = 1; k < 4; ++k)
+                if (k == 2 || r.chance (0.55f + density * 0.4f)) put (m, b + k, 0, k == 2 ? 0.88f : 0.68f, 0.8f);
+        if (hook > 0.5f) for (int b = 12; b < kSteps; b += 16) if (r.chance (hook)) { put (m, b + 2, 7, 0.88f, 0.8f); put (m, b + 3, 4, 0.7f, 0.8f); }
+        juce::ignoreUnused (sec);
+    }
+
+    // acid: a 16-step sequence with accents and slides, the classic squelch machine
+    static void acid (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        static const int pool[] = { 0, 0, 0, 7, 0, 2, 6, 4, 7, 14, -2 };
+        Step bar[16];
+        int last = -1;
+        for (int i = 0; i < 16; ++i)
+        {
+            const bool on = i == 0 || r.chance (0.45f + density * 0.4f);
+            if (! on) continue;
+            const int deg = i == 0 ? 0 : pool[r.i (hook > 0.5f ? 11 : 8)];
+            const bool accent = r.chance (0.3f), slide = last >= 0 && last == i - 1 && r.chance (0.35f);
+            bar[i] = { true, deg, 0, accent ? 0.95f : 0.7f, slide ? 1.3f : 0.85f, false, slide };
+            if (slide && bar[last].on) bar[last].len = 1.3f;   // overlap so it glides
+            last = i;
+        }
+        for (int i = 0; i < 16; ++i) { m.s[(size_t) i] = bar[i]; m.s[(size_t) (16 + i)] = bar[i]; }
+        // the second bar answers with a twist
+        for (int i = 20; i < kSteps; ++i) if (m.s[(size_t) i].on && r.chance (0.2f)) m.s[(size_t) i].deg = pool[r.i (8)];
+        juce::ignoreUnused (sec);
+    }
+
+    // new jack swing: swung, syncopated, punchy octaves
+    static void newJack (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        for (int bar = 0; bar < 2; ++bar)
+        {
+            const int b = bar * 16;
+            put (m, b, 0, 0.94f, 2.4f);
+            put (m, b + 3, 0, 0.7f, 0.9f);
+            put (m, b + 6, 7, 0.84f, 1.4f);
+            put (m, b + 10, 0, 0.86f, 1.0f);
+            if (r.chance (0.5f + density * 0.4f)) put (m, b + 11, 0, 0.68f, 0.9f);
+            put (m, b + 14, r.chance (0.5f) ? 6 : 4, 0.82f, 1.4f);
+        }
+        if (hook > 0.5f && r.chance (hook)) { put (m, 28, 7, 0.88f, 0.9f); put (m, 29, 9, 0.8f, 0.9f); put (m, 30, 7, 0.84f, 1.4f); }
+        juce::ignoreUnused (sec);
+    }
+
     static void halfTime (Motif& m, Rng& r)
     {
         for (int i = 0; i < kSteps; ++i)
@@ -308,6 +495,14 @@ struct Harmony
         const int o = (int) std::floor (deg / 7.0);
         const int d = deg - o * 7;
         int s = (c.minor ? minor : major)[d];
+        // the chord's own colour wins: 7ths, flat fives, suspended fourths
+        if (c.q >= 0)
+        {
+            const int o2 = o * 12;
+            if (d == 6) { if (c.q == 2 || c.q == 4 || c.q == 7) return 10 + o2; if (c.q == 3) return 11 + o2; }
+            if (d == 4 && (c.q == 5 || c.q == 7)) return 6 + o2;
+            if (d == 2 && c.q == 6) return 5 + o2;
+        }
         // non-chord tones: borrow whichever version the song has actually been using
         // (a major chord in a minor song gets a flat 7, a minor chord in a major song gets a natural 6...)
         if (d == 1 || d == 3 || d == 5 || d == 6)
@@ -322,7 +517,7 @@ struct Harmony
 // ---------------------------------------------------------------------------
 // Self-playing: built-in progressions (relative to a key) and a song form
 // ---------------------------------------------------------------------------
-struct ProgChord { int off; bool minor; };
+struct ProgChord { int off; bool minor; int q = -1; int quality() const { return q >= 0 ? q : (minor ? 1 : 0); } };
 struct Progression { const char* label; std::vector<ProgChord> chords; };
 inline const std::vector<Progression>& progressions()
 {
@@ -351,6 +546,23 @@ inline const std::vector<Progression>& progressions()
         { "I - bVI - bVII - I", { { 0, false }, { 8, false }, { 10, false }, { 0, false } } },
         { "i - v",              { { 0, true }, { 7, true } } },
         { "I - vi - ii - V",    { { 0, false }, { 9, true }, { 2, true }, { 7, false } } },
+        // 7th-chord progressions (soul, house, lo-fi, 80s)
+        { "Imaj7 - vi7 - ii7 - V7",     { { 0, false, 3 }, { 9, true, 4 }, { 2, true, 4 }, { 7, false, 2 } } },
+        { "ii7 - V7 - Imaj7 - Imaj7",   { { 2, true, 4 }, { 7, false, 2 }, { 0, false, 3 }, { 0, false, 3 } } },
+        { "IVmaj7 - iii7 - ii7 - Imaj7",{ { 5, false, 3 }, { 4, true, 4 }, { 2, true, 4 }, { 0, false, 3 } } },
+        { "Imaj7 - iii7 - vi7 - IVmaj7",{ { 0, false, 3 }, { 4, true, 4 }, { 9, true, 4 }, { 5, false, 3 } } },
+        { "i7 - iv7",                   { { 0, true, 4 }, { 5, true, 4 } } },
+        { "i7 (one chord)",             { { 0, true, 4 } } },
+        { "I7 (one chord)",             { { 0, false, 2 } } },
+        { "Imaj7 - IVmaj7",             { { 0, false, 3 }, { 5, false, 3 } } },
+        { "ii7 - V7 - iii7 - vi7",      { { 2, true, 4 }, { 7, false, 2 }, { 4, true, 4 }, { 9, true, 4 } } },
+        { "I7 - IV7 - I7 - V7",         { { 0, false, 2 }, { 5, false, 2 }, { 0, false, 2 }, { 7, false, 2 } } },
+        { "i - i - VI - VII",           { { 0, true }, { 0, true }, { 8, false }, { 10, false } } },
+        { "I - V - vi - iii - IV - I - IV - V", { { 0, false }, { 7, false }, { 9, true }, { 4, true }, { 5, false }, { 0, false }, { 5, false }, { 7, false } } },
+        { "Isus4 - I",                  { { 0, false, 6 }, { 0, false } } },
+        { "I - II - IV - I",            { { 0, false }, { 2, false }, { 5, false }, { 0, false } } },
+        { "i7 - VImaj7 - iv7 - v7",     { { 0, true, 4 }, { 8, false, 3 }, { 5, true, 4 }, { 7, true, 4 } } },
+        { "vi7 - ii7 - V7 - Imaj7",     { { 9, true, 4 }, { 2, true, 4 }, { 7, false, 2 }, { 0, false, 3 } } },
     };
     return p;
 }
@@ -360,7 +572,7 @@ inline juce::String progressionChords (int prog, int key)
     juce::String s;
     const auto& ps = progressions();
     if (prog < 0 || prog >= (int) ps.size()) return s;
-    for (auto& c : ps[(size_t) prog].chords) s << pcName (key + c.off) << (c.minor ? "m" : "") << " ";
+    for (auto& c : ps[(size_t) prog].chords) s << pcName (key + c.off) << band::qualitySuffix (c.quality()) << " ";
     return s.trim();
 }
 

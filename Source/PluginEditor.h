@@ -95,6 +95,8 @@ private:
     void timerCallback() override;
     TeaTowelProcessor& proc;
     std::unique_ptr<Knob> knobs[tt::NumMasterParams];
+    juce::ComboBox kitTypeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> kitTypeAtt;
     juce::Rectangle<int> meterArea;
     float grShown = 0;
 };

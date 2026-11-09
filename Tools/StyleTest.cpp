@@ -9,6 +9,8 @@
 #include "../Schaltwerk/SchaltwerkProcessor.h"
 #include "../TapeTwin/TapeTwinProcessor.h"
 #include "../Lathe/LatheProcessor.h"
+#include "../Parlour/ParlourProcessor.h"
+#include "../Ether/EtherProcessor.h"
 
 struct Head : juce::AudioPlayHead
 {
@@ -38,9 +40,10 @@ int main (int argc, char** argv)
         ++styleIndex;
         if (only.isNotEmpty() && ! juce::String (sd.name).containsIgnoreCase (only)) continue;
         BandleaderProcessor lead; TeaTowelProcessor drums; UndertowProcessor bass; LoonProcessor loon; SchaltwerkProcessor sw; TapeTwinProcessor tape; LatheProcessor lathe;
+        ParlourProcessor keys; EtherProcessor ether;
         Head head; head.bpm = sd.bpm; head.playing = false;
         struct P { juce::AudioProcessor* p; int ins; };
-        const P all[] = { { &lead, 0 }, { &drums, 0 }, { &bass, 2 }, { &loon, 2 }, { &sw, 2 }, { &tape, 2 }, { &lathe, 2 } };
+        const P all[] = { { &lead, 0 }, { &drums, 0 }, { &bass, 2 }, { &loon, 2 }, { &sw, 2 }, { &tape, 2 }, { &lathe, 2 }, { &keys, 0 }, { &ether, 0 } };
         for (auto& x : all) { x.p->setPlayConfigDetails (x.ins, 2, sr, bs); x.p->prepareToPlay (sr, bs); x.p->setPlayHead (&head); }
         setP (loon.apvts, "follow", 0);
 
@@ -48,10 +51,13 @@ int main (int argc, char** argv)
         setP (lead.apvts, "style", (float) styleIndex);
         lead.timerCallback();
         { juce::AudioBuffer<float> b (2, bs); juce::MidiBuffer m; lead.processBlock (b, m); }
-        for (auto* f : { &drums.styleFollower, &bass.styleFollower, &loon.styleFollower, &sw.styleFollower, &tape.styleFollower, &lathe.styleFollower }) f->check();
+        for (auto* f : { &drums.styleFollower, &bass.styleFollower, &loon.styleFollower, &sw.styleFollower, &tape.styleFollower, &lathe.styleFollower, &keys.styleFollower, &ether.styleFollower }) f->check();
         const bool took = (int) val (drums.apvts, "p_style") == sd.dStyle && (int) val (bass.apvts, "feel") == sd.bFeel
                        && std::abs (val (loon.apvts, "v_mix") - sd.lSpace) < 0.01f && std::abs (val (tape.apvts, "wow") - sd.tWow) < 0.01f
-                       && lathe.getCurrentProgram() == sd.lathe && (int) val (lead.apvts, "key") == sd.key;
+                       && lathe.getCurrentProgram() == sd.lathe && (int) val (lead.apvts, "key") == sd.key
+                       && (int) val (bass.apvts, "bass_type") == sd.uBass
+                       && ((int) val (keys.apvts, "sit_out") == (sd.kOn ? 0 : 1)) && (! sd.kOn || (int) val (keys.apvts, "instrument") == sd.kInst)
+                       && ((int) val (ether.apvts, "sit_out") == (sd.eRole > 0 ? 0 : 1)) && (sd.eRole <= 0 || (int) val (ether.apvts, "instrument") == sd.eInst);
 
         // a reopened set must not re-apply the style over your tweaks
         bool keptTweak = true;
@@ -71,7 +77,10 @@ int main (int argc, char** argv)
         head.playing = true;
         const double spb = sr * 60.0 / sd.bpm;
         const int bars = 16, total = (int) (spb * 4 * bars) / bs * bs;
-        juce::AudioBuffer<float> mix (2, total), b (2, bs), bd (2, bs), bb (2, bs), bl (2, bs), bsw (2, bs);
+        juce::AudioBuffer<float> mix (2, total), b (2, bs), bd (2, bs), bb (2, bs), bl (2, bs), bsw (2, bs), bk (2, bs), be (2, bs);
+        const juce::String pk (sd.pack);
+        const float gtr = (pk == "Hip-Hop" || pk == "Electronic" || pk == "Early Electronic") ? 0.0f : (pk == "Soul" || pk == "80s") ? 0.05f : 0.12f;
+        double keysE = 0, etherE = 0;
         std::vector<KS> strings (4); juce::Random rnd (5);
         double drumE = 0, bassE = 0, loonE = 0; bool nan = false;
         for (int pos = 0; pos < total; pos += bs)
@@ -82,6 +91,8 @@ int main (int argc, char** argv)
             bd.clear(); drums.processBlock (bd, m); m.clear();
             bb.clear(); bass.processBlock (bb, m); m.clear();
             bsw.clear(); sw.processBlock (bsw, m); m.clear();
+            bk.clear(); keys.processBlock (bk, m); m.clear();
+            be.clear(); ether.processBlock (be, m); m.clear();
             band::Leader L; band::readLeader (L);
             for (int i = 0; i < bs; ++i)
             {
@@ -90,7 +101,7 @@ int main (int argc, char** argv)
                 {
                     int r; bool mn; L.chordAt ((int64_t) (q / 4), r, mn);
                     const int notes[4] = { 40 + (r + 8) % 12, 52 + r, 52 + r + (mn ? 3 : 4), 52 + r + 7 };
-                    for (int s = 0; s < 4; ++s) strings[(size_t) s].pluck (440.0 * std::pow (2.0, (notes[s] - 69) / 12.0), sr, 0.12f, rnd);
+                    for (int s = 0; s < 4; ++s) if (gtr > 0) strings[(size_t) s].pluck (440.0 * std::pow (2.0, (notes[s] - 69) / 12.0), sr, gtr, rnd);
                 }
                 float g = 0; for (auto& s : strings) g += s.tick();
                 bl.setSample (0, i, g); bl.setSample (1, i, g);
@@ -103,7 +114,10 @@ int main (int argc, char** argv)
                 mix.addFrom (c, pos, bb, c, 0, bs, 0.9f);
                 mix.addFrom (c, pos, bl, c, 0, bs, 0.6f);
                 mix.addFrom (c, pos, bsw, c, 0, bs, 0.6f);
+                mix.addFrom (c, pos, bk, c, 0, bs, 0.8f);
+                mix.addFrom (c, pos, be, c, 0, bs, 0.7f);
             }
+            keysE += bk.getRMSLevel (0, 0, bs); etherE += be.getRMSLevel (0, 0, bs);
             drumE += bd.getRMSLevel (0, 0, bs); bassE += bb.getRMSLevel (0, 0, bs); loonE += bl.getRMSLevel (0, 0, bs);
         }
         // master through Lathe
@@ -114,8 +128,8 @@ int main (int argc, char** argv)
         }
         for (int c = 0; c < 2; ++c) for (int i = 0; i < total; ++i) if (! std::isfinite (mix.getSample (c, i))) nan = true;
         const int nb = total / bs;
-        std::printf ("%-18s %3.0f bpm  took style %s  %s drums %.3f bass %.3f guitar+fx %.3f peak %.2f %s\n", sd.name, sd.bpm, took ? "yes" : "NO",
-                     keptTweak ? "" : "RE-APPLIED ON RELOAD!", drumE / nb, bassE / nb, loonE / nb, mix.getMagnitude (0, total), nan ? "NAN!" : "");
+        std::printf ("%-20s %3.0f bpm  took %s  %s drums %.3f bass %.3f gtr+fx %.3f keys %.3f ether %.3f peak %.2f %s\n", sd.name, sd.bpm, took ? "yes" : "NO",
+                     keptTweak ? "" : "RE-APPLIED ON RELOAD!", drumE / nb, bassE / nb, loonE / nb, keysE / nb, etherE / nb, mix.getMagnitude (0, total), nan ? "NAN!" : "");
         auto f = outDir.getChildFile (juce::String ("style_") + juce::String (sd.name).replaceCharacters (" /", "__") + ".wav"); f.deleteFile();
         juce::WavAudioFormat wav;
         std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (new juce::FileOutputStream (f), sr, 2, 24, {}, 0));

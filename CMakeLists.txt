@@ -266,6 +266,81 @@ target_link_libraries(Undertow
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
+# Parlour - keys player (real piano / vibes / glockenspiel samples + modelled electric keys)
+file(GLOB PARLOUR_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Parlour/Samples/*.flac")
+juce_add_binary_data(ParlourSamples NAMESPACE ParlourData HEADER_NAME ParlourData.h SOURCES ${PARLOUR_SAMPLES})
+set_target_properties(ParlourSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+juce_add_plugin(Parlour
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.parlour"
+    PRODUCT_NAME "Parlour"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Prlr
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Synth
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Parlour PRIVATE
+    Parlour/ParlourProcessor.cpp
+    Parlour/ParlourEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Parlour PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Parlour
+    PRIVATE
+        ParlourSamples
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Ether - early electronic instruments (all modelled) that play melodies over the band
+juce_add_plugin(Ether
+    COMPANY_NAME "Tea Towel Audio"
+    BUNDLE_ID "com.teatowelaudio.ether"
+    PRODUCT_NAME "Ether"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Ethr
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Synth
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Ether PRIVATE
+    Ether/EtherProcessor.cpp
+    Ether/EtherEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Ether PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Ether
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
 # Bandleader - runs the song for the whole band (no sound of its own)
 juce_add_plugin(Bandleader
     COMPANY_NAME "Tea Towel Audio"
@@ -339,10 +414,25 @@ if(TEATOWEL_RENDER_DEMO)
     target_compile_definitions(CarouselTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 CAROUSEL_NO_ENTRY=1)
     target_link_libraries(CarouselTest PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 
+    juce_add_console_app(KitTest PRODUCT_NAME "KitTest")
+    target_sources(KitTest PRIVATE Tools/KitTest.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(KitTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 TEATOWEL_NO_ENTRY=1)
+    target_link_libraries(KitTest PRIVATE TeaTowelSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
     juce_add_console_app(UndertowTest PRODUCT_NAME "UndertowTest")
     target_sources(UndertowTest PRIVATE Tools/UndertowTest.cpp Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(UndertowTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 UNDERTOW_NO_ENTRY=1)
     target_link_libraries(UndertowTest PRIVATE UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(ParlourTest PRODUCT_NAME "ParlourTest")
+    target_sources(ParlourTest PRIVATE Tools/ParlourTest.cpp Parlour/ParlourProcessor.cpp Parlour/ParlourEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(ParlourTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 PARLOUR_NO_ENTRY=1)
+    target_link_libraries(ParlourTest PRIVATE ParlourSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    juce_add_console_app(EtherTest PRODUCT_NAME "EtherTest")
+    target_sources(EtherTest PRIVATE Tools/EtherTest.cpp Ether/EtherProcessor.cpp Ether/EtherEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(EtherTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 ETHER_NO_ENTRY=1)
+    target_link_libraries(EtherTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(BandTest PRODUCT_NAME "BandTest")
     target_sources(BandTest PRIVATE Tools/BandTest.cpp
@@ -391,8 +481,10 @@ if(TEATOWEL_RENDER_DEMO)
         Schaltwerk/SchaltwerkProcessor.cpp Schaltwerk/SchaltwerkEditor.cpp
         TapeTwin/TapeTwinProcessor.cpp TapeTwin/TapeTwinEditor.cpp
         Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp
+        Parlour/ParlourProcessor.cpp Parlour/ParlourEditor.cpp
+        Ether/EtherProcessor.cpp Ether/EtherEditor.cpp
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
-        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
-    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

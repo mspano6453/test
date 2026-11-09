@@ -15,7 +15,10 @@
 namespace tt
 {
 enum PlayerStyle { StSixties = 0, StMotorik, StKraut, StCrazyHorse, StPowerPop, StBallad,
-                   StPunk, StPostPunk, StShoegaze, StGrunge, StHalfTime, StFourFloor, StGlam, StSurf, StShuffle, StFolk, StPostRock, StGarage, NumStyles };
+                   StPunk, StPostPunk, StShoegaze, StGrunge, StHalfTime, StFourFloor, StGlam, StSurf, StShuffle, StFolk, StPostRock, StGarage,
+                   StBoomBap, StTrap, StLofi, StGFunk, StElectro, StHouse, StTechno, StDnB, StSynthwave, StHairMetal,
+                   StNewJack, StFreestyle, StHiNRG, StDetroitSoul, StPhillySoul, StFunk, StDisco, StTripHop, StPowerBallad, StNorthernSoul,
+                   NumStyles };
 enum PlayerSection { SecVerse = 0, SecChorus, SecBridge, NumSections };
 enum FillEvery { FillOff = 0, Fill4, Fill8, Fill16 };
 
@@ -23,7 +26,10 @@ inline const char* styleName (int s)
 {
     static const char* n[] = { "Sixties Pop", "Motorik", "Kraut Funk", "Ragged Rock", "Power Pop", "Ballad",
                                "Punk", "Post-Punk", "Shoegaze Wash", "Grunge", "Half-Time Heavy", "Four on the Floor", "Glam Stomp",
-                               "Surf", "Shuffle", "Folk Rock", "Post-Rock Build", "Garage Bash" };
+                               "Surf", "Shuffle", "Folk Rock", "Post-Rock Build", "Garage Bash",
+                               "Boom Bap", "Trap", "Lo-fi", "West Coast Funk", "Electro", "House", "Techno", "Drum & Bass", "Synthwave",
+                               "Hair Metal", "New Jack Swing", "Freestyle", "Hi-NRG", "Detroit Soul", "Philly Soul", "Funk", "Disco",
+                               "Trip-Hop", "Power Ballad", "Northern Soul" };
     return n[s];
 }
 inline const char* sectionName (int s)
@@ -35,8 +41,9 @@ inline const char* sectionName (int s)
 // Key switches on any MIDI channel (an octave above the drums)
 constexpr int kKeyVerse = 60, kKeyChorus = 62, kKeyBridge = 64, kKeyFill = 65, kKeyEnding = 67;
 
-enum Lane { LK = 0, LS, LSS, LH, LO, LRD, LB, LC, LT1, LT2, LT3, LF, NumLanes };
-constexpr int laneNote[NumLanes] = { 36, 38, 37, 42, 46, 51, 53, 49, 50, 48, 45, 43 };
+enum Lane { LK = 0, LS, LSS, LH, LO, LRD, LB, LC, LT1, LT2, LT3, LF,
+            LCL, LTB, LTS, LSH, LCB, LCGH, LCGL, NumLanes };   // + claps, tambourine, tamb shake, shaker, cowbell, congas
+constexpr int laneNote[NumLanes] = { 36, 38, 37, 42, 46, 51, 53, 49, 50, 48, 45, 43, 39, 54, 69, 70, 56, 63, 64 };
 
 struct Groove
 {
@@ -234,6 +241,136 @@ inline const std::array<StyleDef, NumStyles>& styles()
         d[StGarage].extra[SecBridge] = G ({ { LS, "..............o." } });
         d[StGarage].fill[0] = G ({ { LS, "........XoXoXoXX" }, { LK, "........x......." } });
         d[StGarage].fill[1] = tomFill();
+        // ---- hip-hop, electronic, 80s, soul
+        const char* BB2 = "....x.......x...";
+        const char* H16b = "x-x-x-x-x-x-x-x-";
+        const char* OFF = "..o...o...o...o.";
+        const char* QQ = "x...x...x...x...";
+        const char* RUN = "........xoxoxoxx";
+        auto tomRun = [&] { return G ({ { LT1, "........xx......" }, { LT2, "..........xx...." }, { LF, "............xxxx" }, { LK, "........x......." } }); };
+        auto set = [&] (int st, Groove v, Groove c, Groove b, Groove ev, Groove ec, Groove eb, Groove f0, Groove f1)
+        { d[st].sec[SecVerse] = v; d[st].sec[SecChorus] = c; d[st].sec[SecBridge] = b; d[st].extra[SecVerse] = ev; d[st].extra[SecChorus] = ec; d[st].extra[SecBridge] = eb; d[st].fill[0] = f0; d[st].fill[1] = f1; };
+
+        set (StBoomBap,
+             G ({ { LH, "x.x.x.x.x.x.x.x." }, { LK, "x......x.x......" }, { LS, BB2 } }),
+             G ({ { LH, "x.x.x.x.x.x.x.o." }, { LK, "x......x.x...x.." }, { LS, BB2 } }),
+             G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.........x....." }, { LS, BB2 } }),
+             G ({ { LS, "......g.......g." } }), G ({ { LK, "...........x...." } }), G ({ { LS, "...............g" } }),
+             G ({ { LK, "........x..x.x.." }, { LS, "............x..." } }), G ({ { LS, "........x...x.xx" } }));
+        set (StTrap,
+             G ({ { LH, "x.x.x.x.x.x.r.x." }, { LK, "x.......x..x...." }, { LS, "........x......." }, { LCL, "........x......." } }),
+             G ({ { LH, "x-x-x-x-xrx-x-tq" }, { LK, "x..x....x.x....." }, { LS, "........x......." }, { LCL, "........x......." }, { LO, "......o........." } }),
+             G ({ { LH, "x...x...x...x..." }, { LK, "x..............." }, { LCL, "........x......." } }),
+             G ({ { LK, "...............x" } }), G ({ { LH, "..............rr" } }), G ({ { LK, "..........x....." } }),
+             G ({ { LH, "........tqtqrrrr" }, { LS, "............x.xx" } }), G ({ { LK, "........x.x.x.xx" }, { LCL, "............x..." } }));
+        set (StLofi,
+             G ({ { LH, "-.-.-.-.-.-.-.-." }, { LK, "x.......x.x....." }, { LS, "....o.......o..." } }),
+             G ({ { LH, "x.-.x.-.x.-.x.-." }, { LK, "x......x..x....." }, { LS, "....o.......o..." } }),
+             G ({ { LRD, "-.-.-.-.-.-.-.-." }, { LK, "x.........x....." }, { LSS, "....o.......o..." } }),
+             G ({ { LS, "..........g....." } }), G ({ { LK, "...x............" } }), G ({ { LSH, "..-...-...-...-." } }),
+             G ({ { LS, "........o..o.o.." } }), G ({ { LK, "........x...x..." } }));
+        set (StGFunk,
+             G ({ { LH, H16b }, { LK, "x.....x.x.x....." }, { LS, BB2 }, { LCL, BB2 } }),
+             G ({ { LH, "x-x-x-x-x-x-x-x-" }, { LO, "......o.......o." }, { LK, "x.....x.x.x..x.." }, { LS, BB2 }, { LCL, BB2 } }),
+             G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.......x......." }, { LS, BB2 } }),
+             G ({ { LS, ".......g......g." } }), G ({ { LK, "...........x...." } }), G ({ { LSH, "x-x-x-x-x-x-x-x-" } }),
+             G ({ { LS, RUN } }), tomRun());
+        set (StElectro,
+             G ({ { LH, H16b }, { LK, "x.....x...x....." }, { LCL, BB2 } }),
+             G ({ { LH, H16b }, { LK, "x.....x...x...x." }, { LCL, BB2 }, { LCB, "..x...x...x....x" } }),
+             G ({ { LH, "x...x...x...x..." }, { LK, "x.....x...x....." }, { LT2, "......x.......x." } }),
+             G ({ { LCL, "..............x." } }), G ({ { LK, "...x............" } }), G ({ { LCB, "x..............." } }),
+             tomRun(), G ({ { LCL, "........x.x.xxxx" } }));
+        set (StHouse,
+             G ({ { LK, QQ }, { LO, OFF }, { LCL, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x-x-x-x-x-x-x-x-" }, { LCL, BB2 }, { LSH, "x-x-x-x-x-x-x-x-" } }),
+             G ({ { LK, "x.......x......." }, { LO, OFF }, { LCGH, "..x..x....x..x.." } }),
+             G ({ { LH, "x...x...x...x..." } }), G ({ { LCGL, "...x.......x...." } }), G ({ { LCL, "............x..." } }),
+             G ({ { LCL, "........x.x.xxxx" }, { LK, "........x...x..." } }), G ({ { LS, "........xxxxxxxx" }, { LK, "........x...x..." } }));
+        set (StTechno,
+             G ({ { LK, QQ }, { LO, OFF }, { LSS, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "xxxxxxxxxxxxxxxx" }, { LCL, BB2 } }),
+             G ({ { LK, QQ }, { LT2, "...x......x....." }, { LRD, "x.x.x.x.x.x.x.x." } }),
+             G ({ { LH, "..x...x...x...x." } }), G ({ { LSS, "...............x" } }), G ({ { LCB, "..x.......x....." } }),
+             G ({ { LCL, "........xxxxxxxx" }, { LK, "........x...x..." } }), tomRun());
+        set (StDnB,
+             G ({ { LH, "x.x.x.x.x.x.x.x." }, { LK, "x.........x....." }, { LS, BB2 } }),
+             G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.........xx...." }, { LS, BB2 }, { LO, "..............o." } }),
+             G ({ { LH, "x...x...x...x..." }, { LK, "x.........x....." }, { LS, "............x..." } }),
+             G ({ { LS, "......g..g.....g" } }), G ({ { LS, ".......g..g...g." } }), G ({ { LK, "..x............." } }),
+             G ({ { LS, "........x.xxx.xx" }, { LK, "........x.....x." } }), tomRun());
+        set (StSynthwave,
+             G ({ { LH, H16b }, { LK, QQ }, { LS, BB2 } }),
+             G ({ { LH, H16b }, { LO, OFF }, { LK, QQ }, { LS, "....X.......X..." } }),
+             G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.......x......." }, { LS, "............x..." } }),
+             G ({ { LK, "..........x....." } }), G ({ { LCL, BB2 } }), G ({ { LT2, "..............x." } }),
+             tomRun(), G ({ { LS, "........x.x.xxxx" }, { LK, "........x......." } }));
+        set (StHairMetal,
+             G ({ { LO, "o.o.o.o.o.o.o.o." }, { LK, "x.x...x.x.x....." }, { LS, "....X.......X..." } }),
+             G ({ { LC, "x.x.x.x.x.x.x.x." }, { LK, "x.x.x.x.x.x.x.x." }, { LS, "....X.......X..." } }),
+             G ({ { LRD, "x.o.x.o.x.o.x.o." }, { LK, "x.......x.x....." }, { LS, "........X......." } }),
+             G ({ { LK, "...x.......x...." } }), G ({ { LC, "x..............." } }), G ({ { LK, "..x............." } }),
+             tomRun(), G ({ { LS, "........XxXxXxXX" }, { LK, "........x.x.x.x." } }));
+        set (StNewJack,
+             G ({ { LH, H16b }, { LK, "x..x..x...x..x.." }, { LS, "....X.......X..." }, { LCL, BB2 } }),
+             G ({ { LH, H16b }, { LK, "x..x..x...x..x.." }, { LS, "....X.......X..." }, { LCL, BB2 }, { LO, "..............o." } }),
+             G ({ { LH, "x.x.x.x.x.x.x.x." }, { LK, "x.....x...x....." }, { LS, BB2 } }),
+             G ({ { LS, "..g.......g....." } }), G ({ { LK, ".........x......" } }), G ({ { LCL, "..............x." } }),
+             G ({ { LS, "........X.X.XXXX" }, { LCL, "............x..." } }), tomRun());
+        set (StFreestyle,
+             G ({ { LH, H16b }, { LK, "x..x..x.x..x..x." }, { LCL, BB2 } }),
+             G ({ { LH, H16b }, { LK, "x..x..x.x..x..x." }, { LCL, BB2 }, { LS, BB2 }, { LCB, "x..x..x...x..x.." } }),
+             G ({ { LH, "x...x...x...x..." }, { LK, "x..x..x........." }, { LT2, "........x..x..x." } }),
+             G ({ { LCL, "...............x" } }), G ({ { LO, "......o.......o." } }), G ({ { LCL, "............x.x." } }),
+             tomRun(), G ({ { LCL, "........x.xxx.xx" } }));
+        set (StHiNRG,
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x-x-x-x-x-x-x-x-" }, { LCL, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "xxxxxxxxxxxxxxxx" }, { LCL, BB2 }, { LS, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LT1, "......x.......x." } }),
+             G ({ { LTS, "x-x-x-x-x-x-x-x-" } }), G ({ { LC, "x..............." } }), G ({ { LCL, "..............x." } }),
+             tomRun(), G ({ { LS, "........xxxxxxxx" }, { LK, "........x...x..." } }));
+        set (StDetroitSoul,   // snare on every beat, tambourine riding the backbeat
+             G ({ { LS, "x...x...x...x..." }, { LTB, BB2 }, { LK, "x.x...x.x.x....." }, { LH, "x.x.x.x.x.x.x.x." } }),
+             G ({ { LS, "x...x...x...x..." }, { LTB, QQ }, { LCL, BB2 }, { LK, "x.x...x.x.x....." }, { LO, "o.o.o.o.o.o.o.o." } }),
+             G ({ { LF, "x...x...x...x..." }, { LTB, BB2 }, { LK, "x.......x......." } }),
+             G ({ { LTB, "..............x." } }), G ({ { LTB, "..x.......x....." } }), G ({ { LS, "..............g." } }),
+             G ({ { LS, "........x.x.x.xx" }, { LTB, "........x...x..." } }), G ({ { LS, "........x...xxxx" }, { LF, "..........x....." } }));
+        set (StPhillySoul,    // four on the floor, sizzling hats, tambourine and congas
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x-x-x-x-x-x-x-x-" }, { LS, BB2 }, { LTB, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x-x-x-x-x-x-x-x-" }, { LS, BB2 }, { LTS, "x-x-x-x-x-x-x-x-" }, { LCGH, "..x..x....x..x.." }, { LCGL, "x.......x......." } }),
+             G ({ { LK, QQ }, { LRD, "x.x.x.x.x.x.x.x." }, { LCGH, "..x..x....x..x.." }, { LS, BB2 } }),
+             G ({ { LCGH, "..x.......x....." } }), G ({ { LS, "..............g." } }), G ({ { LTB, BB2 } }),
+             G ({ { LS, RUN }, { LCGH, "........x.x....." }, { LCGL, "............x.x." } }), tomRun());
+        set (StFunk,
+             G ({ { LH, H16b }, { LK, "x.....x...x..x.." }, { LS, BB2 } }),
+             G ({ { LH, H16b }, { LK, "x.x...x...x..x.." }, { LS, BB2 }, { LO, ".......o........" } }),
+             G ({ { LRD, "x.x.x.x.x.x.x.x." }, { LK, "x.....x...x....." }, { LS, BB2 }, { LCB, "x...x...x...x..." } }),
+             G ({ { LS, "..g..g.g.g..g.g." } }), G ({ { LS, ".g.....g..g....g" } }), G ({ { LCGH, "..x..x....x..x.." } }),
+             G ({ { LS, "........xgxgxgxx" }, { LK, "........x....x.." } }), tomRun());
+        set (StDisco,
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x.x.x.x.x.x.x.x." }, { LS, BB2 } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LH, "x-x-x-x-x-x-x-x-" }, { LS, BB2 }, { LCL, BB2 }, { LTS, "x-x-x-x-x-x-x-x-" } }),
+             G ({ { LK, QQ }, { LO, OFF }, { LCB, "..x...x...x...x." } }),
+             G ({ { LTB, BB2 } }), G ({ { LCGH, "..x..x....x..x.." } }), G ({ { LS, "..............g." } }),
+             G ({ { LS, RUN } }), tomRun());
+        set (StTripHop,
+             G ({ { LH, "x..ox..ox..ox..o" }, { LK, "x.......x.x....." }, { LS, BB2 } }),
+             G ({ { LH, "x..ox..ox..ox..o" }, { LK, "x......xx.x....." }, { LS, "....X.......X..." }, { LSH, "x-x-x-x-x-x-x-x-" } }),
+             G ({ { LRD, "x.-.x.-.x.-.x.-." }, { LK, "x.........x....." }, { LSS, BB2 } }),
+             G ({ { LS, "......g........g" } }), G ({ { LK, "...........x...." } }), G ({ { LCB, "..............x." } }),
+             G ({ { LS, "........x..x.x.." } }), G ({ { LK, "........x..xx..." } }));
+        set (StPowerBallad,
+             G ({ { LH, "x.o.x.o.x.o.x.o." }, { LK, "x.......x.x....." }, { LS, "....X.......X..." } }),
+             G ({ { LC, "x...x...x...x..." }, { LO, "..o...o...o...o." }, { LK, "x.....x.x.x....." }, { LS, "....X.......X..." } }),
+             G ({ { LRD, "x.o.x.o.x.o.x.o." }, { LK, "x.......x......." }, { LS, "............X..." } }),
+             G ({ { LK, "...........x...." } }), G ({ { LC, "........x......." } }), G ({ { LT2, "..............x." } }),
+             tomRun(), G ({ { LS, "........X.X.XXXX" }, { LK, "........x......." } }));
+        set (StNorthernSoul,
+             G ({ { LS, "x...x...x...x..." }, { LTB, QQ }, { LK, QQ }, { LO, OFF } }),
+             G ({ { LS, "x...x...x...x..." }, { LTB, QQ }, { LCL, BB2 }, { LK, QQ }, { LO, "o.o.o.o.o.o.o.o." } }),
+             G ({ { LF, "x...x...x...x..." }, { LTB, BB2 }, { LK, QQ } }),
+             G ({ { LS, "..............g." } }), G ({ { LTB, "..x...x...x...x." } }), G ({ { LCL, "............x..." } }),
+             G ({ { LS, "........x.x.xxxx" }, { LTB, "........x...x..." } }), tomRun());
         return d;
     }();
     return s;
@@ -364,7 +501,9 @@ private:
         switch (c)
         {
             case 'X': return 120; case 'x': return 102; case 'o': return 82;
-            case 'm': return 66;  case '-': return 52;  case 'g': return 34; default: return 0;
+            case 'm': return 66;  case '-': return 52;  case 'g': return 34;
+            case 'r': case 't': case 'q': return 74;   // rolls: 2, 3 or 4 hits in one 16th
+            default: return 0;
         }
     }
 
@@ -537,7 +676,11 @@ private:
             float v = velOf (c) * velScale * (1.0f + gauss() * 0.04f);
             if (l == LH || l == LO || l == LRD) v *= (step % 4 == 0) ? hatAccent : 1.0f / hatAccent;
             if (s.intensity < 0.25f && (l == LH || l == LRD) && (step % 4) == 2) v *= 0.7f;
-            hit (laneNote[lane], v, t + (int64_t) swingDelay, s, l);
+            const int subs = c == 'r' ? 2 : c == 't' ? 3 : c == 'q' ? 4 : 1;
+            if (subs == 1) hit (laneNote[lane], v, t + (int64_t) swingDelay, s, l);
+            else
+                for (int k = 0; k < subs; ++k)   // a roll: tight, getting a little louder
+                    push (t + (int64_t) (swingDelay + stepLen * k / subs + 0.002 * sr), laneNote[lane], v * (0.75f + 0.25f * (float) k / (float) (subs - 1)));
         }
         if (step == 15) pendingSectionStart = false;
     }

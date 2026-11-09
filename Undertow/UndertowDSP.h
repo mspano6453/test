@@ -178,7 +178,7 @@ private:
 // ===========================================================================
 // Ears 1: chord detection on the guitar (fast chroma + triad templates)
 // ===========================================================================
-struct Chord { int root = -1; bool minor = false; bool valid() const { return root >= 0; } };
+struct Chord { int root = -1; bool minor = false; int q = -1; bool valid() const { return root >= 0; } };   // q: band::Quality, -1 = plain triad
 
 class ChordDetector
 {
