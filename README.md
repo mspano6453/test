@@ -123,7 +123,7 @@ The plugin appears in `build/TeaTowel_artefacts/Release/VST3/` (and `AU/` on Mac
 **Windows**
 1. Copy the `Tea Towel.vst3` folder to `C:\Program Files\Common Files\VST3\`.
 
-**Then in Live:** Settings → Plug-Ins → turn on *Use VST3 Plug-In System Folders* → **Rescan**. Tea Towel shows up under Plug-Ins → Tea Towel Audio. Drop it on a MIDI track and play.
+**Then in Live:** Settings → Plug-Ins → turn on *Use VST3 Plug-In System Folders* → **Rescan**. Tea Towel shows up under Plug-Ins → DEMOCRAZY. Drop it on a MIDI track and play.
 
 ## Offline test tool
 

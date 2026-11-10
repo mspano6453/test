@@ -69,7 +69,7 @@ jobs:
         run: |
           TAG="tea-towel-suite-${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" out/*.exe -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-             --title "Tea Towel Suite build ${GITHUB_RUN_NUMBER}" --notes "Tea Towel + Tape Twin. Double-click to install, then Rescan in Ableton." || true
+             --title "DEMOCRAZY build ${GITHUB_RUN_NUMBER}" --notes "DEMOCRAZY: ten plugins. Double-click to install, then Rescan in Ableton." || true
           cd out
           git init -q -b tea-towel-installer
           git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"

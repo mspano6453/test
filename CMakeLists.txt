@@ -17,7 +17,7 @@ FetchContent_Declare(JUCE
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(TeaTowel
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.teatowel"
     PRODUCT_NAME "Tea Towel"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -60,7 +60,7 @@ target_link_libraries(TeaTowel
 # ---------------------------------------------------------------------------
 # Tape Twin - tape echo + double tracker
 juce_add_plugin(TapeTwin
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.tapetwin"
     PRODUCT_NAME "Tape Twin"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -93,7 +93,7 @@ target_link_libraries(TapeTwin
 # ---------------------------------------------------------------------------
 # Lathe - mastering suite
 juce_add_plugin(Lathe
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.lathe"
     PRODUCT_NAME "Lathe"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -127,7 +127,7 @@ target_link_libraries(Lathe
 # ---------------------------------------------------------------------------
 # Schaltwerk - electronic rhythm box, robot synth/vocoder, Strumchord
 juce_add_plugin(Schaltwerk
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.schaltwerk"
     PRODUCT_NAME "Schaltwerk"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -161,7 +161,7 @@ target_link_libraries(Schaltwerk
 # ---------------------------------------------------------------------------
 # Loon - ambient generator that listens to your guitar
 juce_add_plugin(Loon
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.loon"
     PRODUCT_NAME "Loon"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -195,7 +195,7 @@ target_link_libraries(Loon
 # ---------------------------------------------------------------------------
 # Carousel - stereo looper
 juce_add_plugin(Carousel
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.carousel"
     PRODUCT_NAME "Carousel"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -232,7 +232,7 @@ juce_add_binary_data(UndertowSamples NAMESPACE UndertowData HEADER_NAME Undertow
 set_target_properties(UndertowSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(Undertow
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.undertow"
     PRODUCT_NAME "Undertow"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -272,7 +272,7 @@ juce_add_binary_data(ParlourSamples NAMESPACE ParlourData HEADER_NAME ParlourDat
 set_target_properties(ParlourSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(Parlour
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.parlour"
     PRODUCT_NAME "Parlour"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -308,7 +308,7 @@ target_link_libraries(Parlour
 # ---------------------------------------------------------------------------
 # Ether - early electronic instruments (all modelled) that play melodies over the band
 juce_add_plugin(Ether
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.ether"
     PRODUCT_NAME "Ether"
     PLUGIN_MANUFACTURER_CODE Ttwl
@@ -343,7 +343,7 @@ target_link_libraries(Ether
 # ---------------------------------------------------------------------------
 # Bandleader - runs the song for the whole band (no sound of its own)
 juce_add_plugin(Bandleader
-    COMPANY_NAME "Tea Towel Audio"
+    COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.bandleader"
     PRODUCT_NAME "Bandleader"
     PLUGIN_MANUFACTURER_CODE Ttwl

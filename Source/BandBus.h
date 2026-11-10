@@ -6,7 +6,7 @@
 
 // ---------------------------------------------------------------------------
 // The band bus: a small block of shared memory on this computer that lets the
-// Tea Towel suite plugins follow one song. Bandleader writes the song (key,
+// DEMOCRAZY plugins follow one song. Bandleader writes the song (key,
 // chords, section, fills, drop-outs, energy); Tea Towel writes its kick
 // pattern; everyone marks themselves present. Everything is optional: if the
 // bus can't be opened, or no Bandleader is running, each plugin works alone.
