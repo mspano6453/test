@@ -4,6 +4,8 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "UndertowPlayer.h"
 #include "SynthBass.h"
+#include "BassColour.h"
+#include "../Source/MidiCapture.h"
 #include "../Source/BandBus.h"
 
 // ---------------------------------------------------------------------------
@@ -77,7 +79,7 @@ private:
     std::atomic<int> keySection { -1 };
     void loadSamples();
     std::shared_ptr<const ut::Bank> loadBank (const char* prefix, int layers, int rrs);
-    int activeNote() const { return bassType >= 2 ? synth.currentNote : sampler.currentNote; }
+    int activeNote() const { return ut::bassIsSynth (bassType) ? synth.currentNote : sampler.currentNote; }
     void handleMidi (const juce::MidiMessage&, std::vector<Ev>&, int pos);
     void runPlayer (int n, std::vector<Ev>& evs);
     void playStep (int64_t k, int t, std::vector<Ev>& evs);
@@ -91,7 +93,11 @@ private:
     double sr = 44100;
     ut::BassSampler sampler;
     ut::SynthBass synth;
-    std::shared_ptr<const ut::Bank> pickedBank, fingerBank;
+    std::shared_ptr<const ut::Bank> pickedBank, fingerBank, uprightBank;
+    ut::BassColour colour;
+public:
+    mc::Capture capture;
+private:
     int bassType = 0, loadedType = -1;
     ut::ChordDetector ears;
     ut::PitchTracker tracker;

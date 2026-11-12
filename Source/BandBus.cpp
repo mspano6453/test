@@ -24,7 +24,7 @@ namespace band
 namespace
 {
 constexpr uint32_t kMagic = 0x54544231;   // "TTB1"
-constexpr uint32_t kVersion = 3;
+constexpr uint32_t kVersion = 4;
 
 struct Shared
 {
@@ -45,10 +45,10 @@ void open()
     void* mem = nullptr;
     const size_t size = sizeof (Shared);
 #if defined(_WIN32)
-    HANDLE h = CreateFileMappingW (INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, (DWORD) size, L"Local\\TeaTowelBandBus3");
+    HANDLE h = CreateFileMappingW (INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, (DWORD) size, L"Local\\TeaTowelBandBus4");
     if (h != nullptr) mem = MapViewOfFile (h, FILE_MAP_ALL_ACCESS, 0, 0, size);   // the handle stays open for the life of the plugin
 #else
-    const int fd = shm_open ("/teatowel_bandbus3", O_CREAT | O_RDWR, 0600);
+    const int fd = shm_open ("/teatowel_bandbus4", O_CREAT | O_RDWR, 0600);
     if (fd >= 0)
     {
         struct stat st {};

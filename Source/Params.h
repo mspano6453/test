@@ -50,16 +50,16 @@ inline const char* pieceParamName (int k)
 inline juce::String pid (int piece, int k) { return juce::String (pieceId (piece)) + "_" + pieceParamId (k); }
 
 // Master bus controls (the FX page)
-enum MasterParam { Thud = 0, Squash, Tape, RoomLevel, RoomSize, Width, Output, Crunch, Vinyl, GateVerb, NumMasterParams };
+enum MasterParam { Thud = 0, Squash, Tape, RoomLevel, RoomSize, Width, Output, Crunch, Vinyl, GateVerb, Smash, NumMasterParams };
 
 inline const char* masterId (int k)
 {
-    static const char* n[] = { "m_thud", "m_squash", "m_tape", "m_roomlvl", "m_roomsize", "m_width", "m_out", "m_crunch", "m_vinyl", "m_gate" };
+    static const char* n[] = { "m_thud", "m_squash", "m_tape", "m_roomlvl", "m_roomsize", "m_width", "m_out", "m_crunch", "m_vinyl", "m_gate", "m_smash" };
     return n[k];
 }
 inline const char* masterName (int k)
 {
-    static const char* n[] = { "Thud", "Squash", "Tape", "Room", "Room Size", "Width", "Output", "Crunch", "Vinyl", "Gate Verb" };
+    static const char* n[] = { "Thud", "Squash", "Tape", "Room", "Room Size", "Width", "Output", "Crunch", "Vinyl", "Gate Verb", "Smash" };
     return n[k];
 }
 
@@ -92,9 +92,9 @@ struct Preset
 enum KitType { KitAcoustic = 0, KitBoomMachine, KitClubMachine, KitStudioMachine, NumKitTypes };
 inline const char* kitTypeName (int k) { static const char* n[] = { "Acoustic (recorded)", "Boom Machine", "Club Machine", "Studio Machine '84" }; return n[k]; }
 
-inline const std::array<Preset, 9>& presets()
+inline const std::array<Preset, 10>& presets()
 {
-    static const std::array<Preset, 9> p { {
+    static const std::array<Preset, 10> p { {
         // tune, towel, decay, tone, vol, pan, room
         { "Studio '69 - Towels",
           { {  0.0f, 0.70f, 0.40f, 0.50f,  0.0f,  0.00f, 0.08f },
@@ -194,6 +194,18 @@ inline const std::array<Preset, 9>& presets()
             {  0.0f, 0.00f, 0.75f, 0.75f, -9.0f, -0.30f, 0.10f },
             {  0.0f, 0.00f, 0.55f, 0.70f, -4.0f,  0.20f, 0.20f } },
           { 0.20f, 0.45f, 0.20f, 0.20f, 0.40f, 1.00f, 0.0f, 0.0f, 0.0f, 0.45f }, 3 },
+
+        // the 90s psych-pop drum sound: a big open kit in a big room, crushed and blown out
+        { "Blown Out '99",
+          { { -1.0f, 0.20f, 0.70f, 0.55f,  0.0f,  0.00f, 0.35f },
+            { -2.0f, 0.15f, 0.75f, 0.60f, -1.0f,  0.00f, 0.45f },
+            { -2.0f, 0.20f, 0.75f, 0.50f, -2.0f, -0.30f, 0.40f },
+            { -2.5f, 0.20f, 0.80f, 0.50f, -2.0f,  0.40f, 0.40f },
+            {  0.0f, 0.10f, 0.60f, 0.55f, -6.0f, -0.35f, 0.25f },
+            {  0.0f, 0.10f, 0.70f, 0.55f, -9.0f,  0.40f, 0.30f },
+            {  0.0f, 0.10f, 0.80f, 0.60f,-10.0f, -0.40f, 0.30f },
+            {  0.0f, 0.10f, 0.60f, 0.60f, -5.0f,  0.30f, 0.30f } },
+          { 0.70f, 0.85f, 0.55f, 0.50f, 0.55f, 1.10f, 0.0f, 0.10f, 0.0f, 0.0f, 0.80f } },
     } };
     return p;
 }

@@ -45,6 +45,15 @@ const std::vector<PresetDef>& presetDefs()
             { eqId (EqHighCut, "on"), 1 }, { eqId (EqHighCut, "f"), 14000.0f }, { imId (0), 0.0f }, { imId (1), 0.55f }, { imId (2), 0.7f },
             { dyId (1, "ratio"), 2.0f }, { "mx_gain", 4.0f } } },
         { "Flat (start here)", {} },
+        // the 90s psych-pop master: everything pushed hard into tape and a pumping compressor
+        { "Blown Out (90s psych)", {
+            { modOnId (MEq), 1 }, { modOnId (MTape), 1 }, { modOnId (MDyn), 1 }, { modOnId (MExciter), 1 }, { modOnId (MImager), 1 }, { modOnId (MMax), 1 },
+            { "tp_drive", 0.8f }, { "tp_bump", 3.0f }, { "tp_warmth", 0.5f },
+            { dyId (0, "thr"), -28.0f }, { dyId (0, "ratio"), 4.0f }, { dyId (0, "att"), 25.0f }, { dyId (0, "rel"), 120.0f },
+            { dyId (1, "thr"), -30.0f }, { dyId (1, "ratio"), 4.5f }, { dyId (1, "att"), 8.0f }, { dyId (1, "rel"), 90.0f },
+            { dyId (2, "thr"), -26.0f }, { dyId (2, "ratio"), 3.0f },
+            { exId (1, "amt"), 0.45f }, { exId (2, "amt"), 0.35f }, { imId (2), 1.3f },
+            { "mx_gain", 10.0f }, { "mx_ceil", -1.0f }, { "mx_rel", 60.0f } } },
     };
     return p;
 }

@@ -17,16 +17,16 @@ namespace pk
 {
 constexpr double kTwoPi = 6.283185307179586476925;
 
-enum Instrument { IPiano = 0, IEPiano, IFMPiano, IOrgan, IClav, IStrings, IBrass, IPad, IVibes, IGlock, ILofiPiano, NumInstruments };
+enum Instrument { IPiano = 0, IEPiano, IFMPiano, IOrgan, IClav, IStrings, IBrass, IPad, IVibes, IGlock, ILofiPiano, IHarpsichord, ITackPiano, NumInstruments };
 inline const char* instrumentName (int i)
 {
     static const char* n[] = { "Upright Piano", "Electric Piano", "80s Digital Piano", "Drawbar Organ", "Clav", "String Machine",
-                               "Synth Brass", "80s Poly Pad", "Vibraphone", "Glockenspiel", "Lo-fi Piano" };
+                               "Synth Brass", "80s Poly Pad", "Vibraphone", "Glockenspiel", "Lo-fi Piano", "Harpsichord", "Tack Piano" };
     return (i >= 0 && i < NumInstruments) ? n[i] : "";
 }
-inline bool usesSamples (int i) { return i == IPiano || i == IVibes || i == IGlock || i == ILofiPiano; }
-// which sample set an instrument plays (0 piano, 1 vibes, 2 glock)
-inline int sampleSet (int i) { return i == IVibes ? 1 : (i == IGlock ? 2 : 0); }
+inline bool usesSamples (int i) { return i == IPiano || i == IVibes || i == IGlock || i == ILofiPiano || i == IHarpsichord || i == ITackPiano; }
+// which sample set an instrument plays (0 piano, 1 vibes, 2 glock, 3 harpsichord)
+inline int sampleSet (int i) { return i == IVibes ? 1 : (i == IGlock ? 2 : (i == IHarpsichord ? 3 : 0)); }
 
 struct Rng
 {
@@ -60,7 +60,7 @@ struct SampleSet
         return best;
     }
 };
-struct SampleLibrary { SampleSet sets[3]; };
+struct SampleLibrary { SampleSet sets[4]; };
 
 // ---- one voice ---------------------------------------------------------------
 class Voice
@@ -88,7 +88,7 @@ public:
             zone = set.find (midi, vel > 0.58f ? 1 : 0);
             if (zone != nullptr)
             {
-                pos = 0;
+                pos = 0; pos2 = 0; tackL = tackR = 0;
                 rate = std::pow (2.0, (midi - zone->root) / 12.0) * zone->sr / sr * detune;
             }
         }
@@ -117,7 +117,7 @@ public:
 
         switch (inst)
         {
-            case IPiano: case IVibes: case IGlock: case ILofiPiano:
+            case IPiano: case IVibes: case IGlock: case ILofiPiano: case IHarpsichord: case ITackPiano:
             {
                 if (zone == nullptr) { note = -1; return; }
                 const int i = (int) pos;
@@ -126,7 +126,22 @@ public:
                 l = zone->l[(size_t) i] + (zone->l[(size_t) i + 1] - zone->l[(size_t) i]) * fr;
                 r = zone->r[(size_t) i] + (zone->r[(size_t) i + 1] - zone->r[(size_t) i]) * fr;
                 pos += rate;
-                const float g = 0.35f + 0.65f * velocity;
+                if (inst == ITackPiano)
+                {
+                    // tacks in the hammers: a second string a little out of tune, and a brighter, jangly attack
+                    const int j = (int) pos2;
+                    if (j + 1 < (int) zone->l.size() - 2)
+                    {
+                        const float f2 = (float) (pos2 - j);
+                        const float l2 = zone->l[(size_t) j] + (zone->l[(size_t) j + 1] - zone->l[(size_t) j]) * f2;
+                        const float r2 = zone->r[(size_t) j] + (zone->r[(size_t) j + 1] - zone->r[(size_t) j]) * f2;
+                        l = (l + l2) * 0.6f; r = (r + r2) * 0.6f;
+                    }
+                    pos2 += rate * 1.0085;
+                    const float hl = l - tackL, hr = r - tackR; tackL = l; tackR = r;
+                    l += hl * 1.6f; r += hr * 1.6f;
+                }
+                const float g = inst == IHarpsichord ? 0.85f : 0.35f + 0.65f * velocity;
                 l *= g; r *= g;
                 break;
             }
@@ -238,7 +253,7 @@ public:
         a = env;
         if (releasing)
         {
-            const double relT = usesSamples (inst) ? (inst == IVibes ? 0.35 : inst == IGlock ? 0.6 : 0.22)
+            const double relT = usesSamples (inst) ? (inst == IVibes ? 0.35 : inst == IGlock ? 0.6 : inst == IHarpsichord ? 0.09 : 0.22)
                               : inst == IStrings ? 0.45 : inst == IPad ? 0.8 : inst == IBrass ? 0.18 : inst == IOrgan ? 0.03
                               : inst == IClav ? 0.04 : 0.3;
             relEnv *= (float) std::exp (-1.0 / (relT * sr));
@@ -246,7 +261,7 @@ public:
             a *= relEnv;
         }
         // per-instrument level, so switching sounds keeps the mix roughly where it was
-        static const float trim[NumInstruments] = { 0.22f, 0.22f, 0.26f, 0.24f, 0.36f, 0.22f, 0.42f, 0.34f, 0.13f, 0.35f, 0.4f };
+        static const float trim[NumInstruments] = { 0.22f, 0.22f, 0.26f, 0.24f, 0.36f, 0.22f, 0.42f, 0.34f, 0.13f, 0.35f, 0.4f, 0.2f, 0.27f };
         const float g = (usesSamples (inst) ? 1.0f : (0.4f + 0.6f * velocity)) * trim[inst];
         L += l * a * g; R += r * a * g;
     }
@@ -259,7 +274,8 @@ private:
         return lp2;
     }
 
-    double sr = 44100, freq = 440, detune = 1, pos = 0, rate = 1;
+    double sr = 44100, freq = 440, detune = 1, pos = 0, rate = 1, pos2 = 0;
+    float tackL = 0, tackR = 0;
     double ph[6] {};
     int inst = 0;
     float velocity = 0.8f, env = 0, relEnv = 1, lp1 = 0, lp2 = 0;

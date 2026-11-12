@@ -6,7 +6,8 @@ D = dict(dFill=2, dInt=0.55, dLoose=0.3, dSwing=0.0, dVar=0.5, dRoom=-1, dRoomSi
          tSync=3, tMix=0.0, tFb=0.2, tWow=0.15, tFlut=0.2, tAge=0.3, tAdt=0.0,
          sRole=0, sPattern=-1, lathe=2, chordBars=0, sectionBars=1, energy=0.55,
          pack='Rock', uBass=0, kOn=0, kInst=0, kFeel=1, kReg=1, kBusy=0.5, kColour=0.3, kMotion=0.3, kChorus=0.1, kLofi=0.0, kRoom=0.2,
-         eRole=0, eInst=0, eSpace=0.4)
+         eRole=0, eInst=0, eSpace=0.4,
+         cOn=0, cEns=0, cFeel=0, cBusy=0.5, cWarp=0.0, cTimp=0, cRoom=0.3, uBubble=0.0, dSmash=0.0, dOn=1, uOn=1)
 S = []
 def st(name, blurb, bpm, key, prog, dStyle, dKit, bFeel, **kw):
     r = dict(D); r.update(kw); r.update(name=name, blurb=blurb, bpm=bpm, key=key, prog=prog, dStyle=dStyle, dKit=dKit, bFeel=bFeel); S.append(r)
@@ -224,6 +225,46 @@ st("Tape Choir Ballad", "A slow song floating on a tape choir, piano arpeggios a
 st("Cosmic Sequencer", "German cosmic music: a pulsing sequencer, endless motorik beat, a buzzing wire drone.", 120, 2, (7,28,5), 1, 8, 5,
    pack=P, uBass=5, kOn=1, kInst=7, kFeel=6, eRole=2, eInst=2, eSpace=0.6, lGen=0.3, lMood=4, lSpace=0.4, sectionBars=2, lathe=1)
 
+# ---- the 60s melodic bass on the styles that want it (a hollow violin bass, played with a pick)
+tweak("60s Beat", uBass=6, bFeel=17, bChorus=0.0)
+tweak("Psychedelic Rock", uBass=6, bFeel=17, bChorus=0.0)
+tweak("Sunshine Pop", uBass=6, bFeel=17, bChorus=0.0)
+tweak("Tape Freakout", uBass=6, bFeel=17, bChorus=0.0)
+tweak("Folk Rock", bChorus=0.0)
+
+# ============================ 60s CHAMBER POP ============================
+P='60s Chamber Pop'
+st("String Octet Pop", "No drums, no bass: just a string octet sawing out driving staccato chords under the song.", 136, 4, (33,3,0), 0, 0, 17,
+   pack=P, dOn=0, uOn=0, cOn=1, cEns=0, cFeel=1, cBusy=0.6, cRoom=0.15, lathe=4, lSpace=0.1, energy=0.6)
+st("Quartet Ballad", "A tender string quartet holding the chords under an acoustic song. No drums.", 92, 5, (38,10,22), 5, 0, 1,
+   pack=P, dOn=0, uOn=0, cOn=1, cEns=1, cFeel=0, cBusy=0.4, cRoom=0.25, lathe=3, energy=0.4)
+st("Psychedelic Orchestra", "Heavy, strange and swaggering: a sawing cello riff, electric piano, timpani, a melodic bass.", 80, 9, (7,12,20), 0, 1, 17,
+   pack=P, uBass=6, kOn=1, kInst=1, kFeel=2, kBusy=0.4, cOn=1, cEns=0, cFeel=7, cTimp=1, cRoom=0.3, tAdt=0.5, tMix=0.2, tSync=2, lathe=4)
+st("Baroque Pop", "Harpsichord and strings over a gentle beat, with a melodic bass that sings its own tune.", 108, 7, (10,22,19), 0, 0, 17,
+   pack=P, uBass=6, kOn=1, kInst=11, kFeel=5, kBusy=0.5, cOn=1, cEns=0, cFeel=0, cRoom=0.25, lathe=4)
+st("Brass Band Pop", "Sunny and bouncing: tack piano, a high piccolo-trumpet line and a bass that won't sit still.", 112, 11, (8,10,14), 0, 2, 17,
+   pack=P, uBass=6, bBusy=0.6, kOn=1, kInst=12, kFeel=2, cOn=1, cEns=2, cFeel=10, cBusy=0.4, cRoom=0.2, lathe=4)
+st("Music Hall", "Old-time knees-up: swinging brushes, tack piano oom-pah, clarinets on the tune.", 116, 1, (14,22,10), 14, 0, 4,
+   pack=P, dSwing=0.5, bSwing=0.4, uBass=6, kOn=1, kInst=12, kFeel=8, cOn=1, cEns=3, cFeel=2, cRoom=0.2, lathe=4)
+st("Rising Finale", "A slow piano ballad where the whole orchestra climbs into chaos before every new section.", 76, 4, (9,10,3), 5, 1, 17,
+   pack=P, uBass=6, kOn=1, kInst=0, kFeel=5, cOn=1, cEns=0, cFeel=6, cTimp=1, cRoom=0.35, lSpace=0.3, lathe=4, energy=0.5)
+
+# ============================ 90s PSYCH POP ============================
+P='90s Psych Pop'
+st("Cosmic Orchestra Pop", "Huge smashed drums, warbly out-of-tune strings and timpani, fuzz bass, a gliding wand on top.", 84, 2, (19,9,20), 36, 9, 17,
+   pack=P, dSmash=0.8, dInt=0.75, uBass=10, bGrit=0.1, uBubble=0.15, kOn=1, kInst=0, kFeel=5, kRoom=0.4,
+   cOn=1, cEns=0, cFeel=0, cWarp=0.6, cTimp=1, cRoom=0.45, eRole=3, eInst=0, eSpace=0.6, tSync=2, tMix=0.25, lathe=6, energy=0.6)
+st("Fuzz Lullaby", "Slow and dreamy: blown-out drums kept soft, glockenspiel, wobbling tremolo strings, fuzzy bass.", 72, 7, (19,10,13), 10, 9, 1,
+   pack=P, dSmash=0.6, dInt=0.45, uBass=10, kOn=1, kInst=9, kFeel=10, kRoom=0.5, cOn=1, cEns=0, cFeel=5, cWarp=0.7, cRoom=0.5,
+   lSpace=0.4, lathe=6, energy=0.4)
+st("Blown Out Anthem", "A big singalong: crushed drums, a fuzz bass that pumps, tack piano, brass fanfares and radio swoops.", 116, 9, (8,13,9), 4, 9, 0,
+   pack=P, dSmash=0.9, uBass=10, uBubble=0.4, kOn=1, kInst=12, kFeel=8, cOn=1, cEns=2, cFeel=8, cWarp=0.4, cTimp=1,
+   eRole=3, eInst=5, eSpace=0.5, lathe=6, energy=0.75)
+st("Space Bubble Pop", "Bouncy and odd: a bubbly wubbly bass, vibes, warbly woodwinds and a wand singing the tune.", 104, 4, (10,19,20), 0, 9, 17,
+   pack=P, dSmash=0.5, uBass=1, uBubble=0.8, kOn=1, kInst=8, kFeel=1, cOn=1, cEns=3, cFeel=2, cWarp=0.35, eRole=1, eInst=0, eSpace=0.5, lathe=6)
+st("Tape Symphony", "Slow and enormous: tape-replay strings walking down under a piano, drums smashed in a big room.", 70, 5, (9,3,19), 10, 9, 1,
+   pack=P, dSmash=0.75, uBass=6, kOn=1, kInst=0, kFeel=5, cOn=1, cEns=5, cFeel=3, cWarp=0.5, cRoom=0.4, lSpace=0.35, lathe=6, energy=0.5)
+
 def f(x): return ("%.3ff" % x) if isinstance(x, float) else str(x)
 out = []
 out.append('''#pragma once
@@ -251,6 +292,9 @@ struct StyleDef
     int uBass;               // Undertow bass: 0 picked, 1 fingers, 2 sub, 3 acid, 4 reese, 5 80s pulse
     int kOn, kInst, kFeel, kReg; float kBusy, kColour, kMotion, kChorus, kLofi, kRoom;   // Parlour (keys)
     int eRole, eInst; float eSpace;   // Ether: 0 sits out, 1 melody, 2 drone/pad, 3 swoops + effects
+    int cOn, cEns, cFeel; float cBusy, cWarp; int cTimp; float cRoom;   // Chamber (orchestra)
+    float uBubble, dSmash;   // Undertow's BUBBLE, Tea Towel's SMASH
+    int dOn, uOn;            // 0 = the drums / the bass sit this one out
 };
 
 inline const std::vector<StyleDef>& styles()
@@ -264,7 +308,10 @@ for r in S:
     out.append('          %d, %s,' % (r['tSync'], ", ".join(f(float(r[k])) for k in ['tMix','tFb','tWow','tFlut','tAge','tAdt'])))
     out.append('          %d, %d, %d,' % (r['sRole'], r['sPattern'], r['lathe']))
     out.append('          "%s", %d, %d, %d, %d, %d, %s,' % (r['pack'], r['uBass'], r['kOn'], r['kInst'], r['kFeel'], r['kReg'], ", ".join(f(float(r[k])) for k in ['kBusy','kColour','kMotion','kChorus','kLofi','kRoom'])))
-    out.append('          %d, %d, %s },' % (r['eRole'], r['eInst'], f(float(r['eSpace']))))
+    out.append('          %d, %d, %s,' % (r['eRole'], r['eInst'], f(float(r['eSpace']))))
+    out.append('          %d, %d, %d, %s, %s, %d, %s, %s, %s },' % (r['cOn'], r['cEns'], r['cFeel'], f(float(r['cBusy'])), f(float(r['cWarp'])), r['cTimp'], f(float(r['cRoom'])), f(float(r['uBubble'])), f(float(r['dSmash']))))
+    out[-1] = out[-1][:-3] + ','
+    out.append('          %d, %d },' % (r['dOn'], r['uOn']))
 out.append('''    };
     return s;
 }

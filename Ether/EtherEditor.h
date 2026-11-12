@@ -28,5 +28,6 @@ private:
     float phase = 0, levelShown = 0;
     juce::String lastStatic;
 
+    std::unique_ptr<mc::DragButton> dragMidi;   // drag what it played into Live as a clip
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EtherEditor)
 };

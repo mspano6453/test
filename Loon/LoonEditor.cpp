@@ -89,6 +89,8 @@ LoonEditor::LoonEditor (LoonProcessor& p) : AudioProcessorEditor (&p), proc (p)
     // SPACE
     knob ("v_size", "SIZE", 3); knob ("v_mix", "SPACE", 3); knob ("shimmer", "SHIMMER", 3); knob ("wobble", "TAPE WOBBLE", 3); knob ("out", "OUTPUT", 3);
 
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Loon", juce::Colour (0xff63b8b4));
+    addAndMakeVisible (*dragMidi);
     setSize (1060, 680);
     showPage (0);
     startTimerHz (30);
@@ -228,6 +230,8 @@ void LoonEditor::resized()
     sceneBox.setBounds (header.removeFromRight (230));
     header.removeFromRight (16);
     for (int i = 3; i >= 0; --i) { tabs[i].setBounds (header.removeFromRight (90)); header.removeFromRight (6); }
+    header.removeFromRight (8);
+    dragMidi->setBounds (header.removeFromRight (170));
 
     auto c = r.reduced (16, 14);
     panelA = panelB = panelC = {};

@@ -3,6 +3,7 @@
 #include "../Source/BandStyles.h"
 #include "../Undertow/UndertowPlayer.h"     // shared song form + progressions
 #include "ParlourPlayer.h"
+#include "../Source/MidiCapture.h"
 
 // ---------------------------------------------------------------------------
 // Parlour: a keys player for the band. Real piano, vibes and glockenspiel,
@@ -30,7 +31,7 @@ public:
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "Parlour"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }      // what it plays, so you can record it
     double getTailLengthSeconds() const override { return 2.0; }
 
     int getNumPrograms() override { return 1; }
@@ -52,6 +53,7 @@ public:
     std::atomic<bool> uiLinked { false }, uiTransport { false };
     std::atomic<uint32_t> uiNotes[4] {};   // 128 bits: which keys are sounding
     bool samplesLoaded() const { return loaded > 0; }
+    mc::Capture capture;
 
 private:
     struct Ev { int64_t at; int type; int note; float vel; float len; };   // type 1 on, 2 off, 3 all off
@@ -90,6 +92,8 @@ private:
     double lastPpqEnd = -1;
     bool wasPlaying = false, bandOut = false;
     int lastInstrument = -1;
-    double bpmNow = 120;
+    double bpmNow = 120, blockPpq = 0;
+    mc::NoteOut midiOut;
+    juce::MidiBuffer outMidi;
     int barSection = 0, barInSec = 0;
 };

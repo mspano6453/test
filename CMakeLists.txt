@@ -134,7 +134,7 @@ juce_add_plugin(Schaltwerk
     PLUGIN_CODE Schw
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT FALSE
+    NEEDS_MIDI_OUTPUT TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Synth Drum
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
@@ -279,7 +279,7 @@ juce_add_plugin(Parlour
     PLUGIN_CODE Prlr
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT FALSE
+    NEEDS_MIDI_OUTPUT TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Synth
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
@@ -315,7 +315,7 @@ juce_add_plugin(Ether
     PLUGIN_CODE Ethr
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT FALSE
+    NEEDS_MIDI_OUTPUT TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Synth
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
@@ -341,6 +341,46 @@ target_link_libraries(Ether
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
+# Chamber - 60s orchestral arranger (real strings / brass / woodwinds, VSCO 2 CE, CC0)
+file(GLOB CHAMBER_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Chamber/Samples/*.flac")
+juce_add_binary_data(ChamberSamples NAMESPACE ChamberData HEADER_NAME ChamberData.h SOURCES ${CHAMBER_SAMPLES})
+set_target_properties(ChamberSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+juce_add_plugin(Chamber
+    COMPANY_NAME "DEMOCRAZY"
+    BUNDLE_ID "com.teatowelaudio.chamber"
+    PRODUCT_NAME "Chamber"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Chmb
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Sampler
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Chamber PRIVATE
+    Chamber/ChamberProcessor.cpp
+    Chamber/ChamberEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Chamber PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Chamber
+    PRIVATE
+        ChamberSamples
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
 # Bandleader - runs the song for the whole band (no sound of its own)
 juce_add_plugin(Bandleader
     COMPANY_NAME "DEMOCRAZY"
@@ -350,7 +390,7 @@ juce_add_plugin(Bandleader
     PLUGIN_CODE Bndl
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT FALSE
+    NEEDS_MIDI_OUTPUT TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
@@ -434,6 +474,11 @@ if(TEATOWEL_RENDER_DEMO)
     target_compile_definitions(EtherTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 ETHER_NO_ENTRY=1)
     target_link_libraries(EtherTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
+    juce_add_console_app(ChamberTest PRODUCT_NAME "ChamberTest")
+    target_sources(ChamberTest PRIVATE Tools/ChamberTest.cpp Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(ChamberTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 CHAMBER_NO_ENTRY=1)
+    target_link_libraries(ChamberTest PRIVATE ChamberSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
     juce_add_console_app(BandTest PRODUCT_NAME "BandTest")
     target_sources(BandTest PRIVATE Tools/BandTest.cpp
         Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
@@ -483,8 +528,9 @@ if(TEATOWEL_RENDER_DEMO)
         Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp
         Parlour/ParlourProcessor.cpp Parlour/ParlourEditor.cpp
         Ether/EtherProcessor.cpp Ether/EtherEditor.cpp
+        Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
-        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1)
-    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1 CHAMBER_NO_ENTRY=1)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

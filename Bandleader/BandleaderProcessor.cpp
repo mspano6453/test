@@ -192,6 +192,37 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
     band::writeLeader (L);
 
+    // MIDI out: the song's chords, one held chord per change (root low, the chord above) - drag or record them into a clip
+    {
+        juce::MidiBuffer& out = chordOut;
+        out.clear();
+        const double spb = getSampleRate() * 60.0 / juce::jmax (20.0, bpm);
+        const int n = buffer.getNumSamples();
+        auto chordOff = [&] (int pos) { for (int nn : chordNotes) out.addEvent (juce::MidiMessage::noteOff (1, nn), pos); chordNotes.clear(); };
+        auto emit = [&] (int64_t b, int pos)
+        {
+            if (L.isOut (b)) { if (! chordNotes.empty()) chordOff (pos); lastChordKey = -1; return; }
+            int r = 0; bool m = false; L.chordAt (b, r, m); const int q = L.qualityAt (b);
+            const int key = r | (q << 4);
+            if (key == lastChordKey) return;
+            chordOff (pos);
+            int t[4]; const int nt = band::qualityTones (q, t);
+            chordNotes.push_back (48 + r);
+            for (int i = 0; i < nt; ++i) chordNotes.push_back (60 + (r + t[i]) % 12);
+            for (int nn : chordNotes) out.addEvent (juce::MidiMessage::noteOn (1, nn, (juce::uint8) 90), pos);
+            lastChordKey = key;
+        };
+        if (playing)
+        {
+            if (lastChordKey < 0) emit (bar, 0);
+            const double ppqEnd = ppq + n / spb;
+            for (int64_t b = bar + 1; (double) b * 4.0 < ppqEnd; ++b) emit (b, juce::jlimit (0, n - 1, (int) (((double) b * 4.0 - ppq) * spb)));
+        }
+        else if (! chordNotes.empty() || lastChordKey >= 0) { chordOff (0); lastChordKey = -1; }
+        midi.swapWith (out);
+        capture.recordBlock (midi, ppq, playing, bpm, getSampleRate(), n);
+    }
+
     uiBusOk = band::available();
     uiPlaying = playing;
     uiSection = L.curSection;

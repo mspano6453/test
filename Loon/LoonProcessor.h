@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/MidiCapture.h"
 #include "../Source/BandStyles.h"
 #include "LoonDSP.h"
 
@@ -18,6 +19,7 @@ public:
     const juce::String getName() const override { return "Loon"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return true; }      // the notes it plays, for other instruments
+    mc::Capture capture;
     double getTailLengthSeconds() const override { return 12.0; }
 
     int getNumPrograms() override;

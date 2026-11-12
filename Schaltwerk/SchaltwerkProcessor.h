@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "../Source/MidiCapture.h"
 #include "../Source/BandStyles.h"
 #include "SchaltwerkDSP.h"
 
@@ -32,7 +33,8 @@ public:
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "Schaltwerk"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }      // the drum box's pattern, so you can record it
+    mc::Capture capture;
     double getTailLengthSeconds() const override { return 3.0; }
 
     int getNumPrograms() override { return (int) sw::patterns().size(); }
@@ -80,6 +82,9 @@ private:
     void handleMidi (const juce::MidiMessage&);
     void renderSegment (float* L, float* R, int start, int end);
     void runSequencer (juce::MidiBuffer& midi, int n);
+    juce::MidiBuffer capOut;
+    mc::NoteOut capNotes;
+    int64_t sampleClock = 0;
 
     double sr = 44100;
     sw::DrumBox drums;

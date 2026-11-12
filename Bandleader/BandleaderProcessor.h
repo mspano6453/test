@@ -3,6 +3,7 @@
 #include "../Source/BandBus.h"
 #include "../Source/BandStyles.h"
 #include "../Undertow/UndertowPlayer.h"
+#include "../Source/MidiCapture.h"
 
 // ---------------------------------------------------------------------------
 // Bandleader: runs the song for the whole Tea Towel band. Key, chords per
@@ -21,7 +22,7 @@ class BandleaderProcessor : public juce::AudioProcessor, private juce::AsyncUpda
 {
 public:
     BandleaderProcessor();
-    void prepareToPlay (double, int) override {}
+    void prepareToPlay (double, int) override { chordOut.ensureSize (2048); }
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout& l) const override { return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -31,7 +32,7 @@ public:
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "Bandleader"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }      // the chords, so you can drag them into a clip
     double getTailLengthSeconds() const override { return 0; }
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -56,7 +57,12 @@ public:
     std::atomic<bool> uiPlaying { false }, uiOut { false }, uiDropComing { false }, uiFillComing { false }, uiBusOk { false };
     std::atomic<int> uiLastCmd { 0 };
 
+    mc::Capture capture;
+
 private:
+    juce::MidiBuffer chordOut;
+    std::vector<int> chordNotes;
+    int lastChordKey = -1;
     void handle (Cmd c, int64_t bar, double frac);
     void postParams (int sec, bool manual);
     void handleAsyncUpdate() override;

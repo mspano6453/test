@@ -3,6 +3,7 @@
 #include "../Source/BandStyles.h"
 #include "../Undertow/UndertowPlayer.h"     // shared song form + progressions
 #include "EtherDSP.h"
+#include "../Source/MidiCapture.h"
 
 // ---------------------------------------------------------------------------
 // Ether: early electronic instruments that play along. It writes melodies over
@@ -31,7 +32,7 @@ public:
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "Ether"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }      // the tune it plays, so you can record it
     double getTailLengthSeconds() const override { return 4.0; }
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -51,6 +52,7 @@ public:
     std::atomic<bool> uiLinked { false }, uiTransport { false };
     std::atomic<float> uiLevel { 0 };
     std::atomic<int> uiTrail[32];   // the last notes played, for the scope
+    mc::Capture capture;
 
 private:
     struct Ev { int64_t at; int type; int note; float vel; float len; float gl = -1.0f; };   // 1 on, 2 off, 3 all off; gl = glide override (s)
@@ -66,7 +68,9 @@ private:
     void chordAt (int64_t bar, int& root, int& q) const;
     int pitchFor (int deg, int root, int q) const;
 
-    double sr = 44100, bpmNow = 120;
+    double sr = 44100, bpmNow = 120, blockPpq = 0;
+    mc::NoteOut midiOut;
+    juce::MidiBuffer outMidi;
     et::Voice voices[et::kNumVoices];
     et::Rack rack;
     et::Rng rng;

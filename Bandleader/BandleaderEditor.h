@@ -32,5 +32,6 @@ private:
     ttui::Knob* energyK = nullptr;
     juce::Rectangle<int> nowArea, formArea, songArea, bandArea, legendArea;
 
+    std::unique_ptr<mc::DragButton> dragMidi;   // drag what it played into Live as a clip
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BandleaderEditor)
 };

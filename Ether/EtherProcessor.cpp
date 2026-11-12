@@ -53,6 +53,7 @@ EtherProcessor::EtherProcessor()
 {
     band::available();
     queue.reserve (512);
+    outMidi.ensureSize (2048);
     for (auto& p : phrase) p.reserve (40);
     answer.reserve (40);
     for (auto& t : uiTrail) t = -1;
@@ -282,7 +283,7 @@ void EtherProcessor::runPlayer (int n)
             if (auto b = pos->getBpm()) bpm = *b;
             if (auto p = pos->getPpqPosition()) ppq = *p; else playing = false;
         }
-    bpmNow = bpm; uiTransport = playing;
+    bpmNow = bpm; blockPpq = ppq; uiTransport = playing;
     if (! playing) { if (wasPlaying) schedule ({ sampleClock, 3, 0, 0, 0 }); wasPlaying = false; return; }
     const double spb = sr * 60.0 / bpm;
     if (! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.25)
@@ -340,6 +341,7 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     else { uiTransport = false; if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0 }); wasPlaying = false; } }
 
     std::stable_sort (queue.begin(), queue.end(), [] (const Ev& a, const Ev& b) { return a.at < b.at; });
+    outMidi.clear();
     float* L = buffer.getWritePointer (0);
     float* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
     std::vector<float> tmp;   // only used for mono hosts
@@ -351,10 +353,17 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
         while (e < queue.size() && queue[e].at <= now)
         {
             const auto& ev = queue[e++];
-            if (ev.type == 1) noteOn (ev.note, ev.vel, ev.len, ev.gl);
-            else if (ev.type == 2) noteOff (ev.note);
-            else allOff();
+            if (ev.type == 1)
+            {
+                // a monophonic instrument only has one note at a time on its MIDI out too
+                if (! isPoly (instrument)) midiOut.allOff (outMidi, i);
+                noteOn (ev.note, ev.vel, ev.len, ev.gl);
+                midiOut.on (outMidi, i, now, ev.note, ev.vel, ev.len, sr);
+            }
+            else if (ev.type == 2) { noteOff (ev.note); midiOut.off (outMidi, i, ev.note); }
+            else { allOff(); midiOut.allOff (outMidi, i); }
         }
+        midiOut.tick (outMidi, i, now);
         float l = 0, r = 0;
         for (auto& v : voices) v.render (l, r);
         L[i] = l * 0.5f; R[i] = r * 0.5f;
@@ -375,6 +384,12 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     uiLevel = peak;
     bool any = false; for (auto& v : voices) any = any || (v.active() && v.held);
     if (! any) uiNote = -1;
+    midi.swapWith (outMidi);
+    {
+        double cp = 0; bool cpl = false;
+        if (auto* ph = getPlayHead()) if (auto pos = ph->getPosition()) { cpl = pos->getIsPlaying(); if (auto q = pos->getPpqPosition()) cp = *q; else cpl = false; if (auto b = pos->getBpm()) bpmNow = *b; }
+        capture.recordBlock (midi, cp, cpl, bpmNow, sr, n);
+    }
     sampleClock += n;
 }
 

@@ -92,6 +92,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     }
     // Player
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::on, 1 }, "Player On", juce::StringArray { "Off", "On" }, 0));
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "sit_out", 1 }, "With The Band", juce::StringArray { "Plays along", "Sits out" }, 0));
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "band_link", 1 }, "Follow Bandleader", juce::StringArray { "Off", "On" }, 1));
     {
         juce::StringArray st; for (int i = 0; i < NumStyles; ++i) st.add (styleName (i));
@@ -155,7 +156,8 @@ void TeaTowelProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     gateBuf.setSize (2, juce::jmax (samplesPerBlock, 512) * 2);
     gateEnv.assign ((size_t) juce::jmax (samplesPerBlock, 512) * 2, 0.0f);
     gateHold = 0; gateGain = 0; crushCount = 0; crushHold[0] = crushHold[1] = 0; crackle = 0;
-    for (int c = 0; c < 2; ++c) { crushLp[c].reset(); vinylLp[c].reset(); vinylHp[c].reset(); }
+    for (int c = 0; c < 2; ++c) { crushLp[c].reset(); vinylLp[c].reset(); vinylHp[c].reset(); smashLow[c].reset(); }
+    smashEnv = 0;
     for (int c = 0; c < 2; ++c)
     {
         lowCut[c].reset(); thudEq[c].reset(); tapeLp[c].reset(); dcBlock[c].reset();
@@ -264,7 +266,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (led)
         {
             ps.link = &leader;
-            ps.on = true;
+            ps.on = apvts.getRawParameterValue ("sit_out")->load() < 0.5f;     // a style can leave the drums out
             ps.intensity = juce::jlimit (0.0f, 1.0f, ps.intensity + (leader.energy - 0.5f) * 0.8f);
         }
         playerOut.clear();
@@ -347,7 +349,8 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     const float tb = std::tanh (bias);
     const float tapeNorm = 1.0f / (drive * (1.0f - tb * tb));
     const bool useTape = tape > 0.001f;
-    const float crunch = mp[Crunch]->load(), vinyl = mp[Vinyl]->load();
+    const float crunch = mp[Crunch]->load(), vinyl = mp[Vinyl]->load(), smash = mp[Smash]->load();
+    for (int c = 0; c < 2; ++c) smashLow[c].lowpass (sr, 9000.0);
     const float crunchMix = juce::jmin (1.0f, crunch * 1.6f);
     const int crushEvery = 1 + (int) std::round (crunch * 2.0f * (float) (sr / 44100.0));     // 44 -> ~15 kHz
     const float crushSteps = std::pow (2.0f, 15.0f - 7.0f * crunch);                           // 16 -> ~9 bits
@@ -395,6 +398,17 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             l = tapeLp[0].process (l);
             r = tapeLp[1].process (r);
         }
+        // Smash: a blown-out drum bus - slammed by a brutal compressor, driven into distortion, mixed in under the kit
+        if (smash > 0.001f)
+        {
+            const float lvl = juce::jmax (std::abs (l), std::abs (r));
+            smashEnv += (lvl > smashEnv ? 0.25f : 0.00025f) * (lvl - smashEnv);
+            const float g = 0.12f / juce::jmax (0.12f, smashEnv);          // squeeze everything to the same loudness
+            const float dl = std::tanh (smashLow[0].process (l) * g * (4.0f + 10.0f * smash)) * 0.45f;
+            const float dr = std::tanh (smashLow[1].process (r) * g * (4.0f + 10.0f * smash)) * 0.45f;
+            l = (l * (1.0f - 0.35f * smash) + dl * smash) * (1.0f - 0.42f * smash);   // keep the level where it was
+            r = (r * (1.0f - 0.35f * smash) + dr * smash) * (1.0f - 0.42f * smash);
+        }
         // Crunch: an old sampler's grit (lower sample rate, fewer bits)
         if (crunch > 0.001f)
         {
@@ -425,6 +439,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     }
     gainReductionDb.store (maxGr);
     midi.swapWith (playerOut);     // MIDI out = only what the Player played
+    capture.recordWithHost (midi, getPlayHead(), sr, n);
     sampleCounter += n;
 
     for (auto& s : blockSamples) s.reset();
@@ -579,6 +594,7 @@ void TeaTowelProcessor::setStateInformation (const void* data, int sizeInBytes)
 void TeaTowelProcessor::applyStyle (const band::StyleDef& s)
 {
     setCurrentProgram (s.dKit);
+    band::setParam (apvts, "sit_out", s.dOn ? 0.0f : 1.0f);
     band::setParam (apvts, PID::style, (float) s.dStyle);
     band::setParam (apvts, PID::intensity, s.dInt);
     band::setParam (apvts, PID::looseness, s.dLoose);
@@ -587,6 +603,7 @@ void TeaTowelProcessor::applyStyle (const band::StyleDef& s)
     band::setParam (apvts, PID::fillEvery, (float) s.dFill);
     if (s.dRoom >= 0) band::setParam (apvts, "m_roomlvl", s.dRoom);
     if (s.dRoomSize >= 0) band::setParam (apvts, "m_roomsize", s.dRoomSize);
+    band::setParam (apvts, "m_smash", s.dSmash);
 }
 
 juce::AudioProcessorEditor* TeaTowelProcessor::createEditor() { return new TeaTowelEditor (*this); }

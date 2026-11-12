@@ -648,10 +648,11 @@ void FxView::resized()
     knobs[Output]->setBounds (out.reduced (6, 0));
     auto ch = bottom.withTrimmedLeft (8).reduced (16, 10).withTrimmedTop (56);
     kitTypeBox.setBounds (ch.removeFromLeft (190).withSizeKeepingCentre (180, 26));
-    const int cw = ch.getWidth() / 3;
+    const int cw = ch.getWidth() / 4;
     knobs[Crunch]->setBounds (ch.removeFromLeft (cw).reduced (6, 0));
     knobs[Vinyl]->setBounds (ch.removeFromLeft (cw).reduced (6, 0));
-    knobs[GateVerb]->setBounds (ch.reduced (6, 0));
+    knobs[GateVerb]->setBounds (ch.removeFromLeft (cw).reduced (6, 0));
+    knobs[Smash]->setBounds (ch.reduced (6, 0));
 }
 
 // ===========================================================================
@@ -761,8 +762,11 @@ void PlayerView::paint (juce::Graphics& g)
     g.setColour (running ? col::cream : col::muted);
     juce::String status;
     if (proc.uiLinked.load())
-        status = running ? "Following Bandleader  -  " + juce::String (sectionName (proc.player.uiSection.load())) + "  -  bar " + juce::String (proc.player.uiBar.load())
-                         : juce::String ("Following Bandleader - press play in Live.");
+    {
+        if (proc.apvts.getRawParameterValue ("sit_out")->load() > 0.5f) status = "Sitting out this style (no drums). Pick another style in Bandleader to bring them back.";
+        else status = running ? "Following Bandleader  -  " + juce::String (sectionName (proc.player.uiSection.load())) + "  -  bar " + juce::String (proc.player.uiBar.load())
+                              : juce::String ("Following Bandleader - press play in Live.");
+    }
     else if (! (bool) proc.apvts.getRawParameterValue (PID::on)->load())
         status = "Player is off - tick the box above, then press play in Live.";
     else if (! running)
@@ -849,6 +853,8 @@ TeaTowelEditor::TeaTowelEditor (TeaTowelProcessor& p)
     addChildComponent (player);
 
     tabKit.setToggleState (true, juce::dontSendNotification);
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Tea Towel", juce::Colour (0xffe0a33a));
+    addAndMakeVisible (*dragMidi);
     setSize (1000, 660);
 }
 
@@ -902,6 +908,8 @@ void TeaTowelEditor::resized()
     tabEdit.setBounds (header.removeFromRight (70));
     header.removeFromRight (6);
     tabKit.setBounds (header.removeFromRight (70));
+    header.removeFromRight (14);
+    dragMidi->setBounds (header.removeFromRight (170));
 
     edit.setBounds (r);
     fx.setBounds (r);

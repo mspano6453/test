@@ -261,6 +261,7 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
         else pending[wpos++] = p;
     }
     pendingCount = wpos;
+    capture.recordWithHost (midi, getPlayHead(), getSampleRate(), n);
     sampleClock += n;
 }
 

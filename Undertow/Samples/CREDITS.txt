@@ -5,3 +5,7 @@ Source: https://github.com/sfzinstruments/karoryfer.black-and-blue-basses
 
 Fingered bass ("Fingers" bass type): the "darkblack" bass from the same Karoryfer
 "Black And Blue Basses" library (CC0), mf and f dynamics, trimmed and converted to FLAC.
+
+Upright bass ("Upright" bass type, files u_*): solo contrabass pizzicato from VSCO 2: Community
+Edition by Versilian Studios (CC0 1.0), https://github.com/sgossner/VSCO-2-CE - two dynamics,
+two round robins, mono, trimmed.

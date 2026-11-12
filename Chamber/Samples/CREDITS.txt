@@ -1,0 +1,16 @@
+Chamber sample credits
+======================
+
+Strings, brass, woodwinds and timpani come from VSCO 2: Community Edition by Versilian Studios,
+released under CC0 1.0 (public domain): https://github.com/sgossner/VSCO-2-CE
+Versilian asks that the samples are not sold on their own; they are included here inside a free plugin.
+
+  vln / vla / vc   Violin, Viola and Cello sections: sustain with vibrato, spiccato, pizzicato, tremolo
+  svl              Solo violin, arco with vibrato
+  tpt / hrn / tbn  Trumpet (sustain + staccato), French horn, tenor trombone
+  fl / ob / cl / bsn  Flute, oboe, clarinet, bassoon
+  tim              Timpani hits
+
+Converted to mono (each section is panned in the mix, the 60s way), trimmed, and the sustains
+were given crossfaded loops so a note can be held as long as you like.
+File names: <instrument>_<articulation>_<midi note>_<layer>[_L<loop start sample>].flac

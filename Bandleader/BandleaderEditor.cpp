@@ -60,6 +60,8 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     energyK = new ttui::Knob ("ENERGY", false, this);
     energyK->attach (proc.apvts, "energy");
     owned.add (energyK); addAndMakeVisible (energyK);
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Bandleader Chords", juce::Colour (0xffd9b45a));
+    addAndMakeVisible (*dragMidi);
     setSize (980, 740);
     startTimerHz (12);
 }
@@ -98,7 +100,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
     g.setColour (col::cream); g.setFont (font (28.0f, true));
     g.drawText ("BANDLEADER", 20, 8, 400, 30, juce::Justification::centredLeft);
     g.setColour (kGold); g.setFont (font (11.0f, true));
-    g.drawText ("RUNS THE TEA TOWEL BAND", 22, 38, 400, 14, juce::Justification::centredLeft);
+    g.drawText ("RUNS THE DEMOCRAZY BAND", 22, 38, 400, 14, juce::Justification::centredLeft);
 
     const bool playing = proc.uiPlaying.load();
     const int sec = proc.uiSection.load(), next = proc.uiNextSection.load(), toNext = proc.uiBarsToNext.load();
@@ -195,10 +197,11 @@ void BandleaderEditor::paint (juce::Graphics& g)
                           { "Tape Twin", band::WTapeTwin, "echo throws into new sections" },
                           { "Lathe", band::WLathe, "loudness per section" },
                           { "Parlour", band::WParlour, "keys: comps the chords" },
-                          { "Ether", band::WEther, "early electronic melody" } };
+                          { "Ether", band::WEther, "early electronic melody" },
+                          { "Chamber", band::WChamber, "strings, brass, woodwinds" } };
     for (auto& m : members)
     {
-        auto r = ba.removeFromTop (20);
+        auto r = ba.removeFromTop (18);
         const bool here = band::isPresent (m.who);
         g.setColour (here ? kGreen : col::line); g.fillEllipse (r.removeFromLeft (14).withSizeKeepingCentre (10, 10).toFloat());
         r.removeFromLeft (6);
@@ -231,6 +234,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
 void BandleaderEditor::resized()
 {
     auto r = getLocalBounds();
+    dragMidi->setBounds (getWidth() - 196, 14, 178, 32);
     r.removeFromTop (60);
     r.reduce (18, 14);
     legendArea = r.removeFromBottom (36);

@@ -11,11 +11,11 @@
 namespace ut
 {
 enum Feel { FPump = 0, FMelodic, FGothic, FOctaves, FWalk, FRoot, FHalf, FGallop,
-            FMotor, FPhilly, FFunk, FTrap, FBoomBap, FHouse, FTechno, FAcid, FNewJack, NumFeels };
+            FMotor, FPhilly, FFunk, FTrap, FBoomBap, FHouse, FTechno, FAcid, FNewJack, FSixties, NumFeels };
 inline const char* feelName (int f)
 {
     static const char* n[] = { "Pump", "Melodic", "Gothic", "Octaves", "Walk", "Root Eighths", "Half-Time Heavy", "Gallop",
-                               "Motor City", "Philly", "Funk 16ths", "Trap Sub", "Boom Bap", "House", "Techno", "Acid", "New Jack" };
+                               "Motor City", "Philly", "Funk 16ths", "Trap Sub", "Boom Bap", "House", "Techno", "Acid", "New Jack", "Melodic 60s" };
     return n[f];
 }
 inline juce::StringArray feelNames() { juce::StringArray a; for (int i = 0; i < NumFeels; ++i) a.add (feelName (i)); return a; }
@@ -80,6 +80,7 @@ public:
             case FTechno:  techno (m, r, section, hook, density); break;
             case FAcid:    acid (m, r, section, hook, density); break;
             case FNewJack: newJack (m, r, section, hook, density); break;
+            case FSixties: sixties (m, r, section, hook, density); break;
             default:       gallop (m, r, section, hook, density); break;
         }
         if (section == SBridge && ! feelIsMachine (feel)) halfTime (m, r);
@@ -461,6 +462,29 @@ private:
         }
         if (hook > 0.5f && r.chance (hook)) { put (m, 28, 7, 0.88f, 0.9f); put (m, 29, 9, 0.8f, 0.9f); put (m, 30, 7, 0.84f, 1.4f); }
         juce::ignoreUnused (sec);
+    }
+
+    // melodic 60s: a tune of its own under the song - root on one, climbing through the chord,
+    // octave pops, and a walk down into the next chord from a step above
+    static void sixties (Motif& m, Rng& r, int sec, float hook, float density)
+    {
+        // bar one: the chord, sung
+        put (m, 0, 0, 0.92f, 5.0f);
+        if (r.chance (0.6f)) put (m, 6, 4, 0.74f, 1.8f); else put (m, 6, 7, 0.76f, 1.8f);
+        put (m, 8, 2, 0.82f, 3.0f);
+        if (r.chance (0.35f + density * 0.4f)) put (m, 11, 4, 0.62f, 0.9f);
+        put (m, 12, 4, 0.8f, 1.8f);
+        put (m, 14, r.chance (0.5f) ? 5 : 6, 0.74f, 1.8f);
+        // bar two: up to the octave and walk back down to the next chord
+        put (m, 16, 0, 0.9f, 2.6f);
+        if (r.chance (0.5f + hook * 0.4f)) { put (m, 19, 7, 0.66f, 0.9f); put (m, 20, 7, 0.82f, 1.8f); }
+        else put (m, 20, 4, 0.8f, 1.8f);
+        const bool run = r.chance (0.45f + density * 0.4f);
+        if (run) { put (m, 22, 6, 0.72f, 1.8f); put (m, 24, 5, 0.76f, 1.8f); put (m, 26, 4, 0.76f, 1.8f); put (m, 28, 2, 0.76f, 1.8f); put (m, 30, 1, 0.74f, 1.8f); }
+        else { put (m, 24, 4, 0.8f, 3.0f); put (m, 28, 2, 0.76f, 1.8f); put (m, 30, 1, 0.72f, 1.8f); }
+        if (r.chance (0.3f)) put (m, 15, 0, 0.4f, 0.6f, 0, true);   // a little ghost before the second bar
+        if (sec == SChorus) put (m, 10, 7, 0.8f, 1.8f);
+        legato (m, 0.9f);
     }
 
     static void halfTime (Motif& m, Rng& r)

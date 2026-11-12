@@ -52,6 +52,8 @@ ParlourEditor::ParlourEditor (ParlourProcessor& p) : AudioProcessorEditor (&p), 
     playerKnobs = { knob ("busy", "BUSY"), knob ("colour", "COLOUR"), knob ("dynamics", "DYNAMICS"), knob ("human", "HUMAN"), knob ("swing", "SWING"), knob ("length", "LENGTH") };
     soundKnobs = { knob ("motion", "MOTION", true), knob ("chorus", "CHORUS", true), knob ("lofi", "LO-FI", true),
                    knob ("tone", "TONE", true), knob ("room", "ROOM", true), knob ("out", "OUTPUT", true) };
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Parlour", juce::Colour (0xffc583d6));
+    addAndMakeVisible (*dragMidi);
     setSize (1040, 700);
     startTimerHz (25);
 }
@@ -92,7 +94,7 @@ void ParlourEditor::paint (juce::Graphics& g)
     const int follow = (int) proc.apvts.getRawParameterValue ("follow")->load();
     const int inst = (int) proc.apvts.getRawParameterValue ("instrument")->load();
     g.setColour (col::muted); g.setFont (font (12.0f, true));
-    g.drawText (juce::String (instrumentName (inst)).toUpperCase() + (usesSamples (inst) ? "  -  REAL SAMPLES" : "  -  MODELLED"), header.withTrimmedRight (20), juce::Justification::centredRight);
+    g.drawText (juce::String (instrumentName (inst)).toUpperCase() + (usesSamples (inst) ? "  -  REAL SAMPLES" : "  -  MODELLED"), header.withTrimmedRight (214), juce::Justification::centredRight);
 
     // ---- what it's playing
     g.setColour (col::panel); g.fillRoundedRectangle (nowArea.toFloat(), 8.0f);
@@ -165,6 +167,7 @@ void ParlourEditor::paint (juce::Graphics& g)
 void ParlourEditor::resized()
 {
     auto r = getLocalBounds();
+    dragMidi->setBounds (getWidth() - 196, 14, 178, 32);
     r.removeFromTop (60);
     r.reduce (18, 14);
     legendArea = r.removeFromBottom (48);

@@ -169,12 +169,40 @@ int main (int argc, char** argv)
         runFollow (ut::FGothic, "undertow_gothic_guitar.wav", ut::SBridge);
     }
 
+    // ------------------------------------------------------------------ 1b. every bass sound, and the BUBBLE knob
+    if (only.isEmpty() || only == "sounds")
+    {
+        struct S { int type; float bubble; const char* name; };
+        const S cases[] = { { 0, 0, "Picked" }, { 1, 0, "Fingers" }, { 6, 0, "Violin Bass 60s" }, { 7, 0, "Flatwound Muted" }, { 8, 0, "Upright" },
+                            { 9, 0, "Fretless" }, { 10, 0, "Fuzz Bass" }, { 6, 0.3f, "Violin + Bubble 30" }, { 6, 0.65f, "Violin + Bubble 65" }, { 1, 1.0f, "Fingers + Bubble 100" } };
+        for (const auto& c : cases)
+        {
+            UndertowProcessor p;
+            p.setPlayConfigDetails (2, 2, sr, bs); p.prepareToPlay (sr, bs);
+            Head head; p.setPlayHead (&head);
+            setP (p, "feel", (float) ut::FSixties); setP (p, "follow", 0); setP (p, "bass_type", (float) c.type); setP (p, "bubble", c.bubble);
+            setP (p, "ch_mix", 0); setP (p, "grit", 0.05f); setP (p, "key", 2); setP (p, "prog_verse", 10); setP (p, "section_bars", 0);
+            const int total = (int) (spb * 4 * 8) / bs * bs;
+            juce::AudioBuffer<float> out (2, total), block (2, bs);
+            for (int pos = 0; pos < total; pos += bs)
+            {
+                block.clear(); head.ppq = pos / spb;
+                juce::MidiBuffer midi; p.processBlock (block, midi);
+                for (int ch = 0; ch < 2; ++ch) out.copyFrom (ch, pos, block, ch, 0, bs);
+            }
+            bool nan = false;
+            for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < total; ++i) if (! std::isfinite (out.getSample (ch, i))) nan = true;
+            std::printf ("[sound %s] rms %.3f peak %.2f %s\n", c.name, out.getRMSLevel (0, 0, total), out.getMagnitude (0, total), nan ? "NAN!" : "");
+            writeWav (outDir.getChildFile (juce::String ("undertow_sound_") + juce::String (c.name).replaceCharacters (" +", "__") + ".wav"), out, sr);
+        }
+    }
+
     // ------------------------------------------------------------------ 2. MIDI chords, every feel
     if (only.isEmpty() || only == "midi")
     {
         // each feel with the bass that suits it (genre pairings)
         auto bassFor = [] (int f) { switch (f) { case ut::FMotor: case ut::FPhilly: case ut::FFunk: case ut::FBoomBap: case ut::FNewJack: return 1;
-                                                  case ut::FTrap: return 2; case ut::FAcid: return 3; case ut::FTechno: return 4; case ut::FHouse: return 5; default: return 0; } };
+                                                  case ut::FTrap: return 2; case ut::FAcid: return 3; case ut::FTechno: return 4; case ut::FHouse: return 5; case ut::FSixties: return 6; default: return 0; } };
         for (int feel = 0; feel < ut::NumFeels; ++feel)
         {
             UndertowProcessor p;
@@ -182,7 +210,8 @@ int main (int argc, char** argv)
             p.prepareToPlay (sr, bs);
             Head head; p.setPlayHead (&head);
             setP (p, "feel", (float) feel); setP (p, "follow", 2); setP (p, "bass_type", (float) bassFor (feel));
-            if (bassFor (feel) >= 2) { setP (p, "ch_mix", 0); setP (p, "grit", 0.1f); }
+            if (bassFor (feel) >= 2 && bassFor (feel) <= 5) { setP (p, "ch_mix", 0); setP (p, "grit", 0.1f); }
+            if (feel < ut::FMotor) { setP (p, "bass_type", 0); setP (p, "ch_mix", 0.45f); setP (p, "grit", 0.2f); }
             const int bars = 8, total = (int) (spb * 4 * bars);
             juce::AudioBuffer<float> out (2, total), block (2, bs);
             int lastBar = -1; std::vector<int> cur; int ok = 0, tot = 0; bool nan = false;

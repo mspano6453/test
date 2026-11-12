@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "MidiCapture.h"
 #include "BandStyles.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -31,6 +32,7 @@ public:
     const juce::String getName() const override { return "Tea Towel"; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return true; }   // the Player's hits, for recording
+    mc::Capture capture;
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 3.0; }
 
@@ -91,7 +93,8 @@ private:
     std::vector<float> gateEnv;
     int gateHold = 0; float gateGain = 0;
     float crushHold[2] {}; int crushCount = 0; float crackle = 0; uint32_t vinylRng = 0x9E3779B9u;
-    tt::Biquad crushLp[2], vinylLp[2], vinylHp[2];
+    float smashEnv = 0;
+    tt::Biquad crushLp[2], vinylLp[2], vinylHp[2], smashLow[2];
     tt::Biquad lowCut[2], thudEq[2], tapeLp[2], dcBlock[2];
     float grState = 0.0f;
     int currentProgram = 0;

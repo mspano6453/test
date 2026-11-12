@@ -28,5 +28,6 @@ private:
     juce::Rectangle<int> nowArea, keysArea, playerPanel, soundPanel, legendArea;
     juce::String lastStatic; int64_t lastDyn = 0;
 
+    std::unique_ptr<mc::DragButton> dragMidi;   // drag what it played into Live as a clip
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ParlourEditor)
 };

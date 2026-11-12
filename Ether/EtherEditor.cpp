@@ -39,6 +39,8 @@ EtherEditor::EtherEditor (EtherProcessor& p) : AudioProcessorEditor (&p), proc (
     progBox[0] = combo ("prog_verse", nullptr); progBox[1] = combo ("prog_chorus", nullptr); progBox[2] = combo ("prog_bridge", nullptr);
     playerKnobs = { knob ("busy", "BUSY"), knob ("wander", "WANDER"), knob ("repeat", "REPEAT"), knob ("glide", "GLIDE"), knob ("vibrato", "VIBRATO") };
     soundKnobs = { knob ("echo", "TAPE ECHO", true), knob ("space", "SPACE", true), knob ("age", "AGE", true), knob ("out", "OUTPUT", true) };
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Ether", juce::Colour (0xff7fe0a8));
+    addAndMakeVisible (*dragMidi);
     setSize (980, 640);
     startTimerHz (30);
 }
@@ -71,7 +73,7 @@ void EtherEditor::paint (juce::Graphics& g)
     g.drawText ("EARLY ELECTRONIC INSTRUMENTS", 22, 38, 300, 14, juce::Justification::centredLeft);
     const int inst = (int) proc.apvts.getRawParameterValue ("instrument")->load();
     g.setColour (col::muted); g.setFont (font (12.0f, true));
-    g.drawText (juce::String (instrumentName (inst)).toUpperCase() + "  -  " + instrumentBlurb (inst), header.withTrimmedRight (20), juce::Justification::centredRight);
+    g.drawText (juce::String (instrumentName (inst)).toUpperCase() + "  -  " + instrumentBlurb (inst), header.withTrimmedRight (214), juce::Justification::centredRight);
 
     // ---- the scope: a glowing trace whose pitch follows the note, plus the trail of recent notes
     g.setColour (juce::Colour (0xff0d1410)); g.fillRoundedRectangle (scopeArea.toFloat(), 8.0f);
@@ -128,6 +130,7 @@ void EtherEditor::paint (juce::Graphics& g)
 void EtherEditor::resized()
 {
     auto r = getLocalBounds();
+    dragMidi->setBounds (getWidth() - 196, 14, 178, 32);
     r.removeFromTop (60);
     r.reduce (18, 14);
     legendArea = r.removeFromBottom (48);

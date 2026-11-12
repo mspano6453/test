@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 namespace band
 {
-enum Who { WTeaTowel = 0, WUndertow, WLoon, WSchaltwerk, WCarousel, WTapeTwin, WLathe, WBandleader, WParlour, WEther, NumWho };
+enum Who { WTeaTowel = 0, WUndertow, WLoon, WSchaltwerk, WCarousel, WTapeTwin, WLathe, WBandleader, WParlour, WEther, WChamber, NumWho };
 enum Sec { Verse = 0, Chorus, Bridge, NumSec };
 constexpr int kMaxProg = 16;
 // chord qualities carried on the bus (progMinor holds one of these)

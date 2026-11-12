@@ -61,7 +61,7 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
     modeBox = combo ("mode"); followBox = combo ("follow"); feelBox = combo ("feel");
     keyBox = combo ("key"); progBox[0] = combo ("prog_verse"); progBox[1] = combo ("prog_chorus"); progBox[2] = combo ("prog_bridge");
     chordBarsBox = combo ("chord_bars"); songBox = combo ("song"); secBarsBox = combo ("section_bars");
-    regBox = combo ("register"); octBox = combo ("octave"); stopBox = combo ("band_stop"); typeBox = combo ("bass_type");
+    regBox = combo ("register"); octBox = combo ("octave"); stopBox = combo ("band_stop"); typeBox = combo ("bass_type"); sitBox = combo ("sit_out");
 
     playerKnobs = { knob ("variation", "VARIATION"), knob ("fills", "FILLS"), knob ("hook", "HOOK"), knob ("density", "BUSY"),
                     knob ("push", "PUSH"), knob ("human", "HUMAN"), knob ("swing", "SWING"), knob ("length", "LENGTH") };
@@ -69,7 +69,10 @@ UndertowEditor::UndertowEditor (UndertowProcessor& p) : AudioProcessorEditor (&p
                  knob ("ch_depth", "CH DEPTH", true), knob ("fl_mix", "FLANGER", true), knob ("fl_rate", "FL RATE", true), knob ("fl_fb", "FL FEEDBK", true),
                  knob ("bass_db", "BASS", true), knob ("mid_db", "MID", true), knob ("treble_db", "TREBLE", true), knob ("out", "OUTPUT", true) };
     guitarKnobs = { knob ("sens", "SENSITIVITY", true), knob ("guitar_dry", "GTR BLEND", true) };
+    bubbleKnob = knob ("bubble", "BUBBLE");
 
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Undertow", juce::Colour (0xff4fc1b0));
+    addAndMakeVisible (*dragMidi);
     setSize (1080, 760);
     startTimerHz (25);
 }
@@ -225,10 +228,10 @@ void UndertowEditor::paint (juce::Graphics& g)
         g.setColour (kTeal); g.drawText ("WHEN IT PLAYS BY ITSELF", selfHdr, juce::Justification::centredLeft);
         g.setColour (col::muted);
     }
-    for (auto* cb : { modeBox, followBox, feelBox, regBox, octBox, stopBox, typeBox })
+    for (auto* cb : { modeBox, followBox, feelBox, regBox, octBox, stopBox, typeBox, sitBox })
     {
         const char* t = cb == modeBox ? "MODE" : cb == followBox ? "CHORDS FROM" : cb == feelBox ? "FEEL"
-                      : cb == regBox ? "REGISTER" : cb == octBox ? "OCTAVE" : cb == typeBox ? "BASS" : "WHEN THE BAND STOPS";
+                      : cb == regBox ? "REGISTER" : cb == octBox ? "OCTAVE" : cb == typeBox ? "BASS" : cb == sitBox ? "WITH THE BAND" : "WHEN THE BAND STOPS";
         g.drawText (t, cb->getBounds().translated (0, -15).withHeight (14), juce::Justification::centredLeft);
     }
 
@@ -240,17 +243,23 @@ void UndertowEditor::paint (juce::Graphics& g)
     g.drawText ("bass > comp > grit > chorus > flanger > amp", rigPanel.reduced (16, 10).removeFromTop (18), juce::Justification::centredRight);
     g.setColour (col::muted); g.setFont (font (11.0f, true));
     g.drawText ("GUITAR INPUT", guitarArea.withHeight (14), juce::Justification::centredLeft);
+    g.drawText ("BUBBLE", bubbleArea.withHeight (14), juce::Justification::centredLeft);
+    g.setColour (col::muted); g.setFont (font (12.0f));
+    g.drawFittedText ("All the way down: the plainest bass there is. Turn it up and an envelope filter starts to quack on every note; "
+                      "past halfway it wobbles in time with the song: bubbly wubbly.",
+                      bubbleArea.withTrimmedLeft (bubbleArea.getWidth() / 3 + 6).withTrimmedTop (18), juce::Justification::topLeft, 5, 1.0f);
 
     g.setColour (col::muted); g.setFont (font (12.0f));
     g.drawFittedText ("Put Undertow on a MIDI track and press play - it plays a whole song by itself (pick the key and chords above). "
                       "Or set Chords From to Guitar and its Sidechain to your guitar track and it plays along with you, or feed it chords from a MIDI clip. Keyswitches (Live note names): C-1 verse, C#-1 chorus, D-1 bridge, D#-1 fill. "
-                      "Map 'Footswitch: Fill' or Section to your MIDI Captain. Drag its MIDI out to another track to record the bass line as a clip.",
+                      "Map 'Footswitch: Fill' or Section to your MIDI Captain. DRAG MIDI (top right) drops the bass line it just played into a clip.",
                       legendArea, juce::Justification::topLeft, 3, 1.0f);
 }
 
 void UndertowEditor::resized()
 {
     auto r = getLocalBounds();
+    dragMidi->setBounds (getWidth() - 196, 14, 178, 32);
     r.removeFromTop (60);
     r.reduce (18, 14);
     legendArea = r.removeFromBottom (48);
@@ -275,9 +284,11 @@ void UndertowEditor::resized()
     pp.removeFromTop (20);
     auto combos = pp.removeFromTop (26);
     const int cw = combos.getWidth() / 3;
-    modeBox->setBounds (combos.removeFromLeft (cw).reduced (3, 0));
-    followBox->setBounds (combos.removeFromLeft (cw).reduced (3, 0));
-    feelBox->setBounds (combos.reduced (3, 0));
+    const int cw4 = combos.getWidth() / 4;
+    modeBox->setBounds (combos.removeFromLeft (cw4).reduced (3, 0));
+    followBox->setBounds (combos.removeFromLeft (cw4).reduced (3, 0));
+    feelBox->setBounds (combos.removeFromLeft (cw4).reduced (3, 0));
+    sitBox->setBounds (combos.reduced (3, 0));
     pp.removeFromTop (22);
     auto combos2 = pp.removeFromTop (26);
     const int c4 = combos2.getWidth() / 4;
@@ -316,4 +327,7 @@ void UndertowEditor::resized()
     const int gw = ga.getWidth() / 4;
     guitarKnobs[0]->setBounds (ga.removeFromLeft (gw));
     guitarKnobs[1]->setBounds (ga.removeFromLeft (gw));
+    rp.removeFromTop (8);
+    bubbleArea = rp.removeFromTop (juce::jmin (130, rp.getHeight()));
+    bubbleKnob->setBounds (bubbleArea.withWidth (bubbleArea.getWidth() / 3).withTrimmedTop (14));
 }

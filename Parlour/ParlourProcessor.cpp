@@ -61,6 +61,7 @@ ParlourProcessor::ParlourProcessor()
 {
     band::available();
     queue.reserve (1024); bar.reserve (64);
+    outMidi.ensureSize (2048);
     loadSamples();
 }
 
@@ -69,12 +70,12 @@ ParlourProcessor::ParlourProcessor()
 void ParlourProcessor::loadSamples()
 {
     juce::FlacAudioFormat flac;
-    const char* prefixes[3] = { "pn_", "vb_", "gl_" };
+    const char* prefixes[4] = { "pn_", "vb_", "gl_", "hp_" };
     for (int i = 0; i < ParlourData::namedResourceListSize; ++i)
     {
         const juce::String res (ParlourData::namedResourceList[i]);
         int set = -1;
-        for (int s = 0; s < 3; ++s) if (res.startsWith (prefixes[s])) set = s;
+        for (int s = 0; s < 4; ++s) if (res.startsWith (prefixes[s])) set = s;
         if (set < 0) continue;
         juce::StringArray bits; bits.addTokens (res, "_", "");
         if (bits.size() < 3) continue;
@@ -280,7 +281,7 @@ void ParlourProcessor::runPlayer (int n)
             if (auto b = pos->getBpm()) bpm = *b;
             if (auto p = pos->getPpqPosition()) ppq = *p; else playing = false;
         }
-    bpmNow = bpm;
+    bpmNow = bpm; blockPpq = ppq;
     uiTransport = playing;
     if (! playing)
     {
@@ -355,6 +356,7 @@ void ParlourProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
 
     // render, splitting the block at each event
     std::stable_sort (queue.begin(), queue.end(), [] (const Ev& a, const Ev& b) { return a.at < b.at; });
+    outMidi.clear();
     float* L = tmpL.data(); float* R = tmpR.data();
     std::fill (L, L + n, 0.0f); std::fill (R, R + n, 0.0f);
     size_t e = 0;
@@ -365,10 +367,11 @@ void ParlourProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         while (e < queue.size() && queue[e].at <= now)
         {
             const auto& ev = queue[e++];
-            if (ev.type == 1) noteOn (ev.note, ev.vel, ev.len);
-            else if (ev.type == 2) noteOff (ev.note);
-            else allOff();
+            if (ev.type == 1) { noteOn (ev.note, ev.vel, ev.len); midiOut.on (outMidi, i, now, ev.note, ev.vel, ev.len, sr); }
+            else if (ev.type == 2) { noteOff (ev.note); midiOut.off (outMidi, i, ev.note); }
+            else { allOff(); midiOut.allOff (outMidi, i); }
         }
+        midiOut.tick (outMidi, i, now);
         float l = 0, r = 0;
         for (auto& v : voices) v.render (l, r);
         L[i] = l; R[i] = r;
@@ -391,6 +394,13 @@ void ParlourProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     uint32_t bits[4] {};
     for (auto& v : voices) if (v.active() && v.held) bits[v.note >> 5] |= 1u << (v.note & 31);
     for (int i = 0; i < 4; ++i) uiNotes[i] = bits[i];
+    // MIDI out: what it played (the notes coming in are not passed through)
+    midi.swapWith (outMidi);
+    {
+        double cp = 0; bool cpl = false;
+        if (auto* ph = getPlayHead()) if (auto pos = ph->getPosition()) { cpl = pos->getIsPlaying(); if (auto q = pos->getPpqPosition()) cp = *q; else cpl = false; if (auto b = pos->getBpm()) bpmNow = *b; }
+        capture.recordBlock (midi, cp, cpl, bpmNow, sr, n);
+    }
     sampleClock += n;
 }
 

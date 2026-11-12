@@ -284,6 +284,8 @@ SchaltwerkEditor::SchaltwerkEditor (SchaltwerkProcessor& p)
     // ---- shared echo / output bar
     echoCtl = { combo ("ec_time"), knob ("ec_fb", "REPEATS", true), knob ("ec_mix", "ECHO LVL", true), knob ("out", "OUTPUT", true) };
 
+    dragMidi = std::make_unique<mc::DragButton> (proc.capture, "Schaltwerk Drums", juce::Colour (0xffd8312a));
+    addAndMakeVisible (*dragMidi);
     setSize (1100, 740);
     showPage (0);
     startTimerHz (30);
@@ -410,6 +412,8 @@ void SchaltwerkEditor::resized()
     tabOmni.setBounds (header.removeFromRight (120)); header.removeFromRight (6);
     tabRobot.setBounds (header.removeFromRight (100)); header.removeFromRight (6);
     tabRhythm.setBounds (header.removeFromRight (100));
+    header.removeFromRight (14);
+    dragMidi->setBounds (header.removeFromRight (170));
 
     bottomBar = r.removeFromBottom (86);
     {

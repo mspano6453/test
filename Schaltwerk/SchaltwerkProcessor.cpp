@@ -122,6 +122,7 @@ bool SchaltwerkProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 
 void SchaltwerkProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    capOut.ensureSize (2048);
     sr = sampleRate;
     drums.prepare (sr); synth.prepare (sr); omni.prepare (sr); echo.prepare (sr);
     const size_t n = (size_t) juce::jmax (512, samplesPerBlock);
@@ -384,7 +385,18 @@ void SchaltwerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     lastString = omni.lastPlucked;
     chordSounding = omni.isChordOn();
     uiOmniRoot = omni.root(); uiOmniType = omni.type();
-    midi.clear();
+    // MIDI out: the drum box's hits (channel 10), so the pattern can be dragged or recorded into a clip
+    capOut.clear();
+    capNotes.tick (capOut, 0, sampleClock);
+    for (const auto meta : midi)
+    {
+        const auto& msg = meta.getMessage();
+        if (msg.isNoteOn() && msg.getChannel() == 10)
+            capNotes.on (capOut, meta.samplePosition, sampleClock + meta.samplePosition, msg.getNoteNumber(), msg.getFloatVelocity(), 0.1, getSampleRate(), 10);
+    }
+    midi.swapWith (capOut);
+    capture.recordWithHost (midi, getPlayHead(), getSampleRate(), n);
+    sampleClock += n;
 }
 
 // ---------------------------------------------------------------------------

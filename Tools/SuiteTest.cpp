@@ -104,7 +104,7 @@ int main()
     std::printf ("\nCarousel: recording started at bar %.2f, loop %.3f s (one 4-bar section = 8.000 s), state %s\n", carRecStartBar, carLen, cr::stateName (carState));
     std::printf ("Lathe by section: verse %.1f, chorus %.1f, bridge %.1f LUFS\n", lathe.uiSecLufs[0].load(), lathe.uiSecLufs[1].load(), lathe.uiSecLufs[2].load());
     std::printf ("present:");
-    const char* names[] = { "TeaTowel", "Undertow", "Loon", "Schaltwerk", "Carousel", "TapeTwin", "Lathe", "Bandleader", "Parlour", "Ether" };
+    const char* names[] = { "TeaTowel", "Undertow", "Loon", "Schaltwerk", "Carousel", "TapeTwin", "Lathe", "Bandleader", "Parlour", "Ether", "Chamber" };
     for (int w = 0; w < band::NumWho; ++w) std::printf (" %s=%d", names[w], band::isPresent ((band::Who) w));
     std::printf ("\n");
 

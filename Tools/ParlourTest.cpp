@@ -22,7 +22,7 @@ int main (int argc, char** argv)
         { pk::IOrgan, pk::KSoul8, 104, 13, 0.3f }, { pk::IClav, pk::KStabs, 100, 29, 0.5f }, { pk::IStrings, pk::KPhillyStr, 110, 25, 0.5f },
         { pk::IBrass, pk::KStabs, 112, 10, 0.3f }, { pk::IPad, pk::KPads, 96, 0, 0.4f }, { pk::IVibes, pk::KSoul8, 92, 24, 0.7f },
         { pk::IGlock, pk::KBells, 140, 3, 0.2f }, { pk::ILofiPiano, pk::KLofi, 82, 24, 0.9f },
-        { pk::IPiano, pk::KHouse, 122, 26, 0.6f }, { pk::IPad, pk::KArp, 104, 4, 0.2f }, { pk::IPiano, pk::KRock8, 132, 13, 0.1f } };
+        { pk::IPiano, pk::KHouse, 122, 26, 0.6f }, { pk::IPad, pk::KArp, 104, 4, 0.2f }, { pk::IPiano, pk::KRock8, 132, 13, 0.1f }, { pk::IHarpsichord, pk::KBallad, 104, 10, 0.2f }, { pk::ITackPiano, pk::KDetroit, 112, 8, 0.1f } };
     int bad = 0;
     for (const auto& c : cases)
     {
