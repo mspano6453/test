@@ -1,4 +1,5 @@
 #include "CarouselProcessor.h"
+#include "../Source/SongForm.h"
 #include "CarouselEditor.h"
 #include "../Source/BandBus.h"
 
@@ -134,7 +135,7 @@ void CarouselProcessor::closeLoop (bool force)
     const bool sync = apvts.getRawParameterValue ("sync")->load() > 0.5f;
     if (sync && ! force && s.syncTarget == 0)
     {
-        const double unitBeats = apvts.getRawParameterValue ("snap")->load() > 0.5f ? 4.0 : 1.0;
+        const double unitBeats = apvts.getRawParameterValue ("snap")->load() > 0.5f ? band::meterBarPpq (meterNow) : 1.0;
         const double unitLen = unitBeats * 60.0 / juce::jmax (30.0, bpm) * sr;
         const int64_t units = juce::jmax<int64_t> (1, (int64_t) std::llround ((double) s.length / unitLen));
         const int64_t target = (int64_t) std::llround ((double) units * unitLen);
@@ -310,18 +311,20 @@ void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     band::markPresent (band::WCarousel);
     band::Leader leader;
     bandActive = transportPlaying && band::readLeader (leader) && leader.playing;
+    meterNow = bandActive ? leader.meter : band::hostMeter (getPlayHead());
+    const double bpq = band::meterBarPpq (meterNow);
     if (! bandActive) armed = false;
     uiLinked = bandActive;
     int boundaryAt = -1; int boundarySection = 0;
     if (bandActive)
     {
         const double ppqPerSample = bpm / 60.0 / sr;
-        const double barPpq = std::ceil (ppq / 4.0 - 1e-9) * 4.0;
+        const double barPpq = std::ceil (ppq / bpq - 1e-9) * bpq;
         const int off = (int) std::llround ((barPpq - ppq) / ppqPerSample);
         if (off >= 0 && off < n)
         {
             int64_t in = 0;
-            boundarySection = leader.sectionAt ((int64_t) std::llround (barPpq / 4.0), &in);
+            boundarySection = leader.sectionAt ((int64_t) std::llround (barPpq / bpq), &in);
             if (in == 0) boundaryAt = off;
         }
     }

@@ -21,6 +21,8 @@ class ParlourProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
 public:
     ParlourProcessor();
+    ~ParlourProcessor() override { renderer.reset(); }
+    std::unique_ptr<mc::SongRenderer> renderer;
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout& l) const override { return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -93,6 +95,8 @@ private:
     bool wasPlaying = false, bandOut = false;
     int lastInstrument = -1;
     double bpmNow = 120, blockPpq = 0;
+    int meterNow = 0, bs = 16;
+    band::Fade fade;
     mc::NoteOut midiOut;
     juce::MidiBuffer outMidi;
     int barSection = 0, barInSec = 0;

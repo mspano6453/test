@@ -26,6 +26,7 @@ class UndertowProcessor : public juce::AudioProcessor, private juce::AsyncUpdate
 {
 public:
     UndertowProcessor();
+    ~UndertowProcessor() override { renderer.reset(); }
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout&) const override;
@@ -69,6 +70,7 @@ public:
     std::atomic<bool> uiBandPlaying { false }, uiTransport { false }, uiSidechain { false };
     std::atomic<float> uiInput { 0 };
     std::atomic<int> uiMotif[ut::kSteps];    // pitch per step (-1 rest), +1000 for ghost notes
+    std::atomic<int> uiMotifLen { ut::kSteps };
     const ut::ChordDetector& debugEars() const { return ears; }
     bool samplesLoaded() const { return sampler.hasBank(); }
 
@@ -119,7 +121,12 @@ private:
     // player state
     ut::Motif base[ut::NumSections], inst;
     uint32_t seeds[ut::NumSections] { 11, 23, 37 };
-    int baseFeel = -1; float baseHook = -1, baseDensity = -1;
+    int baseFeel = -1, baseMeter = -1; float baseHook = -1, baseDensity = -1;
+    int bs = 16, ms = 32, beatSteps = 4, meterNow = 0;     // steps a bar / a motif (2 bars), a beat; the meter
+    band::Fade fade;
+public:
+    std::unique_ptr<mc::SongRenderer> renderer;
+private:
     int activeSection = 0, motifPos = 0, barsInSection = 0;
     bool fillPending = false;
     int64_t lastStep = -1;

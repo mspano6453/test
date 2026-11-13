@@ -86,6 +86,9 @@ UndertowProcessor::UndertowProcessor()
     band::available();   // open the band link here (message thread), not on the audio thread
     for (auto& m : uiMotif) m = -1;
     loadSamples();
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WUndertow, mc::SongRenderer::partFileName (3, "Bass"),
+                                                   [] { return std::make_unique<UndertowProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "mode", 0); mc::setChoice (p, "follow", 0); }, false, true);
 }
 
 bool UndertowProcessor::isBusesLayoutSupported (const BusesLayout& l) const
@@ -234,7 +237,7 @@ void UndertowProcessor::handleMidi (const juce::MidiMessage& m, std::vector<Ev>&
 // which chord of the built-in progression is playing at 16th number k
 ut::Chord UndertowProcessor::selfChordAt (int64_t k) const
 {
-    const int64_t bar = k / 16;
+    const int64_t bar = k / bs;
     if (led) { Chord c; leader.chordAt (bar, c.root, c.minor); c.q = leader.qualityAt (bar); return c; }
     int sec = section; int64_t barIn = bar;
     if (autoSong) { const auto sp = songPosition (bar, sectionBars); sec = sp.section; barIn = sp.barIn; }
@@ -266,7 +269,7 @@ float UndertowProcessor::offsetMs (int64_t k) const
 {
     const uint64_t s = (uint64_t) runSeed << 32;
     const float jit = (hashU (s ^ (uint64_t) k) + hashU (s ^ ((uint64_t) k * 7919u + 1)) - 1.0f) * (2.0f + 7.0f * human);
-    const int64_t seg = k / 16; const float fr = (float) (k % 16) / 16.0f;
+    const int64_t seg = k / bs; const float fr = (float) (k % bs) / (float) bs;
     const float a = hashU (s ^ (uint64_t) (seg * 104729 + 5)) * 2 - 1, b = hashU (s ^ (uint64_t) ((seg + 1) * 104729 + 5)) * 2 - 1;
     const float drift = (a + (b - a) * (fr * fr * (3 - 2 * fr))) * (1.5f + 5.0f * human);
     const float pushMs = -push * 9.0f - (activeSection == SChorus ? 2.0f : 0.0f);
@@ -276,16 +279,16 @@ float UndertowProcessor::offsetMs (int64_t k) const
 void UndertowProcessor::rebuildBase (int sec, bool fresh)
 {
     if (fresh) seeds[sec] = seeds[sec] * 1664525u + 1013904223u + (uint32_t) rng.i (1000);
-    base[sec] = MotifWriter::write (feel, sec, seeds[sec], hook, density);
+    base[sec] = MotifWriter::writeAny (feel, sec, seeds[sec], hook, density, meterNow);
 }
 
 // the start of a 2-bar pass: decide how this time round will go
 void UndertowProcessor::newPass (int64_t k)
 {
-    if (baseFeel != feel || std::abs (baseHook - hook) > 0.04f || std::abs (baseDensity - density) > 0.04f)
+    if (baseFeel != feel || baseMeter != meterNow || std::abs (baseHook - hook) > 0.04f || std::abs (baseDensity - density) > 0.04f)
     {
         for (int s = 0; s < NumSections; ++s) rebuildBase (s, false);
-        baseFeel = feel; baseHook = hook; baseDensity = density;
+        baseFeel = feel; baseHook = hook; baseDensity = density; baseMeter = meterNow;
     }
     const int bar = barsInSection;
     if (bar > 0 && bar % 8 == 0 && rng.chance (variation * 0.35f)) rebuildBase (activeSection, true);   // the line evolves
@@ -293,7 +296,7 @@ void UndertowProcessor::newPass (int64_t k)
     // phrase-end fills: end of every 4 bars sometimes, end of 8 bars more often
     const bool phraseEnd4 = (bar % 4) == 2, phraseEnd8 = (bar % 8) == 6;
     if ((phraseEnd8 && rng.chance (fills * 0.9f)) || (phraseEnd4 && rng.chance (fills * 0.45f)))
-        MotifWriter::fill (inst, rng, feel, rng.chance (fills * (phraseEnd8 ? 0.7f : 0.3f)));
+        MotifWriter::fillAny (inst, rng, feel, rng.chance (fills * (phraseEnd8 ? 0.7f : 0.3f)), ms, meterNow);
     juce::ignoreUnused (k);
     publishMotif();
 }
@@ -304,29 +307,30 @@ void UndertowProcessor::publishMotif()
     for (int i = 0; i < kSteps; ++i)
     {
         const auto& s = inst.s[(size_t) i];
-        uiMotif[i] = s.on ? pitchFor (c, s) + (s.ghost ? 1000 : 0) : -1;
+        uiMotif[i] = s.on && i < ms ? pitchFor (c, s) + (s.ghost ? 1000 : 0) : -1;
     }
+    uiMotifLen = ms;
 }
 
 void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
 {
     juce::ignoreUnused (k);
     // the band changes section at a bar line
-    const int64_t bar = k / 16;
+    const int64_t bar = k / bs;
     const bool selfSong = follow == FollowSelf && autoSong;
-    if (motifPos % 16 == 0)
+    if (motifPos % bs == 0)
     {
         if (follow == FollowSelf && led)
         {
             int64_t in = 0;
             const int sec = leader.sectionAt (bar, &in);
-            if (sec != activeSection) { activeSection = sec; motifPos = (int) (in % 2) * 16; barsInSection = (int) in; if (motifPos != 0) newPass (k); }
+            if (sec != activeSection) { activeSection = sec; motifPos = (int) (in % 2) * bs; barsInSection = (int) in; if (motifPos != 0) newPass (k); }
             barsInSection = (int) in;
         }
         else if (selfSong)
         {
             const auto sp = songPosition (bar, sectionBars);
-            if (sp.section != activeSection) { activeSection = sp.section; motifPos = (sp.barIn % 2) * 16; barsInSection = sp.barIn; if (motifPos != 0) newPass (k); }
+            if (sp.section != activeSection) { activeSection = sp.section; motifPos = (sp.barIn % 2) * bs; barsInSection = sp.barIn; if (motifPos != 0) newPass (k); }
             barsInSection = sp.barIn;
             if (sp.lastBar) fillPending = true;               // the band fills into the next section
         }
@@ -338,39 +342,39 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
         if (! (c.root == selfChord.root && c.minor == selfChord.minor)) { selfChord = c; harmony.hear (c, 1.0f); }
     }
     if (motifPos == 0) newPass (k);
-    if (motifPos % 16 == 0 && motifPos + 16 <= kSteps && fillPending)
+    if (motifPos % bs == 0 && motifPos + bs <= ms && fillPending)
     {
         // asked for a fill: put it at the end of this bar
-        MotifWriter::fill (inst, rng, feel, rng.chance (0.5f), motifPos + 16);
+        MotifWriter::fillAny (inst, rng, feel, rng.chance (0.5f), motifPos + bs, meterNow);
         fillPending = false;
         publishMotif();
     }
     // the Bandleader's fills: at the end of this bar (even if it was called mid-bar)
-    if (follow == FollowSelf && led && leader.fillAt (bar) && filledBar != bar && motifPos % 16 <= 8)
+    if (follow == FollowSelf && led && leader.fillAt (bar) && filledBar != bar && motifPos % bs <= bs / 2)
     {
-        const int barStart = motifPos - motifPos % 16;
-        MotifWriter::fill (inst, rng, feel, motifPos % 16 == 0 && rng.chance (0.5f), barStart + 16);
+        const int barStart = motifPos - motifPos % bs;
+        MotifWriter::fillAny (inst, rng, feel, motifPos % bs == 0 && rng.chance (0.5f), barStart + bs, meterNow);
         filledBar = bar;
         publishMotif();
     }
     // lock to the drummer: lean on the kicks, and catch the syncopated ones
-    if (motifPos % 16 == 0 && lockDrums)
+    if (motifPos % bs == 0 && lockDrums)
     {
         uint16_t kicks = 0;
         if (band::readKicks (bar, kicks))
         {
             const bool catchKicks = feel == FPump || feel == FOctaves || feel == FWalk || feel == FRoot || feel == FGallop
                                     || feel == FTrap || feel == FBoomBap || feel == FFunk || feel == FNewJack;
-            for (int i = 0; i < 16; ++i)
+            for (int i = 0; i < bs; ++i)
             {
                 auto& stp = inst.s[(size_t) (motifPos + i)];
                 if ((kicks >> i) & 1u)
                 {
                     if (stp.on && ! stp.ghost) stp.vel = juce::jmin (1.0f, stp.vel + 0.1f);
-                    else if (! stp.on && catchKicks && i % 4 != 0 && rng.chance (0.75f))
+                    else if (! stp.on && catchKicks && i % beatSteps != 0 && rng.chance (0.75f))
                         stp = { true, 0, 0, 0.82f, feel == FTrap ? 3.0f : ((i % 2 == 1) ? 0.9f : 1.6f), false };
                 }
-                else if (stp.on && ! stp.ghost && i % 4 != 0 && feel == FPump) stp.vel *= 0.94f;   // a touch softer between kicks
+                else if (stp.on && ! stp.ghost && i % beatSteps != 0 && feel == FPump) stp.vel *= 0.94f;   // a touch softer between kicks
             }
             publishMotif();
         }
@@ -379,12 +383,32 @@ void UndertowProcessor::playStep (int64_t k, int t, std::vector<Ev>& evs)
     uiSection = activeSection;
 
     const Step st = inst.s[(size_t) motifPos];
-    if (++motifPos >= kSteps) motifPos = 0;
-    if (motifPos % 16 == 0) ++barsInSection;
+    if (++motifPos >= ms) motifPos = 0;
+    if (motifPos % bs == 0) ++barsInSection;
 
     const Chord c = currentChord();
     bool bandOn = follow == FollowSelf || (follow == FollowMidi ? heldChord.valid() : ears.playing());
-    if (follow == FollowSelf && led && leader.isOut (bar)) bandOn = false;   // the Bandleader dropped the band out
+    // the song form: the last chord rings, the count-in and the start of the intro wait, a drop-out stops
+    const int posInBar = (int) (((k % bs) + bs) % bs);
+    if (follow == FollowSelf && led && leader.isEnding (bar))
+    {
+        if (leader.isFinalHit (bar) && posInBar == 0 && c.valid())
+        {
+            const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
+            evs.push_back ({ t, 1, pitchFor (c, Step { true, 0, 0, 0.95f, 1.0f }), 0.95f, (float) (2 * bs * sixteenth / sr * 0.95) });
+        }
+        return;
+    }
+    if (follow == FollowSelf && led && leader.rests (bar, true)) bandOn = false;
+    if (follow == FollowSelf && led && leader.isHalf (bar))
+    {
+        // the breakdown: one long note a bar
+        if (! c.valid() || posInBar != 0) return;
+        const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
+        evs.push_back ({ t, 1, pitchFor (c, Step { true, 0, 0, 0.88f, 1.0f }), 0.88f, (float) (bs * sixteenth / sr * 0.95) });
+        lastNoteChord = c; lastNoteAt = sampleClock + t;
+        return;
+    }
     if (! c.valid() || ((stopWithBand || led) && ! bandOn))
     {
         if (activeNote() >= 0) evs.push_back ({ t, 2, 0, 0, 0 });
@@ -412,6 +436,12 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
         }
     bpmNow = bpm;
     uiTransport = playing;
+    {
+        const int m = led ? leader.meter : band::hostMeter (getPlayHead());
+        if (m != meterNow) { meterNow = m; lastPpqEnd = -1e9; }
+        bs = band::meterSteps (meterNow); ms = 2 * bs; beatSteps = band::meterBeatSteps (meterNow);
+        capture.setMeter (meterNow);
+    }
     // the guitar has stopped if it's been quiet for about a beat
     ears.silentLimit = juce::jlimit (10, 200, (int) (60.0 / bpm / 0.0116));
 
@@ -426,22 +456,22 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
         // (re)locate: start of a run, or the playhead jumped
         lastStep = (int64_t) std::ceil (ppq * 4.0 - 0.001) - 1;
         const int64_t k = lastStep + 1;
-        motifPos = (int) (((k % kSteps) + kSteps) % kSteps);
-        barsInSection = (int) ((k / 16) % 8);
+        motifPos = (int) (((k % ms) + ms) % ms);
+        barsInSection = (int) ((k / bs) % 8);
         activeSection = section;
         if (follow == FollowSelf)
         {
             if (led)
             {
                 int64_t in = 0;
-                activeSection = leader.sectionAt (k / 16, &in); barsInSection = (int) in;
-                motifPos = (int) (in % 2) * 16 + (int) (((k % 16) + 16) % 16);
+                activeSection = leader.sectionAt (k / bs, &in); barsInSection = (int) in;
+                motifPos = (int) (in % 2) * bs + (int) (((k % bs) + bs) % bs);
             }
             else if (autoSong)
             {
-                const auto sp = songPosition (k / 16, sectionBars);
+                const auto sp = songPosition (k / bs, sectionBars);
                 activeSection = sp.section; barsInSection = sp.barIn;
-                motifPos = (sp.barIn % 2) * 16 + (int) (((k % 16) + 16) % 16);
+                motifPos = (sp.barIn % 2) * bs + (int) (((k % bs) + bs) % bs);
             }
             selfChord = selfChordAt (k);
             // let the harmony know the key before the first note
@@ -449,7 +479,7 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
             {
                 for (int s = 0; s < NumSections; ++s)
                     for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
-                        harmony.hear ({ (leader.key + leader.progOff[s][i]) % 12, band::qualityIsMinor (leader.progMinor[s][i]) }, 0.5f);
+                        harmony.hear ({ (leader.keyAt (k / bs) + leader.progOff[s][i]) % 12, band::qualityIsMinor (leader.progMinor[s][i]) }, 0.5f);
             }
             else
                 for (int s = 0; s < NumSections; ++s)
@@ -465,8 +495,11 @@ void UndertowProcessor::runPlayer (int n, std::vector<Ev>& evs)
         const int64_t k = lastStep + 1;
         double t = ((double) k / 4.0 - ppq) * spb + offsetMs (k) * 0.001 * sr;
         // swing: the "&" of each beat and the odd 16ths lean late
-        if (k % 4 == 2) t += swing * 0.33 * spb / 2.0;
-        else if (k % 2 == 1) t += swing * 0.33 * spb / 4.0;
+        if (meterNow != band::M68)
+        {
+            if (k % 4 == 2) t += swing * 0.33 * spb / 2.0;
+            else if (k % 2 == 1) t += swing * 0.33 * spb / 4.0;
+        }
         if (t >= n) break;
         lastStep = k;
         playStep (k, (int) juce::jmax (0.0, t), evs);
@@ -609,6 +642,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (std::abs (L[i]) > 0.9f) L[i] = std::copysign (0.9f + 0.1f * std::tanh ((std::abs (L[i]) - 0.9f) * 10.0f), L[i]);
         if (std::abs (R[i]) > 0.9f) R[i] = std::copysign (0.9f + 0.1f * std::tanh ((std::abs (R[i]) - 0.9f) * 10.0f), R[i]);
     }
+    fade.apply (buffer, n, led, leader, getPlayHead());   // Bandleader's fade-out
     capture.recordWithHost (midi, getPlayHead(), sr, n);
     sampleClock += n;
 }

@@ -284,7 +284,7 @@ void LatheProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
         if (led && secClock >= (int64_t) (0.1 * sr))       // one 400 ms momentary reading every 100 ms
         {
             secClock = 0;
-            const int64_t bar = (int64_t) std::floor (ppq / 4.0);
+            const int64_t bar = band::barOfPpq (ppq, leader.meter);
             const float m = outLoud.momentary.load();
             if (m > -50.0f && ! leader.isOut (bar))
             {

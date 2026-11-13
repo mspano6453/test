@@ -137,6 +137,9 @@ TeaTowelProcessor::TeaTowelProcessor()
     for (int i = 0; i < 8; ++i) playerParams[i] = apvts.getRawParameterValue (pids[i]);
     playerOut.ensureSize (4096);
     scratch.resize (512);
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WTeaTowel, mc::SongRenderer::partFileName (1, "Drums"),
+                                                   [] { return std::make_unique<TeaTowelProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "band_link", 1); }, true, false);
 }
 
 bool TeaTowelProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -263,6 +266,10 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         band::Leader leader;
         const bool led = apvts.getRawParameterValue ("band_link")->load() > 0.5f && band::readLeader (leader);
         uiLinked = led;
+        ps.meter = led ? leader.meter : band::hostMeter (getPlayHead());
+        uiMeter = ps.meter;
+        capture.setMeter (ps.meter);
+        fadeLed = led; fadeLeader = leader;
         if (led)
         {
             ps.link = &leader;
@@ -438,6 +445,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         else              { L[i] = 0.5f * (l + r); }
     }
     gainReductionDb.store (maxGr);
+    fade.apply (buffer, n, fadeLed, fadeLeader, getPlayHead());   // Bandleader's fade-out
     midi.swapWith (playerOut);     // MIDI out = only what the Player played
     capture.recordWithHost (midi, getPlayHead(), sr, n);
     sampleCounter += n;

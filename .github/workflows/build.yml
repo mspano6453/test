@@ -1,4 +1,4 @@
-name: Build Tea Towel
+name: Build DEMOCRAZY
 
 on:
   push:
@@ -15,7 +15,8 @@ jobs:
         include:
           - os: windows-latest
             name: Windows
-          # add "- os: macos-14 / name: macOS" here for a Mac installer
+          - os: macos-14
+            name: macOS
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -25,58 +26,72 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
-            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           else
             cmake -B build
           fi
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        run: cmake --build build --config Release --parallel 3
 
       - name: Make macOS installer
         if: runner.os == 'macOS'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_ID: ${{ secrets.MACOS_SIGN_ID }}
+          MACOS_INSTALLER_SIGN_ID: ${{ secrets.MACOS_INSTALLER_SIGN_ID }}
+          MACOS_NOTARY_ID: ${{ secrets.MACOS_NOTARY_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
         run: |
-          set -e
-          R=pkgroot
-          mkdir -p "$R/Library/Audio/Plug-Ins/VST3" "$R/Library/Audio/Plug-Ins/Components" "$R/Users/Shared/Tea Towel"
-          cp -R "build/TeaTowel_artefacts/Release/VST3/Tea Towel.vst3" "$R/Library/Audio/Plug-Ins/VST3/"
-          cp -R "build/TeaTowel_artefacts/Release/AU/Tea Towel.component" "$R/Library/Audio/Plug-Ins/Components/"
-          cp -R Grooves "$R/Users/Shared/Tea Towel/"
-          codesign --force --deep -s - "$R/Library/Audio/Plug-Ins/VST3/Tea Towel.vst3"
-          codesign --force --deep -s - "$R/Library/Audio/Plug-Ins/Components/Tea Towel.component"
-          pkgbuild --analyze --root "$R" comp.plist
-          n=$(/usr/libexec/PlistBuddy -c "Print" comp.plist | grep -c "RootRelativeBundlePath")
-          for ((i=0; i<n; i++)); do /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" comp.plist; done
-          pkgbuild --root "$R" --component-plist comp.plist --identifier com.teatowelaudio.teatowel \
-                   --version 1.0.0 --install-location / teatowel-component.pkg
-          mkdir -p out
-          productbuild --package teatowel-component.pkg "out/Tea Towel Installer (Mac).pkg"
+          bash installer/mac-package.sh 4.0.${GITHUB_RUN_NUMBER}
+          mkdir -p out && cp out-mac/*.pkg out/
 
       - name: Make Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          WIN_CERT_PFX: ${{ secrets.WIN_CERT_PFX }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
           & $iscc installer\windows.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Publish Windows installer (release + branch)
-        if: runner.os == 'Windows'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="tea-towel-suite-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" out/*.exe -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-             --title "DEMOCRAZY build ${GITHUB_RUN_NUMBER}" --notes "DEMOCRAZY: ten plugins. Double-click to install, then Rescan in Ableton." || true
-          cd out
-          git init -q -b tea-towel-installer
-          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
-          git add -A && git commit -q -m "Windows installer (build ${GITHUB_RUN_NUMBER})"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" tea-towel-installer
+          # code signing, once there's a certificate (secrets WIN_CERT_PFX as base64, WIN_CERT_PASSWORD)
+          if ($env:WIN_CERT_PFX) {
+            [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:WIN_CERT_PFX))
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+            & $signtool.FullName sign /f cert.pfx /p $env:WIN_CERT_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 "out\DEMOCRAZY Installer (Windows).exe"
+          }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TeaTowel-${{ matrix.name }}
+          name: DEMOCRAZY-${{ matrix.name }}
           path: out/
+
+  publish:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - name: Publish the installers (release + branch)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p out
+          find dl -type f \( -name "*.exe" -o -name "*.pkg" \) -exec cp {} out/ \;
+          ls -la out
+          [ -n "$(ls out)" ] || exit 1
+          TAG="democrazy-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" out/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+             --title "DEMOCRAZY build ${GITHUB_RUN_NUMBER}" --notes "DEMOCRAZY: thirteen plugins. Windows: double-click the .exe. Mac: open the .pkg. Then Rescan in Ableton." || true
+          cd out
+          git init -q -b tea-towel-installer
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "Installers (build ${GITHUB_RUN_NUMBER})"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" tea-towel-installer

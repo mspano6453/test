@@ -7,7 +7,8 @@ D = dict(dFill=2, dInt=0.55, dLoose=0.3, dSwing=0.0, dVar=0.5, dRoom=-1, dRoomSi
          sRole=0, sPattern=-1, lathe=2, chordBars=0, sectionBars=1, energy=0.55,
          pack='Rock', uBass=0, kOn=0, kInst=0, kFeel=1, kReg=1, kBusy=0.5, kColour=0.3, kMotion=0.3, kChorus=0.1, kLofi=0.0, kRoom=0.2,
          eRole=0, eInst=0, eSpace=0.4,
-         cOn=0, cEns=0, cFeel=0, cBusy=0.5, cWarp=0.0, cTimp=0, cRoom=0.3, uBubble=0.0, dSmash=0.0, dOn=1, uOn=1)
+         cOn=0, cEns=0, cFeel=0, cBusy=0.5, cWarp=0.0, cTimp=0, cRoom=0.3, uBubble=0.0, dSmash=0.0, dOn=1, uOn=1,
+         meter=0, gOn=0, gInst=0, gFeel=0, gBusy=0.5, vOn=0, vVoice=0, vFeel=0, vBusy=0.5)
 S = []
 def st(name, blurb, bpm, key, prog, dStyle, dKit, bFeel, **kw):
     r = dict(D); r.update(kw); r.update(name=name, blurb=blurb, bpm=bpm, key=key, prog=prog, dStyle=dStyle, dKit=dKit, bFeel=bFeel); S.append(r)
@@ -265,6 +266,62 @@ st("Space Bubble Pop", "Bouncy and odd: a bubbly wubbly bass, vibes, warbly wood
 st("Tape Symphony", "Slow and enormous: tape-replay strings walking down under a piano, drums smashed in a big room.", 70, 5, (9,3,19), 10, 9, 1,
    pack=P, dSmash=0.75, uBass=6, kOn=1, kInst=0, kFeel=5, cOn=1, cEns=5, cFeel=3, cWarp=0.5, cRoom=0.4, lSpace=0.35, lathe=6, energy=0.5)
 
+# ---- the rhythm guitar (Jangle) and the backing singers (Harmonia) where they belong
+# Jangle guitars: 0 steel acoustic, 1 clean, 2 12-string, 3 hollow, 4 crunch, 5 fuzz, 6 palm-muted
+# Jangle feels: 0 folk strum, 1 eighths, 2 power, 3 chug, 4 funk, 5 skank, 6 chops, 7 picked, 8 arpeggio, 9 ring, 10 wash
+# Harmonia singers: 0 choir, 1 girl group, 2 the fellas, 3 close trio
+# Harmonia feels: 0 oohs & aahs, 1 oohs, 2 aahs, 3 hum, 4 doo-wop, 5 ba ba ba, 6 answers, 7 gospel swells
+for name, gi, gf, gb in [("60s Beat",2,1,0.55), ("Garage Rock",5,2,0.6), ("Surf Rock",1,1,0.6), ("Psychedelic Rock",2,9,0.5),
+                         ("Classic Rock",4,2,0.55), ("Glam Rock",4,2,0.5), ("Blues Rock",4,3,0.5), ("Rockabilly",3,6,0.6),
+                         ("Folk Rock",0,0,0.55), ("Punk",5,2,0.8), ("Post-Punk",1,1,0.45), ("Power Pop",4,1,0.6),
+                         ("Shoegaze",5,10,0.6), ("Dream Pop",1,8,0.4), ("Grunge",5,2,0.55), ("Alt Rock",4,2,0.55),
+                         ("Britpop",4,1,0.55), ("Indie Rock",1,1,0.55), ("Midwest Emo",1,8,0.6), ("Ragged Rock",5,9,0.5),
+                         ("Slowcore",1,9,0.3), ("Post-Rock",1,8,0.45), ("80s Pop Rock",4,1,0.5), ("Hair Metal",5,3,0.65),
+                         ("Detroit Soul",1,6,0.5), ("Philly Soul",1,6,0.55), ("Northern Soul",1,6,0.6), ("Funk",1,4,0.6),
+                         ("Disco",1,4,0.6), ("Southern Soul",3,6,0.5), ("Psychedelic Soul",1,4,0.55), ("Sunshine Pop",0,0,0.55),
+                         ("Baroque Pop",0,7,0.5), ("Brass Band Pop",0,0,0.5), ("Music Hall",3,6,0.5), ("Blown Out Anthem",5,2,0.55),
+                         ("Space Bubble Pop",2,1,0.5), ("Cosmic Orchestra Pop",5,9,0.5)]:
+    tweak(name, gOn=1, gInst=gi, gFeel=gf, gBusy=gb)
+for name, vv, vf, vb in [("60s Beat",3,0,0.45), ("Folk Rock",3,0,0.4), ("Sunshine Pop",1,5,0.55), ("Power Pop",3,1,0.45),
+                         ("Glam Rock",2,2,0.5), ("Britpop",2,0,0.4), ("Detroit Soul",1,0,0.5), ("Philly Soul",0,2,0.5),
+                         ("Northern Soul",1,6,0.5), ("Southern Soul",0,6,0.5), ("Gospel Soul",0,7,0.6), ("Neo Soul",1,3,0.4),
+                         ("Disco",1,2,0.5), ("80s Power Ballad",0,2,0.45), ("Glam Ballad",0,0,0.45), ("Dream Pop",1,1,0.4),
+                         ("Baroque Pop",3,0,0.4), ("Rising Finale",0,2,0.4), ("Cosmic Orchestra Pop",0,2,0.45),
+                         ("Blown Out Anthem",0,2,0.55), ("Space Bubble Pop",1,5,0.5), ("Tape Choir Ballad",0,1,0.4)]:
+    tweak(name, vOn=1, vVoice=vv, vFeel=vf, vBusy=vb)
+
+# ============================ THREE BEATS (3/4 and 6/8) ============================
+# drum styles: 38 waltz, 39 jazz waltz, 40 folk waltz, 41 rock waltz, 42 6/8 soul ballad, 43 6/8 rock, 44 6/8 folk jig, 45 6/8 slow jam
+P='Waltzes & 6/8'
+st("Country Waltz", "A slow-dance waltz: brushed one-two-three, a strummed acoustic, tack piano and a bass on the one.", 96, 7, (13,14,11), 38, 0, 17,
+   pack=P, meter=1, uBass=1, bHook=0.4, kOn=1, kInst=12, kFeel=1, kBusy=0.45, gOn=1, gInst=0, gFeel=0, gBusy=0.5, vOn=1, vVoice=3, vFeel=1, vBusy=0.35,
+   dInt=0.45, lathe=4, energy=0.45)
+st("Jazz Waltz", "Ride cymbal in three, a walking upright, electric piano and a hollow-body comping on two and three.", 138, 2, (24,23,31), 39, 0, 4,
+   pack=P, meter=1, uBass=8, dSwing=0.55, bSwing=0.5, kOn=1, kInst=1, kFeel=7, kColour=0.7, gOn=1, gInst=3, gFeel=6, gBusy=0.4,
+   dInt=0.4, dLoose=0.35, lathe=3, energy=0.45)
+st("Folk Waltz", "Fingerpicked acoustic in three, floor-tom and tambourine, a string quartet and a close trio on top.", 104, 2, (14,10,11), 40, 0, 17,
+   pack=P, meter=1, uBass=1, gOn=1, gInst=0, gFeel=7, gBusy=0.5, cOn=1, cEns=1, cFeel=0, cBusy=0.4, cRoom=0.3, vOn=1, vVoice=3, vFeel=0, vBusy=0.4,
+   dInt=0.4, lathe=3, energy=0.45)
+st("Psych Waltz", "A dreamy three-four that thunders in the chorus: organ, a melodic bass, ringing 12-string, big rock-waltz drums.", 112, 9, (19,8,20), 41, 1, 17,
+   pack=P, meter=1, uBass=6, kOn=1, kInst=3, kFeel=0, kMotion=0.6, gOn=1, gInst=2, gFeel=9, gBusy=0.5, vOn=1, vVoice=0, vFeel=0, vBusy=0.4,
+   tAdt=0.5, tMix=0.2, tSync=2, lGen=0.2, lMood=1, lathe=4, energy=0.55)
+st("Soul Ballad 6/8", "The slow-dance 6/8: piano triplets, cross-stick on four, a girl group answering, strings to lift the chorus.", 72, 9, (10,8,9), 42, 0, 17,
+   pack=P, meter=2, uBass=1, kOn=1, kInst=0, kFeel=1, kBusy=0.55, gOn=1, gInst=1, gFeel=8, gBusy=0.4, vOn=1, vVoice=1, vFeel=0, vBusy=0.45,
+   cOn=1, cEns=0, cFeel=0, cRoom=0.35, dInt=0.45, lathe=4, energy=0.45)
+st("Doo-Wop 6/8", "Street-corner harmony: the fellas singing doo-wop, piano pounding eighths, a gentle triplet beat.", 70, 0, (10,10,9), 42, 0, 17,
+   pack=P, meter=2, uBass=8, kOn=1, kInst=0, kFeel=1, kBusy=0.6, vOn=1, vVoice=2, vFeel=4, vBusy=0.5, gOn=1, gInst=3, gFeel=6, gBusy=0.4,
+   dInt=0.4, lathe=4, energy=0.45, tMix=0.2, tSync=0)
+st("Rocking 6/8", "A minor-key rocker in six: arpeggiated electric, an organ swelling under it, drums that roll like a ship.", 100, 9, (4,16,0), 43, 1, 0,
+   pack=P, meter=2, uBass=0, kOn=1, kInst=3, kFeel=0, kMotion=0.5, gOn=1, gInst=1, gFeel=8, gBusy=0.5, vOn=1, vVoice=2, vFeel=2, vBusy=0.4,
+   dInt=0.65, lathe=2, energy=0.6)
+st("Folk Jig", "A lively 6/8 jig: bodhran-style tambourine, strummed acoustic, the flute and clarinets on the tune.", 116, 2, (14,11,17), 44, 0, 0,
+   pack=P, meter=2, uBass=1, gOn=1, gInst=0, gFeel=0, gBusy=0.6, cOn=1, cEns=3, cFeel=9, cBusy=0.55, cRoom=0.25, dInt=0.55, lathe=3, energy=0.6)
+st("Slow Jam 6/8", "Late-night R&B in six: claps on four, a sub bass, electric piano sevenths and a choir of aahs.", 64, 5, (23,26,38), 45, 7, 11,
+   pack=P, meter=2, uBass=2, kOn=1, kInst=1, kFeel=7, kColour=0.8, vOn=1, vVoice=0, vFeel=2, vBusy=0.35, gOn=1, gInst=1, gFeel=9, gBusy=0.3,
+   dInt=0.5, lathe=0, energy=0.45)
+st("Gospel 6/8", "Church on Sunday: organ, piano triplets, the choir swelling on every chord, tambourine on the backbeat.", 68, 5, (10,22,8), 42, 1, 17,
+   pack=P, meter=2, uBass=1, kOn=1, kInst=3, kFeel=0, kMotion=0.5, vOn=1, vVoice=0, vFeel=7, vBusy=0.6, gOn=0, dInt=0.55, dRoom=0.35, lathe=4, energy=0.55)
+
 def f(x): return ("%.3ff" % x) if isinstance(x, float) else str(x)
 out = []
 out.append('''#pragma once
@@ -295,6 +352,9 @@ struct StyleDef
     int cOn, cEns, cFeel; float cBusy, cWarp; int cTimp; float cRoom;   // Chamber (orchestra)
     float uBubble, dSmash;   // Undertow's BUBBLE, Tea Towel's SMASH
     int dOn, uOn;            // 0 = the drums / the bass sit this one out
+    int meter;               // 0 4/4, 1 3/4, 2 6/8
+    int gOn, gInst, gFeel; float gBusy;    // Jangle (rhythm guitar)
+    int vOn, vVoice, vFeel; float vBusy;   // Harmonia (backing vocals)
 };
 
 inline const std::vector<StyleDef>& styles()
@@ -311,7 +371,7 @@ for r in S:
     out.append('          %d, %d, %s,' % (r['eRole'], r['eInst'], f(float(r['eSpace']))))
     out.append('          %d, %d, %d, %s, %s, %d, %s, %s, %s },' % (r['cOn'], r['cEns'], r['cFeel'], f(float(r['cBusy'])), f(float(r['cWarp'])), r['cTimp'], f(float(r['cRoom'])), f(float(r['uBubble'])), f(float(r['dSmash']))))
     out[-1] = out[-1][:-3] + ','
-    out.append('          %d, %d },' % (r['dOn'], r['uOn']))
+    out.append('          %d, %d, %d, %d, %d, %d, %s, %d, %d, %d, %s },' % (r['dOn'], r['uOn'], r['meter'], r['gOn'], r['gInst'], r['gFeel'], f(float(r['gBusy'])), r['vOn'], r['vVoice'], r['vFeel'], f(float(r['vBusy']))))
 out.append('''    };
     return s;
 }

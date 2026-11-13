@@ -18,7 +18,48 @@ enum PlayerStyle { StSixties = 0, StMotorik, StKraut, StCrazyHorse, StPowerPop, 
                    StPunk, StPostPunk, StShoegaze, StGrunge, StHalfTime, StFourFloor, StGlam, StSurf, StShuffle, StFolk, StPostRock, StGarage,
                    StBoomBap, StTrap, StLofi, StGFunk, StElectro, StHouse, StTechno, StDnB, StSynthwave, StHairMetal,
                    StNewJack, StFreestyle, StHiNRG, StDetroitSoul, StPhillySoul, StFunk, StDisco, StTripHop, StPowerBallad, StNorthernSoul,
+                   // three-beat styles (12 steps a bar): 3/4 ...
+                   StWaltz, StJazzWaltz, StFolkWaltz, StRockWaltz,
+                   // ... and 6/8
+                   St68Ballad, St68Rock, St68Folk, St68SlowJam,
                    NumStyles };
+constexpr int kFirstTriple = StWaltz;
+inline bool styleIs34 (int s) { return s >= StWaltz && s <= StRockWaltz; }
+inline bool styleIs68 (int s) { return s >= St68Ballad && s <= St68SlowJam; }
+// the style that actually plays in this meter: a 4/4 style asked to play in 3/4 or 6/8
+// becomes its nearest three-beat cousin (and the other way round)
+inline int styleForMeter (int s, int meter)
+{
+    if (meter == band::M34)
+    {
+        if (styleIs34 (s)) return s;
+        if (styleIs68 (s)) return StWaltz + (s - St68Ballad == 0 ? 0 : s - St68Ballad == 1 ? 3 : s - St68Ballad == 2 ? 2 : 1);
+        switch (s)
+        {
+            case StSixties: case StBallad: case StDetroitSoul: case StPhillySoul: case StNorthernSoul: case StDisco: return StWaltz;
+            case StFolk: case StShuffle: case StSurf: return StFolkWaltz;
+            case StBoomBap: case StTrap: case StLofi: case StGFunk: case StElectro: case StHouse: case StTechno: case StDnB: case StSynthwave:
+            case StNewJack: case StFreestyle: case StHiNRG: case StFunk: case StTripHop: return StJazzWaltz;
+            default: return StRockWaltz;
+        }
+    }
+    if (meter == band::M68)
+    {
+        if (styleIs68 (s)) return s;
+        if (styleIs34 (s)) return St68Ballad + (s == StWaltz ? 0 : s == StRockWaltz ? 1 : s == StFolkWaltz ? 2 : 3);
+        switch (s)
+        {
+            case StSixties: case StBallad: case StDetroitSoul: case StPhillySoul: case StNorthernSoul: case StDisco: case StPowerBallad: return St68Ballad;
+            case StFolk: case StShuffle: case StSurf: return St68Folk;
+            case StBoomBap: case StTrap: case StLofi: case StGFunk: case StElectro: case StHouse: case StTechno: case StDnB: case StSynthwave:
+            case StNewJack: case StFreestyle: case StHiNRG: case StFunk: case StTripHop: return St68SlowJam;
+            default: return St68Rock;
+        }
+    }
+    if (s < kFirstTriple) return s;
+    static const int back[] = { StBallad, StLofi, StFolk, StPowerBallad, StBallad, StHalfTime, StFolk, StTripHop };
+    return back[s - kFirstTriple];
+}
 enum PlayerSection { SecVerse = 0, SecChorus, SecBridge, NumSections };
 enum FillEvery { FillOff = 0, Fill4, Fill8, Fill16 };
 
@@ -29,7 +70,9 @@ inline const char* styleName (int s)
                                "Surf", "Shuffle", "Folk Rock", "Post-Rock Build", "Garage Bash",
                                "Boom Bap", "Trap", "Lo-fi", "West Coast Funk", "Electro", "House", "Techno", "Drum & Bass", "Synthwave",
                                "Hair Metal", "New Jack Swing", "Freestyle", "Hi-NRG", "Detroit Soul", "Philly Soul", "Funk", "Disco",
-                               "Trip-Hop", "Power Ballad", "Northern Soul" };
+                               "Trip-Hop", "Power Ballad", "Northern Soul",
+                               "Waltz (3/4)", "Jazz Waltz (3/4)", "Folk Waltz (3/4)", "Rock Waltz (3/4)",
+                               "Soul Ballad (6/8)", "Rock (6/8)", "Folk Jig (6/8)", "Slow Jam (6/8)" };
     return n[s];
 }
 inline const char* sectionName (int s)
@@ -371,6 +414,57 @@ inline const std::array<StyleDef, NumStyles>& styles()
              G ({ { LF, "x...x...x...x..." }, { LTB, BB2 }, { LK, QQ } }),
              G ({ { LS, "..............g." } }), G ({ { LTB, "..x...x...x...x." } }), G ({ { LCL, "............x..." } }),
              G ({ { LS, "........x.x.xxxx" }, { LTB, "........x...x..." } }), tomRun());
+
+        // ---- three beats to the bar: 12 sixteenths. 3/4 beats fall on 0, 4, 8; 6/8 eighths on every other step, beats on 0 and 6
+        auto tomRun3 = [&] { return G ({ { LT1, "......xx...." }, { LT2, "........xx.." }, { LF, "..........xx" }, { LK, "......x....." } }); };
+        set (StWaltz,
+             G ({ { LK, "x..........." }, { LH, "x...o...o..." }, { LSS, "....o...o..." } }),
+             G ({ { LK, "x.......x..." }, { LRD, "x.o.x.o.x.o." }, { LS, "....x...x..." } }),
+             G ({ { LF, "x..........." }, { LK, "x..........." }, { LRD, "x...x...x..." }, { LS, "........o..." } }),
+             G ({ { LK, "......x....." } }), G ({ { LS, "..........g." } }), G ({ { LS, ".......g...." } }),
+             G ({ { LS, "......x.x.xx" }, { LK, "......x....." } }), tomRun3());
+        set (StJazzWaltz,
+             G ({ { LRD, "x...x.x.x..." }, { LH, "....-...-..." }, { LK, "m..........." }, { LS, "......g....." } }),
+             G ({ { LRD, "x...x.x.x.x." }, { LH, "....-...-..." }, { LK, "x.......m..." }, { LS, "....g...o..." } }),
+             G ({ { LRD, "x...x...x..." }, { LK, "m..........." }, { LSS, "....o...o..." } }),
+             G ({ { LS, "..g.......g." } }), G ({ { LS, "..g......g.." } }), G ({ { LS, ".........g.." } }),
+             G ({ { LS, "......xoxo.x" }, { LK, "......x....." } }), G ({ { LS, "......x....." }, { LT1, "........x..." }, { LF, "..........x." } }));
+        set (StFolkWaltz,
+             G ({ { LF, "x..........." }, { LTB, "....x...x..." }, { LK, "x..........." } }),
+             G ({ { LK, "x..........." }, { LS, "....x...x..." }, { LTB, "x.x.x.x.x.x." } }),
+             G ({ { LF, "x...x...x..." }, { LTB, "x...x...x..." }, { LK, "x..........." } }),
+             G ({ { LK, "........x..." } }), G ({ { LK, "......x....." } }), G ({ { LTS, "..-...-...-." } }),
+             G ({ { LS, "......x.x.xx" }, { LTB, "......x...x." } }), tomRun3());
+        set (StRockWaltz,
+             G ({ { LH, "x.o.x.o.x.o." }, { LK, "x.......x..." }, { LS, "....X......." } }),
+             G ({ { LC, "x..........." }, { LO, "..o.x.o.x.o." }, { LK, "x...x...x..." }, { LS, "....X...X..." } }),
+             G ({ { LRD, "x.o.x.o.x.o." }, { LK, "x.....x....." }, { LS, "........X..." } }),
+             G ({ { LK, "..........x." } }), G ({ { LS, "...........g" } }), G ({ { LK, "..x........." } }),
+             G ({ { LS, "......X.X.XX" }, { LK, "......x....." } }), tomRun3());
+        set (St68Ballad,
+             G ({ { LH, "x.x.x.x.x.x." }, { LK, "x.........x." }, { LSS, "......o....." } }),
+             G ({ { LRD, "x.x.x.x.x.x." }, { LK, "x.......x..." }, { LS, "......x....." } }),
+             G ({ { LF, "o.-.-.o.-.-." }, { LK, "x.....x....." }, { LS, "......o....." } }),
+             G ({ { LK, "....x......." } }), G ({ { LK, "....x.....x." } }), G ({ { LS, "..........g." } }),
+             G ({ { LS, "......x.x..." }, { LT1, "..........x." }, { LF, "...........x" } }), G ({ { LS, "......xoxoxx" } }));
+        set (St68Rock,
+             G ({ { LH, "x.x.x.x.x.x." }, { LK, "x.....x.x..." }, { LS, "......X....." } }),
+             G ({ { LC, "x..........." }, { LO, "x.x.x.x.x.x." }, { LK, "x...x.x....." }, { LS, "......X....." } }),
+             G ({ { LRD, "x.x.x.x.x.x." }, { LK, "x.....x....." }, { LS, "......X....." }, { LF, "......x....." } }),
+             G ({ { LK, "..........x." } }), G ({ { LK, "..........x." } }), G ({ { LT2, "..........o." } }),
+             G ({ { LS, "......X.X.XX" }, { LK, "......x....." } }), tomRun3());
+        set (St68Folk,
+             G ({ { LTB, "X.o.o.X.o.o." }, { LK, "x.....x....." } }),
+             G ({ { LK, "x.....x....." }, { LS, "......x....." }, { LTB, "X.o.o.X.o.o." }, { LH, "x.x.x.x.x.x." } }),
+             G ({ { LF, "x.o.o.x.o.o." }, { LK, "x.....x....." } }),
+             G ({ { LS, "..........g." } }), G ({ { LK, "....x......." } }), G ({ { LTB, "......x....." } }),
+             G ({ { LS, "......x.x.x." }, { LTB, "......x.x.x." } }), G ({ { LF, "......x.x.xx" }, { LK, "......x....." } }));
+        set (St68SlowJam,
+             G ({ { LH, "x.x.x.x.x.x." }, { LK, "x...x......." }, { LS, "......x....." }, { LCL, "......x....." } }),
+             G ({ { LH, "x-x-x-x-x-x-" }, { LK, "x...x...x..." }, { LS, "......X....." }, { LCL, "......x....." } }),
+             G ({ { LRD, "x.x.x.x.x.x." }, { LK, "x..........." }, { LSS, "......o....." } }),
+             G ({ { LK, "..........x." } }), G ({ { LK, "...........x" } }), G ({ { LK, "....x......." } }),
+             G ({ { LS, "......x..x.x" } }), G ({ { LS, "......xoxoxx" }, { LK, "......x....." } }));
         return d;
     }();
     return s;
@@ -384,6 +478,7 @@ public:
         bool on = false;
         int style = 0, section = 0, fillEvery = Fill8;
         float intensity = 0.5f, looseness = 0.3f, swing = 0.0f, variation = 0.5f;
+        int meter = band::M44;                // 4/4, 3/4 or 6/8 (12 sixteenths a bar)
         const band::Leader* link = nullptr;   // set when a Bandleader is running the song
     };
 
@@ -461,12 +556,14 @@ public:
             fillThisBar = fillNextBar = false;
         }
 
+        const int ns = band::meterSteps (s.meter);
+        if (ns != lastNs) { lastNs = ns; barInSection = 0; fillThisBar = fillNextBar = false; }
         for (int64_t k = (int64_t) std::ceil (ppq * 4.0 - 1.0e-9); (double) k * 0.25 < ppqEnd; ++k)
         {
             const double stepPpq = (double) k * 0.25;
             const int offset = juce::jlimit (0, numSamples - 1, (int) ((stepPpq - ppq) / ppqPerSample));
-            const int step = (int) (((k % 16) + 16) % 16);
-            const int64_t bar = (k - step) / 16;
+            const int step = (int) (((k % ns) + ns) % ns);
+            const int64_t bar = (k - step) / ns;
             lastStep = k;
             int w = wanted;
             // following the Bandleader: this bar's section on the downbeat, the coming one after it
@@ -485,6 +582,7 @@ private:
 
     double sr = 44100.0;
     int64_t lastStep = -1;
+    int lastNs = 16;
     int section = -1, keySection = 0, lastParamSection = -1;
     bool sectionFromKey = false;
     bool ended = false, fillThisBar = false, fillNextBar = false;
@@ -537,12 +635,28 @@ private:
     void playStep (int step, int64_t t, double stepLen, const Settings& s, int wanted, int64_t bar)
     {
         uiStep = step;
-        const auto& st = styles()[(size_t) juce::jlimit (0, NumStyles - 1, s.style)];
+        const int ns = band::meterSteps (s.meter);          // steps in this bar: 16, or 12 for 3/4 and 6/8
+        const int half = ns / 2, last = ns - 1;
+        const int beat = band::meterBeatSteps (s.meter);    // 4 (a quarter), or 6 in 6/8 (a dotted quarter)
+        const int pulse = s.meter == band::M68 ? 2 : 4;     // where the hats count: quarters, or 6/8's eighths
+        const auto& st = styles()[(size_t) juce::jlimit (0, NumStyles - 1, styleForMeter (s.style, s.meter))];
+        const band::Leader* L = s.link;
 
         if (step == 0)
         {
             // new bar
             bool sectionStart = false;
+            formBar = L != nullptr ? (L->learning ? 1 : L->isCountIn (bar) ? 2 : L->isFinalHit (bar) ? 3 : (L->isOver (bar) || L->isEnding (bar)) ? 4 : (! L->isOut (bar) && L->rests (bar, true)) ? 5 : 0) : 0;
+            if (formBar == 3)
+            {
+                // the song's last chord: one big hit, then let it ring
+                hit (laneNote[LC], 124, t, s, LC);
+                hit (laneNote[LK], 124, t, s, LK);
+                hit (laneNote[LF], 110, t, s, LF);
+                fillThisBar = false; wasOut = true;
+                return;
+            }
+            if (formBar != 0) { wasOut = true; fillThisBar = fillNextBar = false; if (formBar == 5 || formBar == 4) return; }
             if (section < 0) { section = wanted; barInSection = 0; sectionStart = true; ended = false; }
             if (endingStage == 2)
             {
@@ -563,15 +677,20 @@ private:
             }
             if (wanted != section) { section = wanted; barInSection = 0; sectionStart = true; }
             else if (! sectionStart) ++barInSection;
-            if (s.link != nullptr)
+            if (L != nullptr && formBar == 0)
             {
-                int64_t in = 0; s.link->sectionAt (bar, &in); barInSection = (int) in;
-                const bool out = s.link->isOut (bar);
+                int64_t in = 0; L->sectionAt (bar, &in); barInSection = (int) in;
+                const bool out = L->isOut (bar);
                 if (wasOut && ! out) sectionStart = true;      // everybody back in: crash
+                const bool intro = L->introStage (bar) != 0;
+                if (wasIntro && ! intro) sectionStart = true;  // out of the intro into the song
+                wasIntro = intro;
                 wasOut = outBar = out;
-                if (s.link->fillAt (bar)) fillNextBar = true;  // the band fills at the end of this bar
+                if (L->fillAt (bar)) fillNextBar = true;       // the band fills at the end of this bar
+                halfBar = L->isHalf (bar);
+                introBar = intro;
             }
-            else outBar = wasOut = false;
+            else if (formBar == 0) { outBar = wasOut = false; halfBar = introBar = false; }
 
             fillThisBar = fillNextBar;
             const bool requested = fillNextBar;
@@ -579,9 +698,9 @@ private:
             const int every = s.fillEvery == Fill4 ? 4 : s.fillEvery == Fill8 ? 8 : s.fillEvery == Fill16 ? 16 : 0;
             const int phraseLen = every > 0 ? every : 8;
             barsLeftInPhrase = phraseLen - 1 - (barInSection % phraseLen);
-            if (every > 0 && barsLeftInPhrase == 0) fillThisBar = true;
+            if (every > 0 && barsLeftInPhrase == 0 && formBar == 0) fillThisBar = true;
             if (endingStage == 1) { fillThisBar = true; endingStage = 2; }
-            if (fillThisBar) chooseFill (s, ! requested && endingStage == 0);
+            if (fillThisBar) chooseFill (s, ! requested && endingStage == 0, ns);
 
             // the drummer's feel drifts a little from bar to bar
             const float V = s.variation;
@@ -593,7 +712,7 @@ private:
             uiSection = section;
             uiBar = barInSection + 1;
 
-            if (sectionStart && (barInSection == 0 || s.link != nullptr) && ! outBar)
+            if (formBar == 0 && sectionStart && (barInSection == 0 || L != nullptr) && ! outBar && ! introBar)
                 hit (laneNote[LC], 112 + 10 * s.intensity, t, s, LC);
 
             // tell the bass player where the kicks are (this bar, and a guess at the next)
@@ -602,7 +721,7 @@ private:
                 {
                     uint16_t m = 0;
                     const Groove& gg = st.sec[juce::jlimit (0, NumSections - 1, sec)];
-                    for (int i = 0; i < 16; ++i)
+                    for (int i = 0; i < ns; ++i)
                     {
                         const bool inF = fill && i >= fillStart;
                         const char* lane = inF ? (useGenFill ? nullptr : st.fill[fillAlt].lane[LK]) : gg.lane[LK];
@@ -611,29 +730,45 @@ private:
                     }
                     return m;
                 };
-                const uint16_t thisBar = outBar ? (fillThisBar ? (uint16_t) (mask (section, true) & (0xFFFFu << fillStart)) : (uint16_t) 0) : mask (section, fillThisBar);
+                const uint16_t thisBar = formBar != 0 ? (uint16_t) 0 : outBar ? (fillThisBar ? (uint16_t) (mask (section, true) & (0xFFFFu << fillStart)) : (uint16_t) 0) : mask (section, fillThisBar);
                 band::publishKicks (bar, thisBar);
-                const int nextSec = s.link != nullptr ? s.link->sectionAt (bar + 1) : section;
-                band::publishKicks (bar + 1, s.link != nullptr && s.link->isOut (bar + 1) ? (uint16_t) 0 : mask (nextSec, false));
+                const int nextSec = L != nullptr ? L->sectionAt (bar + 1) : section;
+                band::publishKicks (bar + 1, L != nullptr && L->rests (bar + 1, true) ? (uint16_t) 0 : mask (nextSec, false));
             }
 
-            pendingSectionStart = sectionStart;
+            pendingSectionStart = sectionStart && formBar == 0;
         }
+
+        // ---- the song form's own bars
+        if (formBar == 1)
+        {
+            // Bandleader is learning the song: keep time, quietly, on the hi-hat
+            if (step % pulse == 0) hit (laneNote[LH], step == 0 ? 70.0f : 52.0f, t, s, LH);
+            return;
+        }
+        if (formBar == 2)
+        {
+            // the count-in: sticks on every beat (6/8: every eighth, leaning on 1 and 4)
+            const int every = s.meter == band::M68 ? 2 : 4;
+            if (step % every == 0) hit (laneNote[LSS], step % beat == 0 ? 112.0f : 84.0f, t, s, LSS);
+            return;
+        }
+        if (formBar != 0) return;
 
         if (ended || section < 0) return;
         // the Bandleader called a fill after this bar had started: take it if there's room
-        if (s.link != nullptr && step > 0 && step <= 8 && ! fillThisBar && s.link->fillAt (bar)) { fillThisBar = true; chooseFill (s, false); }
-        if (outBar && ! (fillThisBar && step >= fillStart && s.link != nullptr && ! s.link->isOut (bar + 1))) return;   // dropped out (but play the fill that brings everyone back)
+        if (L != nullptr && step > 0 && step <= half && ! fillThisBar && L->fillAt (bar)) { fillThisBar = true; chooseFill (s, false, ns); }
+        if (outBar && ! (fillThisBar && step >= fillStart && L != nullptr && ! L->isOut (bar + 1))) return;   // dropped out (but play the fill that brings everyone back)
 
         // requests land on the second half of the current bar if there's time, otherwise the next bar
-        if (requestFill.exchange (false)) { if (step < 8) { fillThisBar = true; chooseFill (s, false); } else fillNextBar = true; }
+        if (requestFill.exchange (false)) { if (step < half) { fillThisBar = true; chooseFill (s, false, ns); } else fillNextBar = true; }
         if (requestEnding.exchange (false))
         {
-            if (step < 8) { fillThisBar = true; chooseFill (s, false); endingStage = 2; }
-            else          { endingStage = 1; }
+            if (step < half) { fillThisBar = true; chooseFill (s, false, ns); endingStage = 2; }
+            else             { endingStage = 1; }
         }
         // a section change coming at the next bar gets a fill if there's room
-        if (step == 8 && wanted != section && ! fillThisBar) { fillThisBar = true; chooseFill (s, false); }
+        if (step == half && wanted != section && ! fillThisBar) { fillThisBar = true; chooseFill (s, false, ns); }
 
         uiFillComing = fillThisBar || fillNextBar || endingStage > 0;
 
@@ -644,8 +779,9 @@ private:
         const float V = s.variation;
 
         const float build = (barsLeftInPhrase == 0 || fillThisBar) ? 1.05f : 1.0f;
-        const float velScale = (0.78f + 0.34f * s.intensity) * energy * build;
-        const float swingDelay = (step % 2 == 1) ? (float) (s.swing * 0.333 * stepLen) : 0.0f;
+        const float velScale = (0.78f + 0.34f * s.intensity) * energy * build * (introBar ? 0.82f : 1.0f);
+        const float swingDelay = (step % 2 == 1 && s.meter != band::M68) ? (float) (s.swing * 0.333 * stepLen) : 0.0f;
+        const int halfSnare = s.meter == band::M44 ? 8 : s.meter == band::M34 ? 8 : 6;
 
         for (int l = 0; l < NumLanes; ++l)
         {
@@ -656,25 +792,34 @@ private:
             {
                 c = useGenFill ? genFill[l][step] : (st.fill[fillAlt].lane[l] != nullptr ? st.fill[fillAlt].lane[l][step] : '.');
                 // keep time on the hats/ride through a short fill's first steps
-                if (c == '.' && step < 8 && g.lane[l] != nullptr && (l == LH || l == LRD || l == LO)) c = g.lane[l][step];
+                if (c == '.' && step < half && g.lane[l] != nullptr && (l == LH || l == LRD || l == LO)) c = g.lane[l][step];
             }
             else
             {
                 c = g.lane[l] != nullptr ? g.lane[l][step] : '.';
-                if (c == '.' && ex.lane[l] != nullptr && ex.lane[l][step] != '.' && rand01() < (s.intensity - 0.35f) * 1.6f)
+                if (! halfBar && c == '.' && ex.lane[l] != nullptr && ex.lane[l][step] != '.' && rand01() < (s.intensity - 0.35f) * 1.6f)
                     c = ex.lane[l][step];
 
                 // little things a real drummer does that a loop never would
                 if (l == LH && c != '.' && step % 4 == 2 && rand01() < 0.03f * V) c = '.';                  // drops a weak hat
-                if (l == LH && c != '.' && step == 14 && rand01() < 0.07f * V) lane = LO;                    // opens the hat
+                if (l == LH && c != '.' && step == ns - 2 && rand01() < 0.07f * V) lane = LO;               // opens the hat
                 if (l == LS && c == '.' && (step % 2 == 1) && rand01() < 0.05f * V * (0.4f + s.intensity)) c = 'g';   // ghost note
-                if (l == LK && c == '.' && (step == 3 || step == 7 || step == 10 || step == 14)
+                if (l == LK && c == '.' && (step == 3 || step == 7 || step == 10 || (ns == 16 && step == 14))
                     && g.lane[LS] != nullptr && g.lane[LS][step] == '.' && rand01() < 0.025f * V) c = 'o';  // extra kick
-                if (l == LS && c == '.' && step == 15 && barsLeftInPhrase == 0 && rand01() < 0.4f * V) c = '-';  // pickup into the next phrase
+                if (l == LS && c == '.' && step == last && barsLeftInPhrase == 0 && rand01() < 0.4f * V) c = '-';  // pickup into the next phrase
+
+                // the half-time breakdown: one big snare, the kick on one, the cymbals only on the beat
+                if (halfBar)
+                {
+                    const bool snareBar = s.meter != band::M68 || (barInSection % 2 == 1);
+                    if (l == LS || l == LSS || l == LCL) c = (step == halfSnare && snareBar && l == LS) ? 'X' : '.';
+                    else if (l == LK) { if (c != '.' && step != 0 && step < halfSnare) c = '.'; if (step == 0) c = 'x'; }
+                    else if ((l == LH || l == LO || l == LRD || l == LC || l == LTB || l == LTS || l == LSH) && step % (s.meter == band::M68 ? 6 : pulse) != 0) c = '.';
+                }
             }
             if (c == '.') continue;
             float v = velOf (c) * velScale * (1.0f + gauss() * 0.04f);
-            if (l == LH || l == LO || l == LRD) v *= (step % 4 == 0) ? hatAccent : 1.0f / hatAccent;
+            if (l == LH || l == LO || l == LRD) v *= (step % beat == 0) ? hatAccent : 1.0f / hatAccent;
             if (s.intensity < 0.25f && (l == LH || l == LRD) && (step % 4) == 2) v *= 0.7f;
             const int subs = c == 'r' ? 2 : c == 't' ? 3 : c == 'q' ? 4 : 1;
             if (subs == 1) hit (laneNote[lane], v, t + (int64_t) swingDelay, s, l);
@@ -682,9 +827,11 @@ private:
                 for (int k = 0; k < subs; ++k)   // a roll: tight, getting a little louder
                     push (t + (int64_t) (swingDelay + stepLen * k / subs + 0.002 * sr), laneNote[lane], v * (0.75f + 0.25f * (float) k / (float) (subs - 1)));
         }
-        if (step == 15) pendingSectionStart = false;
+        if (step == last) pendingSectionStart = false;
     }
 
+    int formBar = 0;              // 0 the song, 1 learning, 2 count-in, 3 final hit, 4 ringing out / over, 5 resting
+    bool wasIntro = false, introBar = false, halfBar = false;
     bool pendingSectionStart = false, outBar = false, wasOut = false;
     bool nowInFill = false, useGenFill = false;
     int fillStart = 8, barsLeftInPhrase = 7;
@@ -693,10 +840,10 @@ private:
 
     // Pick this bar's fill: one of the style's own fills, or one made up on the spot.
     // Auto fills are sometimes just the last beat; requested ones always take half a bar.
-    void chooseFill (const Settings& s, bool mayBeShort)
+    void chooseFill (const Settings& s, bool mayBeShort, int ns = 16)
     {
         const float V = s.variation;
-        fillStart = (mayBeShort && rand01() < 0.35f * V) ? 12 : 8;
+        fillStart = (mayBeShort && rand01() < 0.35f * V) ? ns - ns / 4 : ns / 2;
         const float r = rand01();
         if (r < 1.0f - 0.6f * V) { useGenFill = false; fillAlt = rand01() < 0.5f ? 0 : 1; return; }
 
@@ -705,7 +852,7 @@ private:
         // snare -> rack tom(s) -> floor tom, sixteenths or eighths
         const int lanesSeq[] = { LS, LS, LT1, LT2, LT2, LT3, LF, LF };
         const bool sixteenths = rand01() < 0.45f + 0.4f * s.intensity;
-        const int len = 16 - fillStart;
+        const int len = ns - fillStart;
         for (int i = 0; i < len; ++i)
         {
             const int step = fillStart + i;
@@ -715,7 +862,7 @@ private:
             genFill[lane][step] = i >= len - 2 ? 'x' : (i < 2 ? 'o' : (rand01() < 0.5f ? 'x' : 'o'));
         }
         genFill[LK][fillStart] = 'x';
-        if (rand01() < 0.5f) genFill[LK][15] = 'o';
+        if (rand01() < 0.5f) genFill[LK][ns - 1] = 'o';
     }
 
     float hash01 (int step, int lane) const

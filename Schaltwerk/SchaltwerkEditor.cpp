@@ -48,6 +48,7 @@ void StepGrid::paint (juce::Graphics& g)
             g.setColour (col);
             g.fillRoundedRectangle (c, 2.0f);
             if (s == cur) { g.setColour (juce::Colours::white.withAlpha (0.18f)); g.fillRoundedRectangle (c, 2.0f); }
+            if (s >= proc.uiSteps.load()) { g.setColour (juce::Colours::black.withAlpha (0.55f)); g.fillRoundedRectangle (c, 2.0f); }   // not played in 3/4 or 6/8
             if (v == 2) { g.setColour (kText); g.fillEllipse (c.withSizeKeepingCentre (5, 5)); }
         }
     }

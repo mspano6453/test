@@ -159,6 +159,109 @@ public:
         return m;
     }
 
+    // ---- three beats to the bar (3/4 and 6/8): 12 steps a bar, 24 a motif
+    static Motif writeTriple (int feel, int section, uint32_t seed, float hook, float density, int meter)
+    {
+        Rng r; r.seed (seed * 2654435761u + (uint32_t) feel * 977u + (uint32_t) section * 131u + 17u + (uint32_t) meter * 7u);
+        Motif m;
+        const bool six = meter == band::M68;
+        int fam = 0;   // 0 sung (one long note and a walk), 1 driving eighths, 2 walking
+        switch (feel)
+        {
+            case FPump: case FRoot: case FGallop: case FMotor: case FOctaves: case FFunk: case FAcid: case FTechno: case FHouse: fam = 1; break;
+            case FWalk: case FBoomBap: case FTrap: case FNewJack: fam = six ? 0 : 2; break;
+            default: fam = 0;
+        }
+        if (! six)
+        {
+            if (fam == 0)
+            {
+                // the waltz bass: one on the downbeat, the fifth on three, a walk in the second bar
+                put (m, 0, 0, 0.92f, 6.5f);
+                put (m, 8, r.chance (0.6f) ? 4 : 2, 0.76f, 3.5f);
+                if (r.chance (0.3f + density * 0.4f)) put (m, 4, 2, 0.66f, 3.0f);
+                put (m, 12, 0, 0.9f, 3.5f);
+                put (m, 16, 2, 0.78f, 3.5f);
+                if (r.chance (0.4f + hook * 0.4f)) { put (m, 20, 4, 0.78f, 1.8f); put (m, 22, r.chance (0.5f) ? 5 : 6, 0.72f, 1.8f); }
+                else put (m, 20, 4, 0.8f, 3.5f);
+            }
+            else if (fam == 1)
+            {
+                for (int i = 0; i < 24; i += 2) put (m, i, 0, i % 12 == 0 ? 0.92f : (i % 4 == 0 ? 0.82f : 0.72f), 1.7f);
+                if (section == SChorus) { put (m, 6, 7, 0.84f, 1.7f); put (m, 18, 7, 0.84f, 1.7f); }
+                if (density < 0.5f) for (int i = 2; i < 24; i += 4) if (r.chance (0.5f - density)) m.s[(size_t) i].on = false;
+                put (m, 20, 4, 0.82f, 1.7f); put (m, 22, r.chance (0.5f) ? 7 : 6, 0.82f, 1.7f);
+            }
+            else
+            {
+                // walking quarters through the chord, a step into the next one
+                static const int a[][6] = { { 0, 2, 4, 7, 4, 2 }, { 0, 4, 5, 7, 6, 4 }, { 0, 2, 3, 4, 5, 6 } };
+                const auto& w = a[r.i (3)];
+                for (int b = 0; b < 6; ++b) put (m, b * 4, w[b], b % 3 == 0 ? 0.88f : 0.74f, 3.4f);
+                if (r.chance (hook * 0.6f)) put (m, 22, 0, 0.6f, 1.2f, -1);
+            }
+        }
+        else
+        {
+            if (fam == 1)
+            {
+                // a rocking 6/8: every eighth, leaning on one and four
+                for (int i = 0; i < 24; i += 2) put (m, i, 0, i % 6 == 0 ? 0.92f : 0.7f, 1.7f);
+                if (section == SChorus) { put (m, 8, 7, 0.82f, 1.7f); put (m, 20, 7, 0.82f, 1.7f); }
+                put (m, 22, r.chance (0.5f) ? 4 : 6, 0.8f, 1.7f);
+            }
+            else
+            {
+                // the soul ballad 6/8: root on one, the fifth on four, a pickup on the last eighth
+                put (m, 0, 0, 0.92f, 5.5f);
+                put (m, 6, 4, 0.78f, 3.5f);
+                if (r.chance (0.5f + hook * 0.4f)) put (m, 10, 2, 0.68f, 1.7f);
+                put (m, 12, 0, 0.9f, 5.5f);
+                if (r.chance (0.5f)) { put (m, 18, 4, 0.78f, 1.7f); put (m, 20, 5, 0.72f, 1.7f); put (m, 22, 6, 0.74f, 1.7f); }
+                else { put (m, 18, 4, 0.8f, 3.5f); if (r.chance (0.4f + density * 0.4f)) put (m, 22, 7, 0.7f, 1.7f); }
+            }
+        }
+        legatoN (m, 0.92f, 24);
+        if (section == SBridge && ! feelIsMachine (feel)) halfTimeN (m, r, 12);
+        if (section == SChorus) for (auto& st : m.s) if (st.on && ! st.ghost) st.vel = std::min (1.0f, st.vel + 0.07f);
+        return m;
+    }
+    static Motif writeAny (int feel, int section, uint32_t seed, float hook, float density, int meter)
+    {
+        return meter == band::M44 ? write (feel, section, seed, hook, density) : writeTriple (feel, section, seed, hook, density, meter);
+    }
+    // a fill at the end of the bar that ends at `barEnd`, in any meter
+    static void fillAny (Motif& m, Rng& r, int feel, bool big, int barEnd, int meter)
+    {
+        if (meter == band::M44) { fill (m, r, feel, big, barEnd); return; }
+        const int span = big ? 6 : 4;
+        const int from = std::max (0, barEnd - span);
+        for (int i = from; i < barEnd && i < kSteps; ++i) m.s[(size_t) i].on = false;
+        static const int runs[][3] = { { 0, 2, 4 }, { 7, 6, 4 }, { 4, 5, 6 }, { 2, 3, 4 } };
+        const auto& run = runs[r.i (4)];
+        for (int k = 0, i = from; i < barEnd && k < 3; i += 2, ++k) put (m, i, run[k], 0.82f + 0.04f * (float) k, 1.7f);
+    }
+    static void legatoN (Motif& m, float amount, int n)
+    {
+        for (int i = 0; i < n; ++i)
+        {
+            if (! m.s[(size_t) i].on) continue;
+            int j = i + 1;
+            while (j < n && ! m.s[(size_t) j].on) ++j;
+            m.s[(size_t) i].len = std::max (0.6f, (float) (j - i) * amount);
+        }
+    }
+    static void halfTimeN (Motif& m, Rng& r, int bs)
+    {
+        for (int i = 0; i < kSteps; ++i)
+        {
+            auto& s = m.s[(size_t) i];
+            if (! s.on) continue;
+            if (! (i % bs == 0 || (i % bs == bs / 2 && r.chance (0.35f)))) s.on = false;
+        }
+        legatoN (m, 0.9f, 2 * bs);
+    }
+
 private:
     static void pump (Motif& m, Rng& r, int sec, float hook, float density)
     {

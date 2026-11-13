@@ -108,6 +108,7 @@ void UndertowEditor::timerCallback()
                 + (proc.uiTransport.load() ? 3 : 0) + (proc.uiBandPlaying.load() ? 5 : 0) + (proc.uiLinked.load() ? 11 : 0)
                 + (int64_t) (inShown * 60.0f) * 100003;
     for (int i = 0; i < kSteps; ++i) dyn = dyn * 31 + proc.uiMotif[i].load();
+    dyn = dyn * 7 + proc.uiMotifLen.load();
     if (dyn != lastDyn) { lastDyn = dyn; repaint (earArea); }
 }
 
@@ -176,24 +177,26 @@ void UndertowEditor::paint (juce::Graphics& g)
     // ---- the bass line (2 bars) as a little piano roll
     g.setColour (col::bg.brighter (0.03f)); g.fillRoundedRectangle (rollArea.toFloat(), 6.0f);
     const auto ra = rollArea.reduced (8, 8).toFloat();
-    const float cw = ra.getWidth() / (float) kSteps;
-    for (int i = 0; i <= kSteps; ++i)
+    const int nSteps = juce::jlimit (12, kSteps, proc.uiMotifLen.load());   // 2 bars: 32 steps, or 24 in 3/4 and 6/8
+    const int barSteps = nSteps / 2;
+    const float cw = ra.getWidth() / (float) nSteps;
+    for (int i = 0; i <= nSteps; ++i)
     {
-        g.setColour (i % 16 == 0 ? col::muted : i % 4 == 0 ? col::line.brighter (0.15f) : col::line.withAlpha (0.4f));
+        g.setColour (i % barSteps == 0 ? col::muted : i % 4 == 0 ? col::line.brighter (0.15f) : col::line.withAlpha (0.4f));
         g.drawVerticalLine ((int) (ra.getX() + i * cw), ra.getY(), ra.getBottom());
     }
     int lo = 127, hi = 0;
-    for (int i = 0; i < kSteps; ++i) { const int v = proc.uiMotif[i].load() % 1000; if (proc.uiMotif[i].load() >= 0) { lo = juce::jmin (lo, v); hi = juce::jmax (hi, v); } }
+    for (int i = 0; i < nSteps; ++i) { const int v = proc.uiMotif[i].load() % 1000; if (proc.uiMotif[i].load() >= 0) { lo = juce::jmin (lo, v); hi = juce::jmax (hi, v); } }
     if (hi < lo) { lo = 28; hi = 52; }
     lo -= 2; hi += 2;
     const float rowH = ra.getHeight() / (float) juce::jmax (12, hi - lo + 1);
     const int stepNow = proc.uiStep.load();
-    for (int i = 0; i < kSteps; ++i)
+    for (int i = 0; i < nSteps; ++i)
     {
         const int v = proc.uiMotif[i].load();
         if (v < 0) continue;
         const bool ghost = v >= 1000; const int p = v % 1000;
-        int j = i + 1; while (j < kSteps && proc.uiMotif[j].load() < 0) ++j;
+        int j = i + 1; while (j < nSteps && proc.uiMotif[j].load() < 0) ++j;
         const float w = juce::jmin ((float) (j - i), ghost ? 1.0f : 4.0f) * cw - 2;
         const float y = ra.getBottom() - (float) (p - lo + 1) * rowH;
         g.setColour ((i == stepNow ? col::cream : kTeal).withAlpha (ghost ? 0.4f : 1.0f));

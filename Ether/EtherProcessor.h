@@ -22,6 +22,8 @@ class EtherProcessor : public juce::AudioProcessor
 {
 public:
     EtherProcessor();
+    ~EtherProcessor() override { renderer.reset(); }
+    std::unique_ptr<mc::SongRenderer> renderer;
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout& l) const override { return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -69,6 +71,9 @@ private:
     int pitchFor (int deg, int root, int q) const;
 
     double sr = 44100, bpmNow = 120, blockPpq = 0;
+    int meterNow = 0, bs = 16;
+    band::Fade fade;
+    bool strongStep (int step) const { return meterNow == band::M44 ? step % 8 == 0 : meterNow == band::M34 ? step % 12 == 0 : step % 6 == 0; }
     mc::NoteOut midiOut;
     juce::MidiBuffer outMidi;
     et::Voice voices[et::kNumVoices];

@@ -28,6 +28,8 @@ class ChamberProcessor : public juce::AudioProcessor
 {
 public:
     ChamberProcessor();
+    ~ChamberProcessor() override { renderer.reset(); }
+    std::unique_ptr<mc::SongRenderer> renderer;
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout& l) const override { return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -81,6 +83,8 @@ private:
     int scaleNote (int deg) const;
 
     double sr = 44100, bpmNow = 120;
+    int meterNow = 0, bs = 16;
+    band::Fade fade;
     ch::Library lib;
     ch::Voice voices[ch::kNumVoices];
     ch::Rack rack;

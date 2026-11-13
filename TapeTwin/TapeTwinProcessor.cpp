@@ -114,8 +114,10 @@ void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     {
         int64_t change = band::kNever;
         if (leader.nextStartBar < band::kNever) change = leader.nextStartBar;
-        if (leader.dropStart < band::kNever && leader.dropStart < change && leader.dropStart * 4 > ppq - 1) change = leader.dropStart;
-        if (change < band::kNever) { throwEnd = (double) change * 4.0; throwStart = throwEnd - 1.0; }
+        const double bp = band::meterBarPpq (leader.meter);
+        if (leader.dropStart < band::kNever && leader.dropStart < change && leader.dropStart * bp > ppq - 1) change = leader.dropStart;
+        if (leader.endBar < band::kNever && leader.endBar < change && leader.endBar * bp > ppq - 1) change = leader.endBar;   // a throw on the last chord
+        if (change < band::kNever) { throwEnd = (double) change * bp; throwStart = throwEnd - 1.0; }
     }
     const double ppqPerSample = bpmNow / 60.0 / sr;
     const float throwDecay = (float) std::exp (-1.0 / (sr * 60.0 / juce::jmax (30.0, bpmNow) * 3.0));   // rings out over a few beats

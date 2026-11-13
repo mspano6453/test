@@ -65,6 +65,9 @@ ChamberProcessor::ChamberProcessor()
     queue.reserve (2048); bar.reserve (96);
     for (auto& p : phrase) p.reserve (40);
     loadSamples();
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WChamber, mc::SongRenderer::partFileName (6, "Orchestra"),
+                                                   [] { return std::make_unique<ChamberProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "follow", 0); });
 }
 
 // names: <code>_<art>_<midi>_<layer>[_L<loop start>]_flac   (timpani: tim_<midi>_<layer>_flac)
@@ -206,8 +209,13 @@ void ChamberProcessor::writePhrase (int sec)
     auto& ph = phrase[sec]; ph.clear();
     const float b = juce::jlimit (0.0f, 1.0f, busy + (sec == 1 ? 0.12f : 0.0f));
     static const int slow[] = { 0, 8, 12, 16, 24 }, mid[] = { 0, 4, 6, 8, 12, 16, 20, 22, 24, 28 }, fast[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 26, 28, 30 };
-    const int* rh = b < 0.35f ? slow : (b < 0.7f ? mid : fast);
-    const int n = b < 0.35f ? 5 : (b < 0.7f ? 10 : 15);
+    // three-beat bars (12 steps): 3/4 and 6/8 rhythms over two bars
+    static const int slow3[] = { 0, 8, 12, 20 }, mid3[] = { 0, 4, 8, 12, 16, 20, 22 }, fast3[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 };
+    static const int slow6[] = { 0, 6, 12, 18 }, mid6[] = { 0, 4, 6, 10, 12, 16, 18, 22 }, fast6[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 };
+    const int* rh; int n;
+    if (meterNow == band::M44) { rh = b < 0.35f ? slow : (b < 0.7f ? mid : fast); n = b < 0.35f ? 5 : (b < 0.7f ? 10 : 15); }
+    else if (meterNow == band::M34) { rh = b < 0.35f ? slow3 : (b < 0.7f ? mid3 : fast3); n = b < 0.35f ? 4 : (b < 0.7f ? 7 : 12); }
+    else { rh = b < 0.35f ? slow6 : (b < 0.7f ? mid6 : fast6); n = b < 0.35f ? 4 : (b < 0.7f ? 8 : 12); }
     int deg = sec == 1 ? 4 : 2;
     for (int i = 0; i < n; ++i)
     {
@@ -220,78 +228,83 @@ void ChamberProcessor::writePhrase (int sec)
 void ChamberProcessor::writeBar (int sec, int in, bool fillBar)
 {
     bar.clear();
+    const int N = bs;                                   // steps a bar: 16, or 12 in 3/4 and 6/8
+    const int beat = band::meterBeatSteps (meterNow);
     const bool chorus = sec == 1, bridge = sec == 2;
     const float b = juce::jlimit (0.0f, 1.0f, busy + (chorus ? 0.15f : 0.0f) - (bridge ? 0.15f : 0.0f));
     auto add = [&] (int s, int partsMask, int art, float len, float vel, int kind = KChord, int arg = 0) { bar.push_back ({ s, partsMask, art, len, vel, kind, arg }); };
     const float lv = chorus ? 0.78f : (bridge ? 0.55f : 0.65f);
+    auto phraseHits = [&] (int partsMask, int kind)
+    {
+        for (size_t i = 0; i < phrase[sec].size(); ++i)
+        {
+            const int st = phrase[sec][i].first - (in % 2) * N;
+            if (st >= 0 && st < N) add (st, partsMask, ASus, (float) ((i + 1 < phrase[sec].size() ? phrase[sec][i + 1].first : 2 * N) - phrase[sec][i].first), lv + 0.1f, kind, (int) i);
+        }
+    };
     switch (feel)
     {
-        case FLong: add (0, 15, ASus, 16, lv); break;
+        case FLong: add (0, 15, ASus, (float) N, lv); break;
         case FStaccato:
-            for (int s = 0; s < 16; s += 2)
+            for (int s = 0; s < N; s += 2)
             {
-                if (b < 0.4f && s % 4 == 2) continue;
-                add (s, 15, AShort, 1.0f, s % 8 == 0 ? 0.88f : (s % 4 == 0 ? 0.78f : 0.66f));
+                if (b < 0.4f && s % beat != 0 && meterNow != band::M68) continue;
+                add (s, 15, AShort, 1.0f, s % (2 * beat) == 0 ? 0.88f : (s % beat == 0 ? 0.78f : 0.66f));
             }
-            if (chorus && b > 0.5f) add (15, 15, AShort, 0.7f, 0.6f);
+            if (chorus && b > 0.5f) add (N - 1, 15, AShort, 0.7f, 0.6f);
             break;
         case FCounter:
-            add (0, 14, ASus, 16, lv * 0.75f);
-            for (size_t i = 0; i < phrase[sec].size(); ++i)
-            {
-                const int st = phrase[sec][i].first - (in % 2) * 16;
-                if (st >= 0 && st < 16) add (st, 1, ASus, (float) ((i + 1 < phrase[sec].size() ? phrase[sec][i + 1].first : 32) - phrase[sec][i].first), lv + 0.1f, KMelody, (int) i);
-            }
+            add (0, 14, ASus, (float) N, lv * 0.75f);
+            phraseHits (1, KMelody);
             break;
         case FDescend:
-            add (0, 7, ASus, 16, lv * 0.85f);
+            add (0, 7, ASus, (float) N, lv * 0.85f);
             { const int line[4] = { 0, -1, -2, -3 }, line2[4] = { -4, -5, -3, -1 };
               const bool second = chordBars > 1 && (in % chordBars) % 2 == 1;
-              for (int i = 0; i < 4; ++i) add (i * 4, 8, ASus, 4.0f, lv + 0.05f, KBass, second ? line2[i] : line[i]); }
+              const int steps = N / beat;
+              for (int i = 0; i < steps; ++i) add (i * beat, 8, ASus, (float) beat, lv + 0.05f, KBass, second ? line2[i] : line[i]); }
             break;
         case FPizz:
         {
             static const int order[8] = { 8, 4, 2, 1, 8, 2, 4, 1 };
-            for (int i = 0; i < 8; ++i) if (! (b < 0.35f && i % 2 == 1)) add (i * 2, order[i], APizz, 2.0f, i % 4 == 0 ? 0.85f : 0.72f);
-            if (b > 0.6f) { add (4, 15, APizz, 2.0f, 0.7f); add (12, 15, APizz, 2.0f, 0.7f); }
+            for (int i = 0; i < N / 2; ++i) if (! (b < 0.35f && i % 2 == 1)) add (i * 2, order[i], APizz, 2.0f, (i * 2) % beat == 0 ? 0.85f : 0.72f);
+            if (b > 0.6f) for (int s = beat; s < N; s += beat) add (s, 15, APizz, 2.0f, 0.7f);
             break;
         }
-        case FTremolo: add (0, 15, ATrem, 16, lv); break;
-        case FRise: add (0, 15, ASus, 16, lv * 0.7f); break;     // the rise itself is played in playStep
+        case FTremolo: add (0, 15, ATrem, (float) N, lv); break;
+        case FRise: add (0, 15, ASus, (float) N, lv * 0.7f); break;     // the rise itself is played in playStep
         case FRiff:
         {
-            add (0, 3, ASus, 16, lv * 0.7f);
+            add (0, 3, ASus, (float) N, lv * 0.7f);
             static const int riffMaj[8] = { 0, 0, 7, 5, 0, 0, 10, 7 }, riffMin[8] = { 0, 3, 7, 3, 0, 10, 7, 5 };
+            static const int riff3Maj[6] = { 0, 7, 5, 0, 10, 7 }, riff3Min[6] = { 0, 3, 7, 0, 10, 7 };
             const bool m = band::qualityIsMinor (curQ);
-            for (int i = 0; i < 8; ++i) add (i * 2, 12, AShort, 1.3f, i % 4 == 0 ? 0.88f : 0.74f, KRiff, (m ? riffMin : riffMaj)[i]);
+            for (int i = 0; i < N / 2; ++i)
+                add (i * 2, 12, AShort, 1.3f, (i * 2) % beat == 0 ? 0.88f : 0.74f, KRiff, N == 16 ? (m ? riffMin : riffMaj)[i] : (m ? riff3Min : riff3Maj)[i]);
             break;
         }
         case FFanfare:
             add (0, 15, AShort, 1.5f, 0.92f); add (3, 15, AShort, 0.8f, 0.7f); add (4, 15, ASus, 3.0f, 0.85f);
-            if (b > 0.4f) { add (8, 15, AShort, 1.0f, 0.75f); add (10, 15, AShort, 1.0f, 0.75f); }
-            add (12, 15, ASus, 4.0f, 0.88f);
+            if (b > 0.4f && N == 16) { add (8, 15, AShort, 1.0f, 0.75f); add (10, 15, AShort, 1.0f, 0.75f); }
+            add (N - 4, 15, ASus, 4.0f, 0.88f);
             break;
         case FUnison:
-            for (size_t i = 0; i < phrase[sec].size(); ++i)
-            {
-                const int st = phrase[sec][i].first - (in % 2) * 16;
-                if (st >= 0 && st < 16) add (st, 15, ASus, (float) ((i + 1 < phrase[sec].size() ? phrase[sec][i + 1].first : 32) - phrase[sec][i].first), lv + 0.1f, KUnison, (int) i);
-            }
+            phraseHits (15, KUnison);
             break;
         default:  // FBaroque
         {
-            for (int s = 0; s < 16; s += 4) add (s, 14, AShort, 1.6f, 0.66f);
+            for (int s = 0; s < N; s += beat) add (s, 14, AShort, 1.6f, 0.66f);
             static const int up[16] = { 0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7 };
             const bool fast = b >= 0.45f;
-            for (int s = 0; s < 16; s += fast ? 1 : 2) add (s, 1, AShort, fast ? 0.9f : 1.8f, s % 4 == 0 ? 0.82f : 0.7f, KRun, up[s]);
+            for (int s = 0; s < N; s += fast ? 1 : 2) add (s, 1, AShort, fast ? 0.9f : 1.8f, s % beat == 0 ? 0.82f : 0.7f, KRun, up[s]);
             break;
         }
     }
     if (fillBar && feel != FRise)
     {
         // into the next section: a quick run up in the top part
-        bar.erase (std::remove_if (bar.begin(), bar.end(), [] (const Hit& h) { return h.step >= 12 && (h.parts & 1); }), bar.end());
-        for (int i = 0; i < 4; ++i) add (12 + i, 1, AShort, 0.9f, 0.72f + 0.05f * (float) i, KRun, 2 + i);
+        bar.erase (std::remove_if (bar.begin(), bar.end(), [N] (const Hit& h) { return h.step >= N - 4 && (h.parts & 1); }), bar.end());
+        for (int i = 0; i < 4; ++i) add (N - 4 + i, 1, AShort, 0.9f, 0.72f + 0.05f * (float) i, KRun, 2 + i);
     }
 }
 
@@ -319,8 +332,9 @@ void ChamberProcessor::releaseParts (int mask)
 
 void ChamberProcessor::playStep (int64_t k, int64_t at)
 {
-    const int64_t b = k / 16;
-    const int s16 = (int) (((k % 16) + 16) % 16);
+    const int64_t b = k / bs;
+    const int s16 = (int) (((k % bs) + bs) % bs);
+    const int N = bs;
     if (b != curBar)
     {
         curBar = b;
@@ -334,13 +348,15 @@ void ChamberProcessor::playStep (int64_t k, int64_t at)
         chordAt (b, curRoot, curQ);
         const bool fill = (led && leader.fillAt (b)) || (! led && autoSong && lastBar);
         writeBar (barSec, barIn, fill);
+        // the breakdown: everyone holds the chord
+        if (led && leader.isHalf (b)) { bar.clear(); bar.push_back ({ 0, 15, ASus, (float) N, 0.6f, KChord, 0 }); }
         // the rise: the last bar before a new section (two bars when sections are long)
         const bool riseBar = feel == FRise && (fill || (! led && autoSong && lastBar));
-        if (riseBar && ! (led && leader.isOut (b)))
+        if (riseBar && ! (led && leader.rests (b, false, true)) && ! (led && leader.isEnding (b)))
         {
             rising = true;
             releaseParts (15);
-            const float riseSec = (float) (60.0 / bpmNow * 4.0);
+            const float riseSec = (float) (60.0 / bpmNow * N / 4.0);
             for (int p = 0; p < 4; ++p)
                 for (int dbl = 0; dbl < 2; ++dbl)
                 {
@@ -349,19 +365,38 @@ void ChamberProcessor::playStep (int64_t k, int64_t at)
                     const float up = (float) (juce::jmin (hi, startN + 26) - startN) * (0.8f + 0.2f * rng.u());
                     schedule ({ at + (int64_t) (rng.u() * 0.1 * sr), 1, p, parts[p], ASus, startN, 0.75f + 0.2f * dynamics, riseSec * 1.02f, riseSec * 0.85f, up, riseSec });
                 }
-            if (timpani) for (int r = 0; r < 8; ++r) schedule ({ at + (int64_t) ((8 + r) * sr * 15.0 / bpmNow), 1, 4, TIM, ASus, 41 + ((curRoot - 5 + 12) % 12), 0.4f + 0.06f * r, 0.4f, 0.002f });
+            if (timpani) for (int r = 0; r < N / 2; ++r) schedule ({ at + (int64_t) ((N / 2 + r) * sr * 15.0 / bpmNow), 1, 4, TIM, ASus, 41 + ((curRoot - 5 + 12) % 12), 0.4f + 0.06f * r, 0.4f, 0.002f });
         }
         else if (rising) { rising = false; schedule ({ at, 3, 15, 0, 0, 0, 0, 0 }); }
-        if (timpani && barIn == 0 && b > 0)
+        if (timpani && barIn == 0 && b > 0 && ! (led && (leader.rests (b, false, true) || leader.isEnding (b))))
         {
             int tn = 41 + ((curRoot - 5 + 12) % 12); while (tn > 55) tn -= 12;
             schedule ({ at, 1, 4, TIM, ASus, tn, 0.8f + 0.15f * dynamics, 2.5f, 0.002f });
         }
         if (fill && timpani && feel != FRise)
-            for (int r = 0; r < 4; ++r) schedule ({ at + (int64_t) ((12 + r) * sr * 15.0 / bpmNow), 1, 4, TIM, ASus, 41 + ((curRoot - 5 + 12) % 12), 0.5f + 0.1f * r, 0.4f, 0.002f });
+            for (int r = 0; r < 4; ++r) schedule ({ at + (int64_t) ((N - 4 + r) * sr * 15.0 / bpmNow), 1, 4, TIM, ASus, 41 + ((curRoot - 5 + 12) % 12), 0.5f + 0.1f * r, 0.4f, 0.002f });
     }
     if (rising) return;
-    if (led && leader.isOut (b)) { if (! outNow) { schedule ({ at, 3, 31, 0, 0, 0, 0, 0 }); outNow = true; } return; }
+    // the song's last chord: every part holds it, the timpani lands it
+    if (led && leader.isEnding (b))
+    {
+        if (leader.isFinalHit (b) && s16 == 0)
+        {
+            int root = curRoot, q = curQ;
+            chordAt (b, root, q);
+            if (root >= 0)
+            {
+                schedule ({ at, 3, 31, 0, 0, 0, 0, 0 });
+                voiceChord (root, q);
+                const float lenSec = (float) (2.0 * N * 15.0 / juce::jmax (30.0, bpmNow) * 0.95);
+                for (int p = 0; p < 4; ++p) schedule ({ at + 2 + p * 30, 1, p, parts[p], ASus, fitTo (parts[p], voicing[p]), 0.82f, lenSec, 0.02f });
+                if (timpani) { int tn = 41 + ((root - 5 + 12) % 12); while (tn > 55) tn -= 12; schedule ({ at, 1, 4, TIM, ASus, tn, 0.95f, 3.0f, 0.002f }); }
+                lastRoot = root; lastQ = q;
+            }
+        }
+        return;
+    }
+    if (led && leader.rests (b, false, true)) { if (! outNow) { schedule ({ at, 3, 31, 0, 0, 0, 0, 0 }); outNow = true; } return; }
     outNow = false;
     if (follow == FMidiChords && midiRoot < 0) return;
     int root = curRoot, q = curQ;
@@ -389,11 +424,11 @@ void ChamberProcessor::playStep (int64_t k, int64_t at)
     const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
     const float energy = led ? (leader.energy - 0.5f) * 0.25f : 0.0f;
     double offMs = rng.n() * (2.0 + 6.0 * human);
-    if (s16 % 2 == 1) offMs += swing * sixteenth / sr * 1000.0 * 0.66;
+    if (s16 % 2 == 1 && meterNow != band::M68) offMs += swing * sixteenth / sr * 1000.0 * 0.66;
     for (const auto& h : bar)
     {
         if (h.step != s16) continue;
-        const bool holds = h.len >= 15.0f && (h.art == ASus || h.art == ATrem);
+        const bool holds = h.len >= (float) N - 1.0f && (h.art == ASus || h.art == ATrem);
         if (holds && ! changed && barIn % 4 != 0 && h.kind == KChord) continue;     // same chord: the bows keep going
         const float vel = juce::jlimit (0.08f, 1.0f, h.vel * (0.55f + 0.6f * dynamics) + rng.n() * 0.05f * human + energy);
         const float lenSec = holds ? -1.0f : (float) (h.len * lengthK * sixteenth / sr);
@@ -442,6 +477,12 @@ void ChamberProcessor::runPlayer (int n)
             if (auto p = pos->getPpqPosition()) ppq = *p; else playing = false;
         }
     bpmNow = bpm; uiTransport = playing; blockPpq = ppq;
+    {
+        const int m = led ? leader.meter : band::hostMeter (getPlayHead());
+        if (m != meterNow) { meterNow = m; curBar = -1; for (auto& ph : phrase) ph.clear(); }
+        bs = band::meterSteps (meterNow);
+        capture.setMeter (meterNow);
+    }
     if (! playing) { if (wasPlaying) schedule ({ sampleClock, 3, 31, 0, 0, 0, 0, 0 }); wasPlaying = false; return; }
     const double spb = sr * 60.0 / bpm;
     if (! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.25)
@@ -564,6 +605,7 @@ void ChamberProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
             if (! std::isfinite (*x)) *x = 0;
             if (std::abs (*x) > 0.9f) *x = std::copysign (0.9f + 0.1f * std::tanh ((std::abs (*x) - 0.9f) * 10.0f), *x);
         }
+    fade.apply (buffer, n, led, leader, getPlayHead());   // Bandleader's fade-out
     // what each part is playing, for the screen
     int pn[5] { -1, -1, -1, -1, -1 };
     for (auto& v : voices) if (v.active() && v.held && v.part >= 0 && v.part < 5) pn[v.part] = v.note;

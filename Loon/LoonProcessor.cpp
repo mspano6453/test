@@ -155,18 +155,22 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     led = led && playing && leader.playing;
     uiLinked = led;
     int bandRoot = 9; bool bandMinor = true; float sectionLift = 0, dropLift = 0;
-    const int64_t bar = (int64_t) std::floor (ppq / 4.0);
+    const int meter = led ? leader.meter : band::hostMeter (getPlayHead());
+    const int ns = band::meterSteps (meter);
+    capture.setMeter (meter);
+    const int64_t bar = band::barOfPpq (ppq, meter);
     if (led)
     {
         // the song's key: the tonic chord (offset 0) tells major from minor
-        bandRoot = leader.key; bandMinor = true;
+        bandRoot = leader.keyAt (bar); bandMinor = true;
         for (int s = 0; s < band::NumSec; ++s)
             for (int i = 0; i < leader.progLen[s] && i < band::kMaxProg; ++i)
                 if (leader.progOff[s][i] == 0) bandMinor = band::qualityIsMinor (leader.progMinor[s][i]);
         if (linkMode == 2) { int r; bool m; leader.chordAt (bar, r, m); bandRoot = r; bandMinor = m; }
         const int sec = leader.sectionAt (bar);
         sectionLift = sec == band::Chorus ? 1.0f : sec == band::Bridge ? -0.6f : 0.0f;
-        dropLift = leader.isOut (bar) ? 1.0f : 0.0f;          // the band stops: Loon fills the space
+        dropLift = (leader.isOut (bar) || leader.isCountIn (bar)) ? 1.0f : 0.0f;          // the band stops: Loon fills the space
+        if (leader.isOver (bar)) dropLift = 0.0f;
     }
     const double sm = 1.0 - std::exp (-(double) n / (2.0 * sr));   // ~2 s glide
     liftS += (float) ((sectionLift - liftS) * sm);
@@ -206,9 +210,9 @@ void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
             if (k != lastDuckStep)
             {
                 lastDuckStep = k;
-                const int64_t b = (k - (((k % 16) + 16) % 16)) / 16;
+                const int64_t b = (k - (((k % ns) + ns) % ns)) / ns;
                 uint16_t kicks = 0;
-                if (band::readKicks (b, kicks) && ((kicks >> (int) (((k % 16) + 16) % 16)) & 1u)) duck = 1.0f;
+                if (band::readKicks (b, kicks) && ((kicks >> (int) (((k % ns) + ns) % ns)) & 1u)) duck = 1.0f;
             }
             const float g = 1.0f - 0.33f * duck;      // about -3.5 dB at the hit
             gL[(size_t) i] *= g; gR[(size_t) i] *= g;

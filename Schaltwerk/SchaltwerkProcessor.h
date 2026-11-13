@@ -23,6 +23,9 @@ class SchaltwerkProcessor : public juce::AudioProcessor
 {
 public:
     SchaltwerkProcessor();
+    ~SchaltwerkProcessor() override { renderer.reset(); }
+    std::unique_ptr<mc::SongRenderer> renderer;
+    std::atomic<int> uiSteps { 16 };   // 12 in 3/4 and 6/8
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout&) const override;

@@ -111,6 +111,9 @@ SchaltwerkProcessor::SchaltwerkProcessor()
 {
     band::available();   // open the band link here (message thread), not on the audio thread
     loadPattern (0);
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WSchaltwerk, mc::SongRenderer::partFileName (2, "Drum Box"),
+                                                   [] { return std::make_unique<SchaltwerkProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "band_link", 1); });
 }
 
 bool SchaltwerkProcessor::isBusesLayoutSupported (const BusesLayout& l) const
@@ -274,20 +277,25 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
     const double ppqPerSample = bpm / 60.0 / sr;
     const double ppqEnd = ppq + ppqPerSample * n;
     const float swing = apvts.getRawParameterValue ("seq_swing")->load();
+    const int meter = led ? leader.meter : band::hostMeter (getPlayHead());
+    const int ns = band::meterSteps (meter);      // 16 steps, or the first 12 in 3/4 and 6/8
+    uiSteps = ns;
+    capture.setMeter (meter);
     for (int64_t k = (int64_t) std::ceil (ppq * 4.0 - 1e-9); (double) k * 0.25 < ppqEnd; ++k)
     {
-        const int step = (int) (((k % 16) + 16) % 16);
+        const int step = (int) (((k % ns) + ns) % ns);
         double t = ((double) k * 0.25 - ppq) / ppqPerSample;
-        if (step % 2 == 1) t += swing * 0.333 * (0.25 / ppqPerSample);
+        if (step % 2 == 1 && meter != band::M68) t += swing * 0.333 * (0.25 / ppqPerSample);
         const int off = juce::jlimit (0, n - 1, (int) t);
         currentStep = step;
         bool out = false;
         if (led)
         {
-            const int64_t bar = (k - step) / 16;
-            out = leader.isOut (bar);
+            const int64_t bar = (k - step) / ns;
+            out = leader.rests (bar, true) || leader.isEnding (bar);     // the drum box: like the drummer
+            const bool chordOut = leader.rests (bar, false);              // the chords: in from the intro, held through the ending
             int r; bool mn; leader.chordAt (bar, r, mn);
-            if (out) { if (bandChord) { omni.releaseChord (false); bandChord = false; } }
+            if (chordOut) { if (bandChord) { omni.releaseChord (false); bandChord = false; } }
             else if (! bandChord || omni.root() != r || omni.type() != (mn ? 1 : 0)) { omni.setChord (r, mn ? 1 : 0); bandChord = true; }
         }
         if (seqOn && ! out)

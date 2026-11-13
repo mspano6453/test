@@ -415,6 +415,81 @@ target_link_libraries(Bandleader
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Jangle - a rhythm guitar player (real steel acoustic, clean and hollow-body electric samples, all CC0)
+file(GLOB JANGLE_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Jangle/Samples/*.flac")
+juce_add_binary_data(JangleSamples NAMESPACE JangleData HEADER_NAME JangleData.h SOURCES ${JANGLE_SAMPLES})
+set_target_properties(JangleSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+juce_add_plugin(Jangle
+    COMPANY_NAME "DEMOCRAZY"
+    BUNDLE_ID "com.teatowelaudio.jangle"
+    PRODUCT_NAME "Jangle"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Jngl
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Jangle PRIVATE
+    Jangle/JangleProcessor.cpp
+    Jangle/JangleEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Jangle PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Jangle
+    PRIVATE
+        JangleSamples
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Harmonia - backing vocals (modelled voices: no samples)
+juce_add_plugin(Harmonia
+    COMPANY_NAME "DEMOCRAZY"
+    BUNDLE_ID "com.teatowelaudio.harmonia"
+    PRODUCT_NAME "Harmonia"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Hrmn
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Synth
+    AU_MAIN_TYPE kAudioUnitType_MusicDevice
+    FORMATS VST3 AU)
+
+target_sources(Harmonia PRIVATE
+    Harmonia/HarmoniaProcessor.cpp
+    Harmonia/HarmoniaEditor.cpp
+    Source/UiKit.cpp Source/BandBus.cpp)
+
+target_compile_definitions(Harmonia PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+
+target_link_libraries(Harmonia
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -529,8 +604,25 @@ if(TEATOWEL_RENDER_DEMO)
         Parlour/ParlourProcessor.cpp Parlour/ParlourEditor.cpp
         Ether/EtherProcessor.cpp Ether/EtherEditor.cpp
         Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp
+        Jangle/JangleProcessor.cpp Jangle/JangleEditor.cpp
+        Harmonia/HarmoniaProcessor.cpp Harmonia/HarmoniaEditor.cpp
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
-        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1 CHAMBER_NO_ENTRY=1)
-    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+
+    # the song form, learning a song, rendering it to MIDI files
+    juce_add_console_app(FormTest PRODUCT_NAME "FormTest")
+    target_sources(FormTest PRIVATE Tools/FormTest.cpp
+        Bandleader/BandleaderProcessor.cpp Bandleader/BandleaderEditor.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        Undertow/UndertowProcessor.cpp Undertow/UndertowEditor.cpp
+        Parlour/ParlourProcessor.cpp Parlour/ParlourEditor.cpp
+        Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp
+        Jangle/JangleProcessor.cpp Jangle/JangleEditor.cpp
+        Harmonia/HarmoniaProcessor.cpp Harmonia/HarmoniaEditor.cpp
+        Source/UiKit.cpp Source/BandBus.cpp)
+    target_compile_definitions(FormTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
+        PARLOUR_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1)
+    target_link_libraries(FormTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

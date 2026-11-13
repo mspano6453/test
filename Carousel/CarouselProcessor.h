@@ -93,6 +93,8 @@ public:
     juce::File exportCurrentLoop();
 
 private:
+    int meterNow = 0;
+
     void ensurePool();
     void handleAction (int a);
     void handleMidi (const juce::MidiMessage&);

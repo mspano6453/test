@@ -57,6 +57,9 @@ EtherProcessor::EtherProcessor()
     for (auto& p : phrase) p.reserve (40);
     answer.reserve (40);
     for (auto& t : uiTrail) t = -1;
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WEther, mc::SongRenderer::partFileName (8, "Ether"),
+                                                   [] { return std::make_unique<EtherProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "follow", 0); });
 }
 
 void EtherProcessor::prepareToPlay (double sampleRate, int)
@@ -150,10 +153,20 @@ void EtherProcessor::writePhrase (int sec, bool fresh)
     static const int sparse[][2] = { { 0, 6 }, { 8, 4 }, { 12, 4 }, { 16, 12 }, { 28, 4 } };
     static const int medium[][2] = { { 0, 3 }, { 3, 1 }, { 4, 4 }, { 8, 2 }, { 10, 2 }, { 12, 4 }, { 16, 6 }, { 22, 2 }, { 24, 6 }, { 30, 2 } };
     static const int busyR[][2] = { { 0, 2 }, { 2, 2 }, { 4, 1 }, { 5, 1 }, { 6, 2 }, { 8, 4 }, { 12, 2 }, { 14, 2 }, { 16, 2 }, { 18, 2 }, { 20, 2 }, { 22, 2 }, { 24, 6 }, { 30, 2 } };
+    // three-beat bars: 24 steps over two bars (3/4 in fours, 6/8 in sixes)
+    static const int sparse3[][2] = { { 0, 8 }, { 8, 4 }, { 12, 8 }, { 20, 4 } };
+    static const int medium3[][2] = { { 0, 4 }, { 4, 2 }, { 6, 2 }, { 8, 4 }, { 12, 6 }, { 18, 2 }, { 20, 4 } };
+    static const int busy3[][2] = { { 0, 2 }, { 2, 2 }, { 4, 2 }, { 6, 1 }, { 7, 1 }, { 8, 4 }, { 12, 2 }, { 14, 2 }, { 16, 2 }, { 18, 2 }, { 20, 4 } };
+    static const int sparse6[][2] = { { 0, 6 }, { 6, 6 }, { 12, 10 }, { 22, 2 } };
+    static const int medium6[][2] = { { 0, 3 }, { 3, 1 }, { 4, 2 }, { 6, 4 }, { 10, 2 }, { 12, 6 }, { 18, 2 }, { 20, 2 }, { 22, 2 } };
+    static const int busy6[][2] = { { 0, 2 }, { 2, 2 }, { 4, 2 }, { 6, 2 }, { 8, 2 }, { 10, 2 }, { 12, 4 }, { 16, 2 }, { 18, 4 }, { 22, 2 } };
     std::vector<std::pair<int, int>> rhythm;
-    if (b < 0.35f) for (auto& x : sparse) rhythm.push_back ({ x[0], x[1] });
-    else if (b < 0.7f) for (auto& x : medium) rhythm.push_back ({ x[0], x[1] });
-    else for (auto& x : busyR) rhythm.push_back ({ x[0], x[1] });
+    auto take = [&] (const auto& tbl) { for (auto& x : tbl) rhythm.push_back ({ x[0], x[1] }); };
+    if (meterNow == band::M34)      { if (b < 0.35f) take (sparse3); else if (b < 0.7f) take (medium3); else take (busy3); }
+    else if (meterNow == band::M68) { if (b < 0.35f) take (sparse6); else if (b < 0.7f) take (medium6); else take (busy6); }
+    else if (b < 0.35f) take (sparse);
+    else if (b < 0.7f) take (medium);
+    else take (busyR);
     // leave a breath sometimes
     for (size_t i = 1; i + 1 < rhythm.size(); ++i) if (r.chance (0.12f + (1.0f - b) * 0.1f)) { rhythm.erase (rhythm.begin() + (long) i); }
     int deg = r.chance (0.5f) ? 4 : (r.chance (0.5f) ? 2 : 0);
@@ -169,8 +182,8 @@ void EtherProcessor::writePhrase (int sec, bool fresh)
             deg = juce::jlimit (-3, 11, deg);
         }
         // long notes and downbeats land on the triad (0, 2, 4 steps from the tonic)
-        if ((n.step % 8 == 0 || n.len >= 4) && ((deg % 7) + 7) % 7 != 0 && ((deg % 7) + 7) % 7 != 2 && ((deg % 7) + 7) % 7 != 4) deg += r.chance (0.5f) ? 1 : -1;
-        n.deg = deg; n.vel = n.step % 4 == 0 ? 0.85f : 0.7f;
+        if ((strongStep (n.step) || n.len >= 4) && ((deg % 7) + 7) % 7 != 0 && ((deg % 7) + 7) % 7 != 2 && ((deg % 7) + 7) % 7 != 4) deg += r.chance (0.5f) ? 1 : -1;
+        n.deg = deg; n.vel = n.step % band::meterBeatSteps (meterNow) == 0 ? 0.85f : 0.7f;
         ph.push_back (n);
     }
     if (! ph.empty()) { ph.back().deg = sec == 1 ? 7 : 0; ph.back().len = juce::jmax (ph.back().len, 3); }
@@ -183,8 +196,8 @@ void EtherProcessor::writePhrase (int sec, bool fresh)
 
 void EtherProcessor::playStep (int64_t k, int64_t at)
 {
-    const int64_t b = k / 16;
-    const int s16 = (int) (((k % 16) + 16) % 16);
+    const int64_t b = k / bs;
+    const int s16 = (int) (((k % bs) + bs) % bs);
     int barIn = 0; bool lastBar = false;
     const int sec = sectionAt (b, barIn, lastBar);
     if (b != curBar)
@@ -197,7 +210,7 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
         if (sec != lastSection || phrase[sec].empty()) { writePhrase (sec, phrase[sec].empty() ? false : rng.chance (1.0f - repeat)); }
         else if (barIn > 0 && barIn % 8 == 0 && rng.chance ((1.0f - repeat) * 0.8f)) writePhrase (sec, true);
         // swoop into a new section
-        if (role != RDrone && sec != lastSection && lastSection >= 0 && (role == RSwoops || rng.chance (0.4f)))
+        if (role != RDrone && sec != lastSection && lastSection >= 0 && (role == RSwoops || rng.chance (0.4f)) && ! (led && (leader.rests (b, false, true) || leader.isEnding (b))))
         {
             int r = 0, q = 0; chordAt (b, r, q);
             const int top = pitchFor (sec == 1 ? 9 : 7, r, q);
@@ -206,7 +219,21 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
         }
         lastSection = sec;
     }
-    if (led && leader.isOut (b)) { if (! outNow) { schedule ({ at, 3, 0, 0, 0 }); outNow = true; } return; }
+    // the song's last chord: one long note (the whole chord for the choir)
+    if (led && leader.isEnding (b))
+    {
+        if (leader.isFinalHit (b) && s16 == 0 && role != RSwoops)
+        {
+            int root = 0, q = 0; chordAt (b, root, q);
+            schedule ({ at, 3, 0, 0, 0 });
+            const int base = pitchFor (0, root, q) - (isPoly (instrument) ? 12 : 0) + ((root - leader.keyAt (b)) % 12 + 12) % 12;
+            const float len = (float) (15.0 / juce::jmax (30.0, bpmNow) * bs * 2 * 0.95);
+            if (isPoly (instrument)) { int t[4]; const int nt = band::qualityTones (q, t); for (int i = 0; i < nt && i < 3; ++i) schedule ({ at + 2 + i * 40, 1, base + t[i] + (i == 1 ? 12 : 0), 0.8f, len }); }
+            else schedule ({ at + 2, 1, base, 0.8f, len });
+        }
+        return;
+    }
+    if (led && leader.rests (b, false, role != RDrone)) { if (! outNow) { schedule ({ at, 3, 0, 0, 0 }); outNow = true; } return; }
     outNow = false;
     int root = 0, q = 0; chordAt (b, root, q);
     uiChord = root | (q << 4);
@@ -221,9 +248,9 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
         if (s16 == 0 && (change || barIn % every == 0))
         {
             lastRoot = root;
-            const int base = pitchFor (0, root, q) - (isPoly (instrument) ? 12 : 0) + ((root - (led ? leader.key : key)) % 12 + 12) % 12;
+            const int base = pitchFor (0, root, q) - (isPoly (instrument) ? 12 : 0) + ((root - (led ? leader.keyAt (b) : key)) % 12 + 12) % 12;
             const int64_t late = std::abs (jit) + 2;   // after the release below, never before it
-            const float len = (float) (sixteenth * 16 * every * 1.02);
+            const float len = (float) (sixteenth * bs * every * 1.02);
             if (isPoly (instrument))
             {
                 schedule ({ at, 3, 0, 0, 0 });
@@ -239,13 +266,13 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
         // every few bars a long glide between chord tones, and radio bloops in the gaps
         const bool bigBar = barIn % 4 == 0;
         int t[4]; const int nt = band::qualityTones (q, t);
-        const int base = pitchFor (0, root, q) + ((root - (led ? leader.key : key)) % 12 + 12) % 12;
+        const int base = pitchFor (0, root, q) + ((root - (led ? leader.keyAt (b) : key)) % 12 + 12) % 12;
         if (s16 == 0 && bigBar)
         {
             schedule ({ at + jit, 1, base - 12, 0.65f, 0.08f });
             schedule ({ at + jit + (int64_t) (sr * 0.06), 1, base + 12 + t[nt - 1], 0.8f, (float) (sixteenth * 12), (float) (sixteenth * 4) });
         }
-        else if (s16 == 8 && bigBar && rng.chance (0.6f))
+        else if (s16 == bs / 2 && bigBar && rng.chance (0.6f))
             schedule ({ at + jit, 1, base + t[rng.i (nt)], 0.7f, (float) (sixteenth * 6) });
         else if (! bigBar && rng.chance (0.08f + busy * 0.22f))
             schedule ({ at + jit, 1, base + 12 + t[rng.i (nt)] + (rng.chance (0.3f) ? 12 : 0), 0.6f, (float) (sixteenth * (rng.chance (0.5f) ? 1 : 2)) });
@@ -256,13 +283,15 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
     if (sec == 2 && barIn % 4 >= 2) return;
     const bool ans = (barIn % 4) >= 2;
     const auto& ph = ans ? answer : phrase[sec];
-    const int stepIn = (barIn % 2) * 16 + s16;
+    const int stepIn = (barIn % 2) * bs + s16;
+    const bool half = led && leader.isHalf (b);
     for (const auto& n : ph)
     {
         if (n.step != stepIn) continue;
+        if (half && n.step % bs != 0) continue;     // the breakdown: only the downbeats
         int p = pitchFor (n.deg, root, q);
         // on a downbeat, make sure we're on a note of the chord
-        if (n.step % 8 == 0)
+        if (strongStep (n.step))
         {
             int t[4]; const int nt = band::qualityTones (q, t); int best = p, bd = 99;
             for (int o = -1; o <= 1; ++o) for (int i = 0; i < nt; ++i) { const int c = root + t[i] + 12 * ((p - root) / 12 + o); if (std::abs (c - p) < bd) { bd = std::abs (c - p); best = c; } }
@@ -284,6 +313,12 @@ void EtherProcessor::runPlayer (int n)
             if (auto p = pos->getPpqPosition()) ppq = *p; else playing = false;
         }
     bpmNow = bpm; blockPpq = ppq; uiTransport = playing;
+    {
+        const int m = led ? leader.meter : band::hostMeter (getPlayHead());
+        if (m != meterNow) { meterNow = m; curBar = -1; for (auto& ph : phrase) ph.clear(); }
+        bs = band::meterSteps (meterNow);
+        capture.setMeter (meterNow);
+    }
     if (! playing) { if (wasPlaying) schedule ({ sampleClock, 3, 0, 0, 0 }); wasPlaying = false; return; }
     const double spb = sr * 60.0 / bpm;
     if (! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.25)
@@ -384,6 +419,7 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     uiLevel = peak;
     bool any = false; for (auto& v : voices) any = any || (v.active() && v.held);
     if (! any) uiNote = -1;
+    fade.apply (buffer, n, led, leader, getPlayHead());   // Bandleader's fade-out
     midi.swapWith (outMidi);
     {
         double cp = 0; bool cpl = false;

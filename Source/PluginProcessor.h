@@ -17,8 +17,11 @@ class TeaTowelProcessor : public juce::AudioProcessor
 {
 public:
     std::atomic<bool> uiLinked { false };
+    std::atomic<int> uiMeter { 0 };
+    band::Fade fade; bool fadeLed = false; band::Leader fadeLeader;
+    std::unique_ptr<mc::SongRenderer> renderer;
     TeaTowelProcessor();
-    ~TeaTowelProcessor() override = default;
+    ~TeaTowelProcessor() override { renderer.reset(); }
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}

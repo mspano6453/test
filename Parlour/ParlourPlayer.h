@@ -167,7 +167,89 @@ inline void writeBar (int feel, int section, int barInPhrase, float busy, Rng& r
     }
 }
 
+// ---- three beats to the bar: 3/4 (beats on 0, 4, 8) and 6/8 (eighths on even steps, beats on 0 and 6)
+inline void writeBarTriple (int feel, int section, int barInPhrase, float busy, Rng& r, std::vector<Hit>& out, int meter)
+{
+    out.clear();
+    const bool chorus = section == 1, bridge = section == 2;
+    const float b = juce::jlimit (0.0f, 1.0f, busy + (chorus ? 0.15f : 0.0f) - (bridge ? 0.2f : 0.0f));
+    auto add = [&] (int s, float len, float vel, int kind = HChord, int idx = 0) { out.push_back ({ s, len, vel, kind, idx }); };
+    const bool six = meter == band::M68;
+    juce::ignoreUnused (barInPhrase);
+    if (feelHolds (feel)) { add (0, 12.0f, 0.72f); if (chorus && feel == KPhillyStr) add (8, 4.0f, 0.72f, HTopOct); return; }
+    if (feel == KBells)
+    {
+        static const int pa[] = { 0, 4, 8 }, pb[] = { 0, 4, 6, 10 };
+        int idx = r.i (3);
+        if (six) for (int s : pb) { add (s, 2.5f, 0.7f, HNote, 2 + idx); idx = (idx + 1) % 4; }
+        else for (int s : pa) { add (s, 3.0f, 0.7f, HNote, 2 + idx); idx = (idx + (r.chance (0.6f) ? 1 : 2)) % 4; }
+        return;
+    }
+    if (feel == KArp || feel == KBallad)
+    {
+        // a rolling arpeggio: the left hand on the beat, the right hand climbing the chord
+        static const int up[] = { 0, 1, 2, 3, 2, 1 };
+        add (0, six ? 5.5f : 11.0f, 0.74f, HLeft);
+        if (six) add (6, 5.5f, 0.66f, HLeft, 1);
+        const int stepBy = (feel == KArp && b > 0.5f) ? 1 : 2;
+        for (int s = stepBy, i = 1; s < 12; s += stepBy, ++i) add (s, feel == KArp ? 1.0f : 2.6f, (s % (six ? 6 : 4) == 0) ? 0.7f : 0.6f, HNote, up[i % 6]);
+        return;
+    }
+    if (six)
+    {
+        switch (feel)
+        {
+            case KLofi: add (0, 6.0f, 0.62f); add (6, 5.0f, 0.5f, HChordNoLeft); break;
+            case KStabs: case KHouse: case KSkank:
+                for (int s : { 2, 4, 8, 10 }) add (s, 0.8f, 0.8f, HChordNoLeft);
+                break;
+            default:
+                // the 50s ballad piano: a chord on every eighth, the bass note on one and four
+                add (0, 5.5f, 0.78f, HLeft); add (6, 5.5f, 0.7f, HLeft, 1);
+                for (int s = 0; s < 12; s += 2)
+                {
+                    if (b < 0.35f && s % 6 != 0) continue;
+                    add (s, 1.6f, s % 6 == 0 ? 0.78f : 0.58f, HChordNoLeft);
+                }
+        }
+        return;
+    }
+    switch (feel)
+    {
+        case KLofi: add (0, 7.0f, 0.62f); if (r.chance (0.6f)) add (8, 3.5f, 0.5f, HChordNoLeft); break;
+        case KRock8:
+            for (int s = 0; s < 12; s += 2) add (s, 1.7f, s % 4 == 0 ? 0.86f : 0.72f, HChordNoLeft);
+            add (0, 3.6f, 0.82f, HLeft); add (8, 3.6f, 0.78f, HLeft, 1);
+            break;
+        default:
+            // oom-pah-pah: the bass note on one, the chord on two and three
+            add (0, 3.6f, 0.8f, HLeft);
+            add (4, 2.8f, 0.68f, HChordNoLeft);
+            add (8, 2.8f, 0.66f, HChordNoLeft);
+            if (b > 0.6f && r.chance (b - 0.3f)) add (10, 1.4f, 0.52f, HChordNoLeft);
+            if (b > 0.75f) add (0, 3.0f, 0.62f, HChordNoLeft);
+    }
+}
+inline void writeBarAny (int feel, int section, int barInPhrase, float busy, Rng& r, std::vector<Hit>& out, int meter)
+{
+    if (meter == band::M44) writeBar (feel, section, barInPhrase, busy, r, out);
+    else writeBarTriple (feel, section, barInPhrase, busy, r, out, meter);
+}
+
 // fills: what the keys do in the bar before a new section
+inline void writeFillTriple (int feel, Rng& r, std::vector<Hit>& out, int meter)
+{
+    const int from = meter == band::M68 ? 6 : 8;
+    if (feelHolds (feel)) { out.push_back ({ from, 4.0f, 0.82f, HTopOct, 0 }); return; }
+    out.erase (std::remove_if (out.begin(), out.end(), [from] (const Hit& h) { return h.step >= from; }), out.end());
+    const bool big = r.chance (0.5f);
+    for (int i = 0, s = from; s < 12; s += (meter == band::M68 ? 2 : 1), ++i) out.push_back ({ s, 1.0f, 0.7f + 0.06f * (float) i, HNote, big ? i + 2 : i });
+}
+inline void writeFill (int feel, Rng& r, std::vector<Hit>& out);
+inline void writeFillAny (int feel, Rng& r, std::vector<Hit>& out, int meter)
+{
+    if (meter == band::M44) writeFill (feel, r, out); else writeFillTriple (feel, r, out, meter);
+}
 inline void writeFill (int feel, Rng& r, std::vector<Hit>& out)
 {
     if (feelHolds (feel)) { out.push_back ({ 12, 4.0f, 0.82f, HTopOct, 0 }); return; }

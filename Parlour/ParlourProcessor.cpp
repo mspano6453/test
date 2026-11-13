@@ -63,6 +63,9 @@ ParlourProcessor::ParlourProcessor()
     queue.reserve (1024); bar.reserve (64);
     outMidi.ensureSize (2048);
     loadSamples();
+    renderer = std::make_unique<mc::SongRenderer> (*this, band::WParlour, mc::SongRenderer::partFileName (5, "Keys"),
+                                                   [] { return std::make_unique<ParlourProcessor>(); },
+                                                   [] (juce::AudioProcessor& p) { mc::setChoice (p, "follow", 0); });
 }
 
 // Real instruments from the Versilian Community Sample Library (CC0): upright piano ("pn_"),
@@ -175,21 +178,43 @@ KChord ParlourProcessor::chordAt (int64_t b) const
 
 void ParlourProcessor::playStep (int64_t k, int64_t at)
 {
-    const int64_t b = k / 16;
-    const int s16 = (int) (((k % 16) + 16) % 16);
+    const int64_t b = k / bs;
+    const int s16 = (int) (((k % bs) + bs) % bs);
     if (b != curBar)
     {
         curBar = b;
         bool lastBar = false;
         barSection = sectionAt (b, barInSec, lastBar);
-        writeBar (feel, barSection, barInSec, busy, rng, bar);
+        writeBarAny (feel, barSection, barInSec, busy, rng, bar, meterNow);
         const bool fill = (led && leader.fillAt (b)) || (! led && follow == FBand && autoSong && lastBar);
-        if (fill && filledBar != b) { writeFill (feel, rng, bar); filledBar = b; }
+        if (fill && filledBar != b) { writeFillAny (feel, rng, bar, meterNow); filledBar = b; }
+        // the breakdown: one chord a bar, left to ring
+        if (led && leader.isHalf (b)) { bar.clear(); bar.push_back ({ 0, (float) bs, 0.68f, HChord, 0 }); }
         uiSection = barSection;
     }
     uiStep = s16;
-    // the band dropped out: let go, and stay quiet
-    const bool out = led && leader.isOut (b);
+    // the song's last chord: the whole hand, left to ring, then nothing
+    if (led && leader.isEnding (b))
+    {
+        if (leader.isFinalHit (b) && s16 == 0)
+        {
+            const KChord c = chordAt (b);
+            if (c.valid())
+            {
+                schedule ({ at, 3, 0, 0, 0 });
+                const int centers[3] = { 55, 62, 69 };
+                voicing = voiceChord (c, colour, centers[juce::jlimit (0, 2, reg)], voicing);
+                const float lenSec = (float) (2.0 * bs * sr * 15.0 / juce::jmax (30.0, bpmNow) / sr * 0.95);
+                int lh = c.root + 36; while (lh < 36) lh += 12; while (lh > 47) lh -= 12;
+                if (leftHand) schedule ({ at, 1, lh, 0.8f, lenSec });
+                for (int i = 0; i < voicing.n; ++i) schedule ({ at + (int64_t) i * 30, 1, voicing.notes[i], 0.78f, lenSec });
+                lastChord = c;
+            }
+        }
+        return;
+    }
+    // the band dropped out (or hasn't come in yet, or the song is over): let go, and stay quiet
+    const bool out = led && leader.rests (b, false);
     const bool midiSilent = follow == FMidiChords && ! midiChord.valid();
     if (out || midiSilent)
     {
@@ -228,7 +253,7 @@ void ParlourProcessor::playStep (int64_t k, int64_t at)
     const float secLift = barSection == 1 ? 0.06f : (barSection == 2 ? -0.05f : 0.0f);
     // timing: swing on the off 16ths, a little looseness, the lazy lo-fi drag
     double offMs = rng.n() * (1.5 + 5.0 * human);
-    if (s16 % 2 == 1) offMs += swing * sixteenth / sr * 1000.0 * 0.66;
+    if (s16 % 2 == 1 && meterNow != band::M68) offMs += swing * sixteenth / sr * 1000.0 * 0.66;
     if (feel == KLofi) offMs += 14.0 + 8.0 * human;
     const bool percussive = ! (instrument == IOrgan || instrument == IStrings || instrument == IPad || instrument == IBrass);
     const double strumMs = feel == KLofi ? 9.0 + 6.0 * human : (percussive ? 0.8 + 3.0 * human : 0.3);
@@ -239,7 +264,7 @@ void ParlourProcessor::playStep (int64_t k, int64_t at)
         if (holds && h.step == 0 && ! changed && h.kind == HChord && barInSec % 4 != 0) continue;   // same chord: keep holding it
         const float vel = juce::jlimit (0.08f, 1.0f, h.vel * (0.55f + 0.6f * dynamics) + rng.n() * 0.06f * human + energy + secLift);
         float lenSec = (float) (h.len * lengthK * sixteenth / sr) * (1.0f + rng.n() * 0.06f * human);
-        if (holds && h.len >= 15.0f) lenSec = -1.0f;    // pads hold until the chord changes
+        if (holds && h.len >= (float) bs - 1.0f) lenSec = -1.0f;    // pads hold until the chord changes
         const int64_t t0 = at + (int64_t) (offMs * sr / 1000.0);
         auto on = [&] (int note, float v, double extraMs) { schedule ({ juce::jmax (sampleClock, t0 + (int64_t) (extraMs * sr / 1000.0)), 1, note, v, lenSec }); };
         int lh = c.root + 36; while (lh < (reg == 0 ? 31 : 36)) lh += 12; while (lh > (reg == 0 ? 42 : 47)) lh -= 12;
@@ -283,6 +308,12 @@ void ParlourProcessor::runPlayer (int n)
         }
     bpmNow = bpm; blockPpq = ppq;
     uiTransport = playing;
+    {
+        const int m = led ? leader.meter : band::hostMeter (getPlayHead());
+        if (m != meterNow) { meterNow = m; curBar = -1; }
+        bs = band::meterSteps (meterNow);
+        capture.setMeter (meterNow);
+    }
     if (! playing)
     {
         if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0 }); uiStep = -1; }
@@ -394,6 +425,7 @@ void ParlourProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     uint32_t bits[4] {};
     for (auto& v : voices) if (v.active() && v.held) bits[v.note >> 5] |= 1u << (v.note & 31);
     for (int i = 0; i < 4; ++i) uiNotes[i] = bits[i];
+    fade.apply (buffer, n, led, leader, getPlayHead());   // Bandleader's fade-out
     // MIDI out: what it played (the notes coming in are not passed through)
     midi.swapWith (outMidi);
     {
