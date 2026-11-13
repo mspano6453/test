@@ -28,8 +28,12 @@ for b in "$R"/Library/Audio/Plug-Ins/VST3/*.vst3 "$R"/Library/Audio/Plug-Ins/Com
   if [ "$SIGN" = "-" ]; then codesign --force --deep -s - "$b"; else codesign --force --deep --options runtime --timestamp -s "$SIGN" "$b"; fi
 done
 pkgbuild --analyze --root "$R" comp.plist
-n=$(/usr/libexec/PlistBuddy -c "Print" comp.plist | grep -c "RootRelativeBundlePath")
-for ((i=0; i<n; i++)); do /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" comp.plist; done
+# keep every plugin where it's put (not "relocated" to an old copy somewhere else on the disk)
+i=0
+while /usr/libexec/PlistBuddy -c "Print :$i" comp.plist >/dev/null 2>&1; do
+  /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" comp.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :$i:BundleIsRelocatable bool false" comp.plist || true
+  i=$((i+1))
+done
 pkgbuild --root "$R" --component-plist comp.plist --identifier com.democrazy.suite --version "$VERSION" --install-location / democrazy-component.pkg
 productbuild --package democrazy-component.pkg "out-mac/DEMOCRAZY Installer (Mac).pkg"
 if [ -n "$MACOS_INSTALLER_SIGN_ID" ]; then
