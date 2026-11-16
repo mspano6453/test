@@ -1,4 +1,5 @@
 #pragma once
+#include "../Source/SongForm.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Source/MidiCapture.h"
 #include "../Source/BandStyles.h"
@@ -80,6 +81,8 @@ public:
     std::atomic<int> uiOmniRoot { 0 }, uiOmniType { 0 };
     std::atomic<float> drumFlash[sw::NumDrums] {};
 
+    void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
+    band::Bench bench;
 private:
     void readParams();
     void handleMidi (const juce::MidiMessage&);

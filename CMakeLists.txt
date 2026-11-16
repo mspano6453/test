@@ -490,6 +490,26 @@ target_link_libraries(Harmonia
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# ---------------------------------------------------------------------------
+# Swirl - psychedelic studio tricks: backwards, phaser, rotary speaker, tape flange
+juce_add_plugin(Swirl
+    COMPANY_NAME "DEMOCRAZY"
+    BUNDLE_ID "com.teatowelaudio.swirl"
+    PRODUCT_NAME "Swirl"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Swrl
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Fx Modulation
+    AU_MAIN_TYPE kAudioUnitType_Effect
+    FORMATS VST3 AU)
+target_sources(Swirl PRIVATE Swirl/SwirlProcessor.cpp Swirl/SwirlEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+target_compile_definitions(Swirl PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(Swirl PRIVATE juce::juce_audio_utils juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)

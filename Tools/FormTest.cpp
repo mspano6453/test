@@ -331,6 +331,48 @@ void levels()
         }
 }
 
+// Bandleader's on/off lights: a player that's switched off stops, the others carry on, and it comes back
+void benchTest()
+{
+    std::printf ("\n== BAND LIGHTS: switch a player off and on from Bandleader\n");
+    const double sr = 44100; const int bs = 256;
+    BandleaderProcessor lead; UndertowProcessor bass; ParlourProcessor keys; TeaTowelProcessor drums;
+    Head head; head.playing = true;
+    juce::AudioProcessor* all[] = { &lead, &drums, &bass, &keys };
+    for (auto* p : all) { p->setPlayConfigDetails (p == &lead || p == &bass ? 2 : 0, 2, sr, bs); p->prepareToPlay (sr, bs); p->setPlayHead (&head); }
+    setP (keys.apvts, "sit_out", 0);
+    const double spb = sr * 60.0 / head.bpm;
+    int pos = 0;
+    auto run = [&] (int bars, int* ons, double* rms)
+    {
+        for (int k = 0; k < 4; ++k) { ons[k] = 0; rms[k] = 0; }
+        const int end = pos + (int) (spb * 4 * bars) / bs * bs;
+        for (; pos < end; pos += bs)
+        {
+            head.ppq = pos / spb;
+            for (int k = 0; k < 4; ++k)
+            {
+                juce::AudioBuffer<float> b (2, bs); b.clear(); juce::MidiBuffer m; all[k]->processBlock (b, m);
+                for (const auto ev : m) if (ev.getMessage().isNoteOn()) ++ons[k];
+                rms[k] += b.getRMSLevel (0, 0, bs);
+            }
+        }
+    };
+    int ons[4]; double rms[4];
+    run (4, ons, rms);
+    check (ons[1] > 0 && ons[2] > 0 && ons[3] > 0, "everyone on: drums, bass and keys all play");
+    lead.toggleBench (band::WUndertow); lead.toggleBench (band::WTeaTowel);
+    run (1, ons, rms); run (4, ons, rms);
+    check (ons[2] == 0 && ons[1] == 0 && ons[3] > 0, "bass and drums switched off: they stop (" + juce::String (ons[2]) + ", " + juce::String (ons[1]) + " notes), keys keep playing (" + juce::String (ons[3]) + ")");
+    check (rms[2] / 600.0 < 0.002, "the bass is silent while off");
+    lead.toggleBench (band::WUndertow); lead.toggleBench (band::WTeaTowel);
+    run (1, ons, rms); run (4, ons, rms);
+    check (ons[1] > 0 && ons[2] > 0, "switched back on: they come back in");
+    juce::MemoryBlock mb; lead.toggleBench (band::WParlour); lead.getStateInformation (mb);
+    BandleaderProcessor lead2; lead2.setStateInformation (mb.getData(), (int) mb.getSize());
+    check (lead2.benched.load() == (1u << band::WParlour), "the lights are saved with the set");
+}
+
 // a long torture run: the whole band, random block sizes, jumps, stops, tempo, meter and style changes, footswitches
 void soak (int minutes)
 {
@@ -392,6 +434,7 @@ int main()
     formTest (2, "3-4");
     formTest (3, "6-8");
     formTest (1, "4-4");
+    benchTest();
     learnKeys();
     learnGuitar();
     renderTest();

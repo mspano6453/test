@@ -403,6 +403,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         for (int i = 0; i < L.progLen[s]; ++i) if (L.progOff[s][i] == 0) { L.tonicQ = L.progMinor[s][i]; found = 1; break; }
     if (L.tonicQ == band::QDom7) L.tonicQ = band::QMaj;
     L.energy = g ("energy");
+    L.benched = benched.load();
     L.style = styleIdx.load(); L.styleStamp = styleStamp.load();
     L.suggestedBpm = L.style >= 0 ? band::styles()[(size_t) L.style].bpm : 0.0f;
     const bool autoSong = g ("song") < 0.5f;
@@ -617,6 +618,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 void BandleaderProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     saveLearned();
+    apvts.state.setProperty ("benched", (juce::int64) benched.load(), nullptr);
     if (auto xml = apvts.copyState().createXml()) copyXmlToBinary (*xml, dest);
 }
 
@@ -631,6 +633,7 @@ void BandleaderProcessor::setStateInformation (const void* data, int size)
             styleIdx = lastStyleParam - 1;
             styleStamp = (uint32_t) (juce::int64) apvts.state.getProperty ("styleStamp", 0);
             loadLearned();
+            benched = (uint32_t) (juce::int64) apvts.state.getProperty ("benched", 0);
             lastSpecKey = {};
             rebuildSong();
         }
@@ -683,6 +686,7 @@ bool BandleaderProcessor::startRender()
     band::RenderJob j;
     if (! band::readLeader (j.song)) j.song = L;
     j.song.playing = 1; j.song.learning = 0;
+    j.song.benched = benched.load();
     j.song.dropStart = j.song.dropEnd = band::kNever;
     j.song.meter = uiMeter.load();
     j.spec = f;

@@ -1,4 +1,5 @@
 #pragma once
+#include "../Source/SongForm.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Source/MidiCapture.h"
 #include "../Source/BandStyles.h"
@@ -43,6 +44,8 @@ public:
     std::atomic<float> uiInput { 0 }, uiJourney { 0 };
     std::atomic<uint32_t> uiNoteCounter { 0 };
 
+    void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
+    band::Bench bench;
 private:
     float v (const char* id) const { return apvts.getRawParameterValue (id)->load(); }
 

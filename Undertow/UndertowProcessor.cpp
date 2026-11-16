@@ -579,7 +579,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         uiLinked = led;
         if (led != wasLed) lastPpqEnd = -1e9;   // re-sync to (or away from) the Bandleader's song
         // a style can ask the bass to sit out (an orchestra-only song, say)
-        if (apvts.getRawParameterValue ("sit_out")->load() > 0.5f) { if (activeNote() >= 0) events.push_back ({ 0, 2, 0, 0, 0 }); lastPpqEnd = -1e9; }
+        if (apvts.getRawParameterValue ("sit_out")->load() > 0.5f || (led && leader.off (band::WUndertow))) { if (activeNote() >= 0) events.push_back ({ 0, 2, 0, 0, 0 }); lastPpqEnd = -1e9; }
         else runPlayer (n, events);
     }
     else

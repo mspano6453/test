@@ -273,7 +273,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (led)
         {
             ps.link = &leader;
-            ps.on = apvts.getRawParameterValue ("sit_out")->load() < 0.5f;     // a style can leave the drums out
+            ps.on = apvts.getRawParameterValue ("sit_out")->load() < 0.5f && ! leader.off (band::WTeaTowel);     // a style can leave the drums out
             ps.intensity = juce::jlimit (0.0f, 1.0f, ps.intensity + (leader.energy - 0.5f) * 0.8f);
         }
         playerOut.clear();

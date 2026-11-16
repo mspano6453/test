@@ -380,7 +380,7 @@ void ParlourProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     }
     if (chordKeys) { const auto c = chordFromNotes (held); if (c.valid() || follow == FMidiChords) midiChord = c; }
 
-    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f;
+    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f || (led && leader.off (band::WParlour));
     if (follow != FPlay && ! sitOut) runPlayer (n);
     else { uiTransport = false; if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0 }); wasPlaying = false; } }
     if (follow == FPlay) { const auto c = chordFromNotes (held); uiChord = c.valid() ? c.root | (c.q << 4) : -1; }

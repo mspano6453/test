@@ -1,3 +1,4 @@
+#include "../Source/SongForm.h"
 #include "TapeTwinProcessor.h"
 #include "TapeTwinEditor.h"
 #include "../Source/BandBus.h"
@@ -70,7 +71,14 @@ void TapeTwinProcessor::prepareToPlay (double sampleRate, int)
     smoothDelay = 0.0;
 }
 
-void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void TapeTwinProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    bench.begin (buffer, band::WTapeTwin, true);     // Bandleader's on/off light for this plugin
+    processCore (buffer, midi);
+    bench.end (buffer, true);
+}
+
+void TapeTwinProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();

@@ -205,7 +205,9 @@ void JangleProcessor::strum (const Hit& h, int64_t at, const Shape& sh, double s
     const float lenSec = h.len < 0 ? (float) (sixteenth * bs * 2.2 / sr * lengthK) : (float) (h.len * lengthK * sixteenth / sr);
     const bool muted = guitar == GMuted || (h.stroke == SDown && h.arg == 1);
     const int setId = muted ? SetMute : setFor (guitar);
-    std::vector<int> used; for (int s = 0; s < 6; ++s) if (sh.fret[s] >= 0) used.push_back (s);
+    struct Used { int v[6]; int n = 0; bool empty() const { return n == 0; } size_t size() const { return (size_t) n; }
+                  int operator[] (size_t i) const { return v[i]; } int front() const { return v[0]; } int back() const { return v[n - 1]; } } used;
+    for (int s = 0; s < 6; ++s) if (sh.fret[s] >= 0) used.v[used.n++] = s;
     if (used.empty()) return;
     const double gapMs = (4.0 + 14.0 * (1.0 - strumSpeed)) * (1.15 - 0.3 * v);
     auto play = [&] (int str, int64_t t, float vel, float len)
@@ -392,7 +394,7 @@ void JangleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
     if (chordKeys) chordFromHeld (held, midiRoot, midiQ);
 
-    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f;
+    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f || (led && leader.off (band::WJangle));
     if (follow != FPlay && ! sitOut) runPlayer (n);
     else { uiTransport = false; if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0, 0, 0 }); wasPlaying = false; } }
 

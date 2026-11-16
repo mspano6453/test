@@ -1,3 +1,4 @@
+#include "../Source/SongForm.h"
 #include "LatheProcessor.h"
 #include "LatheEditor.h"
 #include "../Source/BandBus.h"
@@ -213,7 +214,14 @@ void LatheProcessor::readParams()
     mx.gainDb = v ("mx_gain"); mx.ceilingDb = v ("mx_ceil"); mx.releaseMs = v ("mx_rel"); mx.truePeak = v ("mx_tp") > 0.5f;
 }
 
-void LatheProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void LatheProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    bench.begin (buffer, band::WLathe, true);     // Bandleader's on/off light for this plugin
+    processCore (buffer, midi);
+    bench.end (buffer, true);
+}
+
+void LatheProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();

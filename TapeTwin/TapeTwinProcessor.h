@@ -1,4 +1,5 @@
 #pragma once
+#include "../Source/SongForm.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Source/BandStyles.h"
 #include <array>
@@ -111,6 +112,8 @@ public:
     std::atomic<float> echoLevel { 0.0f }, currentDelayMs { 0.0f };
     std::atomic<bool> uiLinked { false };
 
+    void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
+    band::Bench bench;
 private:
     std::atomic<float>* prm[tw::NumParams] {};
     double sr = 44100.0;

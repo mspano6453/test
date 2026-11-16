@@ -189,4 +189,32 @@ struct Fade
         g = target;
     }
 };
+
+// Bandleader's on/off lights: a member that's switched off goes quiet (an instrument) or passes
+// its input straight through (an effect), with a short fade so it never clicks.
+struct Bench
+{
+    juce::AudioBuffer<float> dry; float g = 1.0f; bool off = false, active = false;
+    void begin (const juce::AudioBuffer<float>& buf, int who, bool keepDry)
+    {
+        Leader L; off = readLeader (L) && L.off (who);
+        active = off || g < 1.0f;
+        if (active && keepDry)
+        {
+            dry.setSize (buf.getNumChannels(), buf.getNumSamples(), false, false, true);
+            for (int c = 0; c < buf.getNumChannels(); ++c) dry.copyFrom (c, 0, buf, c, 0, buf.getNumSamples());
+        }
+    }
+    void end (juce::AudioBuffer<float>& buf, bool toDry)
+    {
+        if (! active) return;
+        const float target = off ? 0.0f : 1.0f; const int n = buf.getNumSamples();
+        for (int c = 0; c < buf.getNumChannels(); ++c)
+        {
+            buf.applyGainRamp (c, 0, n, g, target);
+            if (toDry && c < dry.getNumChannels() && dry.getNumSamples() >= n) buf.addFromWithRamp (c, 0, dry.getReadPointer (c), n, 1.0f - g, 1.0f - target);
+        }
+        g = target;
+    }
+};
 } // namespace band

@@ -88,6 +88,8 @@ public:
     std::atomic<bool> uiOver { false }, uiEndComing { false }, uiHalfOn { false };
     std::atomic<int64_t> uiBar { 0 };
 
+    std::atomic<uint32_t> benched { 0 };     // band members switched off with the lights in THE BAND
+    void toggleBench (int who) { benched ^= (1u << who); }
     mc::Capture capture;
 
 private:

@@ -160,7 +160,7 @@ void EtherProcessor::writePhrase (int sec, bool fresh)
     static const int sparse6[][2] = { { 0, 6 }, { 6, 6 }, { 12, 10 }, { 22, 2 } };
     static const int medium6[][2] = { { 0, 3 }, { 3, 1 }, { 4, 2 }, { 6, 4 }, { 10, 2 }, { 12, 6 }, { 18, 2 }, { 20, 2 }, { 22, 2 } };
     static const int busy6[][2] = { { 0, 2 }, { 2, 2 }, { 4, 2 }, { 6, 2 }, { 8, 2 }, { 10, 2 }, { 12, 4 }, { 16, 2 }, { 18, 4 }, { 22, 2 } };
-    std::vector<std::pair<int, int>> rhythm;
+    auto& rhythm = rhythmScratch; rhythm.clear();     // (kept between calls: nothing is allocated while playing)
     auto take = [&] (const auto& tbl) { for (auto& x : tbl) rhythm.push_back ({ x[0], x[1] }); };
     if (meterNow == band::M34)      { if (b < 0.35f) take (sparse3); else if (b < 0.7f) take (medium3); else take (busy3); }
     else if (meterNow == band::M68) { if (b < 0.35f) take (sparse6); else if (b < 0.7f) take (medium6); else take (busy6); }
@@ -372,7 +372,7 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
         }
         else if (msg.isAllNotesOff() || msg.isAllSoundOff()) { held.fill (false); schedule ({ at, 3, 0, 0, 0 }); }
     }
-    if (follow == FBand && ! sitOut) runPlayer (n);
+    if (follow == FBand && ! sitOut && ! (led && leader.off (band::WEther))) runPlayer (n);
     else { uiTransport = false; if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0 }); wasPlaying = false; } }
 
     std::stable_sort (queue.begin(), queue.end(), [] (const Ev& a, const Ev& b) { return a.at < b.at; });

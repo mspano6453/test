@@ -1,3 +1,4 @@
+#include "../Source/SongForm.h"
 #include "SchaltwerkProcessor.h"
 #include "SchaltwerkEditor.h"
 #include "../Source/BandBus.h"
@@ -323,6 +324,13 @@ void SchaltwerkProcessor::renderSegment (float* L, float* R, int start, int end)
 }
 
 void SchaltwerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    bench.begin (buffer, band::WSchaltwerk, false);     // Bandleader's on/off light for this plugin
+    processCore (buffer, midi);
+    bench.end (buffer, false);
+}
+
+void SchaltwerkProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();

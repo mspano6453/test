@@ -327,7 +327,7 @@ void HarmoniaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     }
     if (chordKeys) chordFromHeld (held, midiRoot, midiQ);
 
-    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f;
+    const bool sitOut = apvts.getRawParameterValue ("sit_out")->load() > 0.5f || (led && leader.off (band::WHarmonia));
     if (follow != FPlay && ! sitOut) runPlayer (n);
     else { uiTransport = false; if (wasPlaying) { schedule ({ sampleClock, 3, 0, 0, 0, 0, {}, false, 0 }); wasPlaying = false; singing = false; } }
 

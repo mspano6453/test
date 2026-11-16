@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 namespace band
 {
-enum Who { WTeaTowel = 0, WUndertow, WLoon, WSchaltwerk, WCarousel, WTapeTwin, WLathe, WBandleader, WParlour, WEther, WChamber, WJangle, WHarmonia, NumWho };
+enum Who { WTeaTowel = 0, WUndertow, WLoon, WSchaltwerk, WCarousel, WTapeTwin, WLathe, WBandleader, WParlour, WEther, WChamber, WJangle, WHarmonia, WSwirl, NumWho };
 enum Sec { Verse = 0, Chorus, Bridge, NumSec };
 constexpr int kMaxProg = 32;
 // chord qualities carried on the bus (progMinor holds one of these)
@@ -83,6 +83,8 @@ struct Leader
     int64_t overFrom = kNever;                        // the song is over from this bar on: silence
     int32_t keyShift = 0; int64_t keyFrom = kNever, keyTo = kNever;   // key change
     int32_t tonicQ = 0;                               // the quality of the last chord (the home chord)
+    uint32_t benched = 0;                             // one bit per band member (Who) that Bandleader has switched off
+    bool off (int who) const { return ((benched >> who) & 1u) != 0; }
     int32_t learning = 0;                             // Bandleader is learning the song: the band lays out
 
     // ---- helpers every follower uses

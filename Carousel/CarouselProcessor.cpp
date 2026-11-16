@@ -292,6 +292,13 @@ void CarouselProcessor::checkTriggerParams()
 // ---------------------------------------------------------------------------
 void CarouselProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
+    bench.begin (buffer, band::WCarousel, true);     // Bandleader's on/off light for this plugin
+    processCore (buffer, midi);
+    bench.end (buffer, true);
+}
+
+void CarouselProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     const int nch = buffer.getNumChannels();

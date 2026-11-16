@@ -1,4 +1,5 @@
 #pragma once
+#include "../Source/SongForm.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Source/BandStyles.h"
 #include <juce_dsp/juce_dsp.h>
@@ -111,6 +112,8 @@ public:
 
     double getSampleRateSafe() const { return sr; }
 
+    void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
+    band::Bench bench;
 private:
     void readParams();
     void setParam (const juce::String& id, float value);

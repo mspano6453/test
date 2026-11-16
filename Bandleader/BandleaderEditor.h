@@ -9,6 +9,9 @@ public:
     ~BandleaderEditor() override;
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    int memberAt (juce::Point<int>) const;
 
 private:
     void timerCallback() override;
@@ -32,7 +35,7 @@ private:
     juce::ComboBox* progBox[3] {};
     juce::ComboBox* keyBox = nullptr;
     juce::ComboBox styleBox;
-    juce::TextButton applyAgainB { "APPLY AGAIN" };
+    juce::TextButton applyAgainB { "APPLY AGAIN" }, surpriseB { "SURPRISE ME" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt;
     juce::Rectangle<int> styleText;
     ttui::Knob* energyK = nullptr;

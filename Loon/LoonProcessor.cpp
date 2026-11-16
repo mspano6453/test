@@ -1,3 +1,4 @@
+#include "../Source/SongForm.h"
 #include "LoonProcessor.h"
 #include "../Source/BandBus.h"
 #include "LoonEditor.h"
@@ -110,6 +111,13 @@ void LoonProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 }
 
 void LoonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    bench.begin (buffer, band::WLoon, true);     // Bandleader's on/off light for this plugin
+    processCore (buffer, midi);
+    bench.end (buffer, true);
+}
+
+void LoonProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();

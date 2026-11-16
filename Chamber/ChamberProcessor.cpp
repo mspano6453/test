@@ -557,7 +557,7 @@ void ChamberProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         }
     }
     midi.clear();
-    if (follow != FPlay && ! sitOut) runPlayer (n);
+    if (follow != FPlay && ! sitOut && ! (led && leader.off (band::WChamber))) runPlayer (n);
     else
     {
         double ppq = 0, bpm = 120; bool playing = false;

@@ -93,8 +93,7 @@ inline void writeBar (int feel, int section, int barIn, float busy, int meter, R
 inline void voiceParts (int root, int q, int parts, int center, const int* prev, bool havePrev, int* out)
 {
     int t[4]; const int nt = band::qualityTones (q, t);
-    std::vector<int> pcs; for (int i = 0; i < nt; ++i) pcs.push_back ((root + t[i]) % 12);
-    auto isTone = [&] (int nn) { for (int pc : pcs) if (((nn % 12) + 12) % 12 == pc) return true; return false; };
+    auto isTone = [&] (int nn) { for (int i = 0; i < nt; ++i) if (((nn % 12) + 12) % 12 == (root + t[i]) % 12) return true; return false; };
     int top = center + 5;
     if (havePrev) top = prev[0];
     // the nearest chord tone to where the top was (stay inside a sensible range)

@@ -22,6 +22,7 @@ const Member kMembers[] = { { "Tea Towel", band::WTeaTowel, "drums" },
                             { "Loon", band::WLoon, "ambience in key" },
                             { "Carousel", band::WCarousel, "looper" },
                             { "Tape Twin", band::WTapeTwin, "echo throws" },
+                            { "Swirl", band::WSwirl, "backwards, phase, rotary" },
                             { "Lathe", band::WLathe, "mastering" } };
 }
 
@@ -115,6 +116,17 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     addAndMakeVisible (styleBox);
     applyAgainB.onClick = [this] { proc.reapplyStyle(); };
     addAndMakeVisible (applyAgainB);
+    // a random style: the whole band re-dresses as something you didn't pick
+    surpriseB.setTooltip ("Picks a style at random.");
+    surpriseB.onClick = [this]
+    {
+        const int n = (int) band::styles().size();
+        const int cur = (int) proc.apvts.getRawParameterValue ("style")->load();
+        int pick = 1 + juce::Random::getSystemRandom().nextInt (n);
+        if (pick == cur) pick = 1 + (pick % n);
+        band::setParam (proc.apvts, "style", (float) pick);
+    };
+    addAndMakeVisible (surpriseB);
     // [0..3] song settings, [4..6] chords, [7..13] the form
     keyBox = combo ("key", "KEY");
     combo ("chord_bars", "BARS PER CHORD");
@@ -384,15 +396,23 @@ void BandleaderEditor::paint (juce::Graphics& g)
     g.setColour (col::panel); g.fillRoundedRectangle (bandArea.toFloat(), 8.0f);
     auto ba = bandArea.reduced (18, 12);
     g.setColour (kGold); g.setFont (font (13.0f, true));
-    g.drawText ("THE BAND", ba.removeFromTop (18), juce::Justification::centredLeft);
+    {
+        auto t = ba.removeFromTop (18);
+        g.drawText ("THE BAND", t, juce::Justification::centredLeft);
+        g.setColour (col::muted); g.setFont (font (11.0f));
+        g.drawText ("click a light to switch it off / on", t, juce::Justification::centredRight);
+    }
     ba.removeFromTop (4);
     for (auto& m : kMembers)
     {
         auto r = ba.removeFromTop (18);
         const bool here = band::isPresent (m.who);
-        g.setColour (here ? kGreen : col::line); g.fillEllipse (r.removeFromLeft (14).withSizeKeepingCentre (10, 10).toFloat());
+        const bool off = ((proc.benched.load() >> m.who) & 1u) != 0;
+        auto dot = r.removeFromLeft (14).withSizeKeepingCentre (10, 10).toFloat();
+        if (off) { g.setColour (here ? col::red : col::line); g.drawEllipse (dot.reduced (0.5f), 1.6f); }     // switched off: a hollow ring
+        else { g.setColour (here ? kGreen : col::line); g.fillEllipse (dot); }
         r.removeFromLeft (6);
-        g.setColour (here ? col::cream : col::muted); g.setFont (font (13.0f, true));
+        g.setColour (here && ! off ? col::cream : col::muted); g.setFont (font (13.0f, true));
         g.drawText (m.name, r.removeFromLeft (84), juce::Justification::centredLeft);
         g.setColour (col::muted); g.setFont (font (11.0f));
         g.drawText (m.does, r, juce::Justification::centredLeft);
@@ -492,6 +512,7 @@ void BandleaderEditor::resized()
         styleBox.setBounds (sr.removeFromLeft (280).reduced (4, 0));
         sr.removeFromLeft (8);
         applyAgainB.setBounds (sr.removeFromLeft (130).reduced (4, 0));
+        surpriseB.setBounds (sr.removeFromLeft (130).reduced (4, 0));
         sa.removeFromTop (6);
         styleText = sa.removeFromTop (46).reduced (4, 0);
     }
@@ -507,4 +528,25 @@ void BandleaderEditor::resized()
     auto row2 = sa.removeFromTop (26).withTrimmedRight (110);
     const int wp = row2.getWidth() / 3;
     for (int i = 0; i < 3; ++i) progBox[i]->setBounds (row2.removeFromLeft (wp).reduced (4, 0));
+}
+
+// the rows of THE BAND: click one to switch that plugin off (it sits out, or an effect passes straight through) or back on
+int BandleaderEditor::memberAt (juce::Point<int> p) const
+{
+    auto ba = bandArea.reduced (18, 12);
+    ba.removeFromTop (22);
+    const int n = (int) (sizeof (kMembers) / sizeof (kMembers[0]));
+    if (! ba.withHeight (18 * n).contains (p)) return -1;
+    return juce::jlimit (0, n - 1, (p.y - ba.getY()) / 18);
+}
+void BandleaderEditor::mouseDown (const juce::MouseEvent& e)
+{
+    const int i = memberAt (e.getPosition());
+    if (i < 0) return;
+    proc.toggleBench ((int) kMembers[i].who);
+    repaint (bandArea);
+}
+void BandleaderEditor::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (memberAt (e.getPosition()) >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
 }

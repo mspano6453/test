@@ -72,6 +72,7 @@ private:
 
     double sr = 44100, bpmNow = 120, blockPpq = 0;
     int meterNow = 0, bs = 16;
+    std::vector<std::pair<int, int>> rhythmScratch = std::vector<std::pair<int, int>> (32);
     band::Fade fade;
     bool strongStep (int step) const { return meterNow == band::M44 ? step % 8 == 0 : meterNow == band::M34 ? step % 12 == 0 : step % 6 == 0; }
     mc::NoteOut midiOut;

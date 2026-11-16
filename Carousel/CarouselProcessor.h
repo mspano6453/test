@@ -1,4 +1,5 @@
 #pragma once
+#include "../Source/SongForm.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <array>
@@ -92,6 +93,8 @@ public:
     // Export the current slot's loop (all layers mixed) to a WAV. Message thread only.
     juce::File exportCurrentLoop();
 
+    void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
+    band::Bench bench;
 private:
     int meterNow = 0;
 
