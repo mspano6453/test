@@ -322,6 +322,151 @@ st("Slow Jam 6/8", "Late-night R&B in six: claps on four, a sub bass, electric p
 st("Gospel 6/8", "Church on Sunday: organ, piano triplets, the choir swelling on every chord, tambourine on the backbeat.", 68, 5, (10,22,8), 42, 1, 17,
    pack=P, meter=2, uBass=1, kOn=1, kInst=3, kFeel=0, kMotion=0.5, vOn=1, vVoice=0, vFeel=7, vBusy=0.6, gOn=0, dInt=0.55, dRoom=0.35, lathe=4, energy=0.55)
 
+# ============================ 100 MORE SONGS: psychedelia first, 60s to 90s ============================
+def M(*ds, **kw):
+    r = {}
+    for d in ds: r.update(d)
+    r.update(kw); return r
+VB   = dict(uBass=6, bHook=0.65, bChorus=0.0)                       # the hollow violin bass, melodic
+ADT  = dict(tAdt=0.6, tMix=0.2, tSync=2, tWow=0.35)                 # double-tracked, tape slap
+ECHO = dict(tSync=2, tMix=0.35, tFb=0.55, tWow=0.4)
+ORG  = dict(kOn=1, kInst=3, kFeel=0, kMotion=0.7)
+PNO  = dict(kOn=1, kInst=0, kFeel=1, kBusy=0.45)
+TACK = dict(kOn=1, kInst=12, kFeel=8)
+HARP = dict(kOn=1, kInst=11, kFeel=5)
+EP   = dict(kOn=1, kInst=1, kFeel=1, kMotion=0.5, kColour=0.5)
+PAD  = dict(kOn=1, kInst=7, kFeel=0)
+VIB  = dict(kOn=1, kInst=8, kFeel=1, kColour=0.6)
+GLK  = dict(kOn=1, kInst=9, kFeel=10, kRoom=0.5)
+MTRN = dict(cOn=1, cEns=5, cFeel=0, cWarp=0.45, cRoom=0.3)          # tape strings
+FLT  = dict(cOn=1, cEns=6, cFeel=2, cWarp=0.4, cRoom=0.3)           # tape flutes
+STR  = dict(cOn=1, cEns=0, cFeel=0, cRoom=0.3)
+BRS  = dict(cOn=1, cEns=2, cFeel=8, cRoom=0.25)
+WND  = dict(cOn=1, cEns=3, cFeel=2, cRoom=0.25)
+HAZE = dict(lGen=0.35, lMood=1, lCloud=0.5, lWobble=0.4, lSpace=0.5, lShimmer=0.3)
+SMASH= dict(dSmash=0.8, lathe=6)
+def G(i, f, b=0.5): return dict(gOn=1, gInst=i, gFeel=f, gBusy=b)
+def V(v, f, b=0.45): return dict(vOn=1, vVoice=v, vFeel=f, vBusy=b)
+def E(role, inst, sp=0.5): return dict(eRole=role, eInst=inst, eSpace=sp)
+def many(pack, rows):
+    for name, blurb, bpm, key, prog, ds, kit, bf, kw in rows:
+        st(name, blurb, bpm, key, prog, ds, kit, bf, **M(kw, pack=pack))
+
+many('Summer of Love', [
+ ("Paisley Jangle", "Chiming 12-string, a singing bass, tambourine and three-part harmonies.", 126, 2, (14,10,12), 0, 0, 17, M(VB, ADT, G(2,1), V(3,0), lathe=4)),
+ ("Technicolor Dream", "Swirling organ and a wand melody over a loping beat; everything echoes.", 104, 4, (12,20,6), 0, 1, 17, M(VB, ORG, ECHO, HAZE, E(1,0,0.6), G(2,9), lathe=1)),
+ ("Freakbeat", "Mod R&B gone strange: fuzz riff, pounding drums, organ stabs.", 142, 9, (15,12,16), 17, 2, 0, M(G(5,2,0.6), kOn=1, kInst=3, kFeel=3, bGrit=0.4, tAdt=0.4, dInt=0.75, lathe=2)),
+ ("Sitar Sunrise", "A droning one-chord raga rocker with ringing strings and a choir hum.", 112, 2, (7,6,7), 15, 1, 5, M(G(2,9,0.6), E(2,3,0.6), V(2,3,0.3), HAZE, sRole=1, chordBars=2, sectionBars=2, lathe=1)),
+ ("Kaleidoscope Ballad", "Slow, floating and strange: harpsichord, tape flutes, a bass that wanders.", 88, 9, (19,12,20), 5, 0, 17, M(VB, HARP, FLT, ADT, E(3,0,0.6), lathe=4, energy=0.45)),
+ ("Flower Shop Pop", "Bouncy toytown psych: tack piano, woodwinds and a marching snare.", 118, 0, (10,22,14), 0, 0, 17, M(VB, TACK, WND, V(3,5), ADT, lathe=4)),
+ ("Light Show Jam", "A long ballroom jam: two chords, organ swells, guitars answering each other.", 120, 4, (6,12,6), 0, 1, 1, M(ORG, ECHO, HAZE, G(1,8,0.6), bHook=0.7, sectionBars=2, lathe=1)),
+ ("West Coast Harmony", "Sunny folk-rock with stacked voices, acoustic strum and a warm bass.", 116, 7, (8,10,12), 15, 0, 1, M(G(0,0), V(0,0,0.5), PNO, uBass=1, tAdt=0.4, lathe=3)),
+ ("Acid Folk", "Fingerpicked and eerie: a ribbon melody, hand drums, a drone underneath.", 96, 2, (5,6,3), 15, 0, 5, M(G(0,7), E(1,1,0.6), HAZE, uBass=8, dInt=0.35, lathe=3, energy=0.4)),
+ ("Garage Psych", "Cheap organ, fuzz and attitude. Two minutes, three chords, one scream.", 150, 4, (13,12,15), 17, 2, 0, M(G(5,2,0.7), kOn=1, kInst=3, kFeel=1, kMotion=0.2, bGrit=0.45, dLoose=0.5, tMix=0.2, tSync=0, lathe=2)),
+ ("Backwards Afternoon", "Dreamy mid-tempo with tape-reversed swells and a lazy melodic bass.", 92, 5, (12,19,20), 0, 0, 17, M(VB, ADT, MTRN, E(3,5,0.6), G(1,9,0.4), tFb=0.6, lathe=4)),
+ ("Swinging London", "Brassy, cheeky pop with a walking bass and a go-go beat.", 132, 7, (10,14,22), 0, 2, 4, M(BRS, PNO, V(1,5), uBass=7, tAdt=0.4, lathe=4)),
+ ("Mellow Mushroom", "Laid-back groove, electric piano, flute lines and soft congas.", 100, 9, (27,23,26), 33, 0, 10, M(EP, FLT, uBass=1, dInt=0.4, lSpace=0.35, lathe=3, energy=0.45)),
+ ("Electric Raga", "Fast modal burn: droning bass, tumbling toms, a buzzing wire lead.", 138, 4, (7,6,7), 13, 1, 5, M(G(5,9,0.6), E(1,2,0.5), ECHO, dInt=0.7, sectionBars=2, lathe=1)),
+ ("Dandelion Waltz", "A whimsical 3/4: harpsichord, clarinets and a music-box glockenspiel.", 108, 7, (10,19,22), 38, 0, 17, M(VB, HARP, WND, V(3,1,0.35), meter=1, lathe=4)),
+ ("Mind Garden", "Hazy 6/8 ballad with tremolo guitar, tape strings and hushed oohs.", 66, 4, (9,19,3), 42, 0, 1, M(G(1,8,0.4), MTRN, V(0,1,0.35), HAZE, uBass=6, meter=2, lathe=3, energy=0.4)),
+ ("Strobe Light", "Pounding four-on-the-floor psych with phased drums and organ stabs.", 134, 9, (6,5,0), 11, 1, 3, M(dict(kOn=1, kInst=3, kFeel=3, kMotion=0.9), G(5,1,0.6), ECHO, bGrit=0.3, lathe=1)),
+ ("Incense & Tambourines", "Soft-psych with vibes, a ribbon melody and a girl-group chorus.", 110, 5, (23,10,24), 0, 0, 1, M(VIB, E(1,1,0.45), V(1,0), uBass=7, tAdt=0.5, lathe=4)),
+ ("Hall of Mirrors", "Minor-key and mysterious: descending strings, harpsichord, a gothic bass.", 98, 9, (16,0,3), 0, 1, 2, M(HARP, dict(cOn=1, cEns=0, cFeel=3, cRoom=0.35), E(2,3,0.6), ADT, uBass=6, lathe=1)),
+ ("Proto-Heavy Thunder", "The loudest band in town: fuzz bass, fuzz guitar, drums like falling furniture.", 100, 4, (15,12,6), 9, 2, 0, M(SMASH, G(5,2,0.6), uBass=10, bGrit=0.5, dInt=0.85, energy=0.75)),
+])
+
+many('Studio Wizardry', [
+ ("Brass Band Parade", "A brass band marches through a pop song: tack piano, fanfares, a bass that sings.", 112, 7, (10,14,22), 0, 0, 17, M(VB, TACK, BRS, V(3,0), ADT, cTimp=1, lathe=4)),
+ ("Orchestral Daydream", "Dreamy piano verse, then the whole orchestra climbs into chaos.", 78, 7, (9,3,19), 5, 0, 17, M(VB, dict(kOn=1, kInst=0, kFeel=5), dict(cOn=1, cEns=0, cFeel=6, cTimp=1, cRoom=0.4), ADT, lathe=4, energy=0.5)),
+ ("Circus Poster", "A swirling fairground waltz: calliope organ, tape loops, oom-pah bass.", 116, 2, (16,3,0), 38, 0, 4, M(dict(kOn=1, kInst=3, kFeel=8, kMotion=0.9), FLT, E(3,5,0.5), ECHO, uBass=6, meter=1, lathe=4)),
+ ("Floating Waltz", "Slow waltz verse feel with a floating organ, wand swoops and a drowsy bass.", 84, 9, (12,19,13), 38, 0, 17, M(VB, ORG, E(3,0,0.6), V(3,1,0.35), ADT, meter=1, lathe=4, energy=0.45)),
+ ("String Quartet Lament", "A lonely story song carried by a sawing string quartet. No drums.", 132, 4, (33,0,3), 0, 0, 17, M(dict(cOn=1, cEns=1, cFeel=1, cBusy=0.6, cRoom=0.15), V(3,6,0.4), dOn=0, uOn=0, lathe=4)),
+ ("Piccolo Trumpet Lane", "Bright suburban pop: pounding piano, a high baroque trumpet, a busy bass.", 114, 11, (8,10,23), 0, 2, 17, M(VB, dict(kOn=1, kInst=0, kFeel=2), dict(cOn=1, cEns=2, cFeel=10, cBusy=0.4), V(3,1,0.35), bBusy=0.65, lathe=4)),
+ ("One-Chord Tape Loop", "One chord, a thundering drum loop, tape-loop seagulls and a drone.", 124, 0, (30,30,30), 1, 1, 5, M(SMASH, E(3,5,0.7), dict(cOn=1, cEns=5, cFeel=5, cWarp=0.7), HAZE, ECHO, uBass=6, dSmash=0.5, sectionBars=2, lathe=1)),
+ ("Surreal Cello Stomp", "Lurching and surreal: sawing cellos, electric piano, a choir chanting nonsense.", 86, 9, (36,12,20), 0, 1, 17, M(VB, EP, dict(cOn=1, cEns=0, cFeel=7, cRoom=0.3), V(0,5,0.5), ADT, lathe=4)),
+ ("Tape Flute Reverie", "Tape flutes open it; cellos and trumpets take over; nothing is quite in tune.", 96, 9, (19,12,20), 0, 0, 17, M(VB, FLT, dict(kOn=1, kInst=10, kFeel=5), E(3,5,0.5), ADT, cWarp=0.6, tWow=0.6, lathe=4)),
+ ("Clarinet Vaudeville", "A fond old-time shuffle with clarinets and a soft-shoe beat.", 120, 0, (22,10,14), 14, 0, 4, M(TACK, WND, dSwing=0.5, bSwing=0.4, uBass=6, lathe=4)),
+ ("Harpsichord Fugue", "Baroque runs over a rock beat: harpsichord, pizzicato strings, a walking bass.", 122, 9, (16,0,4), 0, 0, 4, M(HARP, dict(cOn=1, cEns=0, cFeel=10, cRoom=0.25), uBass=6, lathe=4)),
+ ("Tea-Time Symphony", "Genteel and odd: pizzicato strings, woodwind answers, a tuba-like bass.", 104, 5, (10,22,37), 0, 0, 4, M(dict(cOn=1, cEns=0, cFeel=4), dict(kOn=1, kInst=9, kFeel=10), V(3,0,0.4), uBass=8, dInt=0.4, lathe=4)),
+ ("Flanged Sunrise", "Everything through the tape flanger: phased drums, swooshing guitars.", 108, 4, (12,13,20), 0, 1, 17, M(VB, G(2,9,0.6), ORG, ADT, bFlanger=0.5, tWow=0.7, tFlut=0.5, lathe=1)),
+ ("Teenage Symphony", "Teenage symphony: stacked harmonies, vibes, tack piano, sleigh bells and French horn.", 116, 5, (23,19,24), 0, 0, 17, M(dict(kOn=1, kInst=12, kFeel=1), dict(cOn=1, cEns=4, cFeel=2), V(0,0,0.6), E(1,0,0.4), uBass=7, bHook=0.7, lathe=4)),
+ ("Pocket Symphony", "Cello triplets, a quivering wand lead, organ and a choir that keeps changing key.", 124, 3, (16,13,11), 0, 0, 17, M(dict(kOn=1, kInst=3, kFeel=1, kMotion=0.3), dict(cOn=1, cEns=0, cFeel=7), E(1,0,0.5), V(0,5,0.6), uBass=7, lathe=4)),
+ ("English Pastoral", "Wistful English pop: acoustic strum, tape strings, music-hall piano.", 110, 7, (10,14,19), 0, 0, 17, M(VB, G(0,0), MTRN, dict(kOn=1, kInst=12, kFeel=1, kBusy=0.4), lathe=3)),
+ ("Autumn Organ Pop", "Autumnal and jazzy: breathy harmonies, tape strings, an organ solo.", 106, 4, (25,23,26), 0, 0, 17, M(VB, dict(kOn=1, kInst=3, kFeel=1, kMotion=0.4, kColour=0.6), MTRN, V(3,1,0.5), lathe=3)),
+ ("Organ Hymn", "A stately organ hymn over a slow soul beat with a descending bass.", 74, 0, (33,33,10), 5, 0, 1, M(dict(kOn=1, kInst=3, kFeel=0, kMotion=0.5), dict(cOn=1, cEns=0, cFeel=3), uBass=1, dRoom=0.35, lathe=3, energy=0.45)),
+ ("Symphonic Ballad", "Symphonic ballad: tape strings, flute, a huge orchestral lift in the chorus.", 80, 4, (3,16,9), 44, 0, 1, M(MTRN, dict(kOn=1, kInst=0, kFeel=5), G(0,7,0.4), V(0,2,0.4), cTimp=1, uBass=1, meter=2, lathe=3, energy=0.5)),
+ ("Toy Piano Lullaby", "Tiny and tender: glockenspiel, tape flutes, brushes and a hum.", 76, 0, (10,19,9), 5, 0, 1, M(GLK, FLT, V(3,3,0.35), uBass=8, dInt=0.3, lathe=3, energy=0.35)),
+])
+
+many('70s Cosmic', [
+ ("Weightless Drift", "Slow, wide and weightless: electric piano, slide swoops, a heartbeat kick.", 66, 4, (30,28,3), 10, 1, 1, M(EP, PAD, E(3,0,0.7), V(1,2,0.35), HAZE, uBass=1, bLen=1.2, lSize=0.9, lathe=1, energy=0.4)),
+ ("Space Rock Chug", "Relentless two-chord space rock: chugging riff, oscillator swoops, no brakes.", 136, 4, (6,6,5), 1, 2, 5, M(G(5,3,0.7), E(3,5,0.7), ECHO, bGrit=0.4, dInt=0.75, sectionBars=2, lathe=2)),
+ ("Canterbury Tea", "Jazzy, whimsical prog: fuzz organ, a fretless bass, odd little flute tunes.", 118, 5, (25,26,34), 0, 0, 4, M(dict(kOn=1, kInst=3, kFeel=1, kColour=0.8, kMotion=0.4), FLT, uBass=9, bHook=0.7, lathe=3)),
+ ("Mellotron Epic", "Grand and solemn: tape strings and choir, 12-string arpeggios, timpani.", 84, 4, (3,16,20), 5, 1, 1, M(MTRN, E(2,3,0.6), G(2,8,0.5), cTimp=1, uBass=0, dRoom=0.4, lathe=1)),
+ ("Kosmische Glide", "Motorik beat, shimmering guitars and a pad that never resolves.", 144, 2, (11,28,7), 1, 0, 5, M(PAD, G(1,8,0.6), E(2,1,0.6), ECHO, HAZE, sectionBars=2, lathe=1)),
+ ("Cluster Garden", "Gentle German electronics: a pulsing sequencer, vibes and a ribbon tune.", 108, 0, (28,11,28), 1, 8, 3, M(dict(kOn=1, kInst=7, kFeel=6), E(1,1,0.6), uBass=5, dInt=0.4, lGen=0.3, lMood=4, lathe=3, energy=0.45)),
+ ("Glam Space Anthem", "Acoustic strum, strings and a rocket-ship chorus with handclaps.", 100, 5, (10,19,8), 12, 1, 1, M(G(0,0), STR, PNO, V(2,2,0.5), ADT, uBass=0, lathe=2)),
+ ("Fuzz Boogie", "Boogie shuffle with a fat fuzz riff, congas and falsetto oohs.", 126, 4, (13,12,15), 14, 1, 0, M(G(4,3,0.6), V(1,1,0.5), STR, dSwing=0.5, bSwing=0.4, bGrit=0.3, tAdt=0.5, lathe=2)),
+ ("Art Rock Stomp", "Arch and angular: oboe lines, treated piano, synth squiggles over a stomp.", 128, 9, (4,16,0), 12, 1, 3, M(PNO, dict(cOn=1, cEns=3, cFeel=2), E(3,5,0.5), G(4,1,0.5), lathe=2)),
+ ("Berlin Instrumental", "Cold, beautiful and slow: pads, a wire drone, a treated drum machine.", 92, 9, (0,2,3), 11, 8, 3, M(PAD, E(2,2,0.7), dict(cOn=1, cEns=5, cFeel=0, cWarp=0.3), uBass=5, lGen=0.3, lMood=3, lathe=1, energy=0.45)),
+ ("Doom Swing", "Slow, detuned and doomy with a swinging groove under the weight.", 76, 4, (15,6,5), 9, 2, 0, M(G(5,2,0.5), uBass=10, bGrit=0.5, dSwing=0.2, dInt=0.8, dRoom=0.4, lathe=2, energy=0.7)),
+ ("Big Room Blues Stomp", "Enormous room drums, a heavy blues riff and an organ underneath.", 92, 4, (15,12,6), 9, 2, 0, M(G(4,2,0.6), ORG, dRoom=0.6, dRoomSize=0.9, dInt=0.85, bGrit=0.35, lathe=2, energy=0.75)),
+ ("Southern Jam", "Twin-guitar boogie that stretches out: piano, organ and a rolling bass.", 124, 7, (12,13,11), 4, 1, 4, M(G(4,1,0.6), dict(kOn=1, kInst=0, kFeel=8), uBass=1, bBusy=0.7, sectionBars=2, lathe=2)),
+ ("Laurel Canyon", "Warm and woody: acoustic guitars, electric piano, close harmonies.", 96, 2, (23,26,10), 5, 0, 1, M(G(0,7), EP, V(3,0,0.5), uBass=1, dInt=0.4, lathe=3, energy=0.45)),
+ ("Yacht Sunset", "Smooth and expensive: major sevenths, clavinet, a slick fingered bass.", 104, 5, (26,23,35), 33, 0, 10, M(dict(kOn=1, kInst=1, kFeel=1, kColour=0.8, kChorus=0.5), G(1,4,0.4), V(1,2,0.4), uBass=1, lathe=0)),
+ ("Blaxploitation Chase", "Wah guitar, flutes, strings and a bass that runs for its life.", 116, 4, (29,27,28), 33, 1, 10, M(G(1,4,0.7), dict(cOn=1, cEns=4, cFeel=1), dict(kOn=1, kInst=4, kFeel=3), uBass=1, bBusy=0.75, lathe=2)),
+ ("Cosmic Funk", "Rubber bass, synth squelch and a choir from the mothership.", 104, 4, (29,27,29), 33, 1, 10, M(dict(kOn=1, kInst=4, kFeel=3), E(3,5,0.5), V(0,5,0.5), BRS, uBass=1, uBubble=0.7, lathe=2)),
+ ("Proto-Punk Drone", "Two chords, viola drone, pounding floor tom. Sunglasses indoors.", 132, 2, (11,11,12), 7, 2, 5, M(G(4,1,0.7), dict(cOn=1, cEns=1, cFeel=5, cWarp=0.3), bGrit=0.3, dLoose=0.5, tAdt=0.3, lathe=2)),
+ ("Pub Rock", "Sweaty R&B played fast with a honking piano.", 150, 9, (13,12,18), 4, 2, 4, M(G(4,6,0.6), dict(kOn=1, kInst=0, kFeel=8), bGrit=0.2, dInt=0.75, lathe=2)),
+ ("Dub Chamber", "Deep and spacious: skanking guitar, a huge bass, echoes flying off the snare.", 76, 9, (5,6,5), 33, 0, 3, M(G(1,5,0.5), dict(kOn=1, kInst=3, kFeel=9), E(3,5,0.6), uBass=2, bBusy=0.4, tSync=1, tMix=0.45, tFb=0.65, dInt=0.45, lathe=1)),
+])
+
+many('80s Neo-Psych', [
+ ("Paisley Underground", "60s jangle through an 80s amp: 12-string, organ and a snare with reverb.", 128, 2, (12,8,14), 0, 1, 1, M(G(2,1,0.6), ORG, V(3,0,0.4), dRoom=0.35, tAdt=0.4, lathe=2)),
+ ("Jangle College", "Bright arpeggios, a busy melodic bass and mumbled harmonies.", 138, 9, (9,8,11), 0, 0, 1, M(G(2,8,0.7), V(3,1,0.35), bHook=0.7, uBass=0, lathe=2)),
+ ("Dream Jangle", "Chorused guitars and a sighing bass under a slow gated beat.", 104, 2, (19,8,9), 5, 1, 1, M(G(1,8,0.5), PAD, HAZE, bChorus=0.6, dRoom=0.4, lathe=3)),
+ ("Ethereal Cathedral", "Glossy, glittering guitars over a drum machine; a voice like weather.", 96, 4, (9,3,19), 11, 8, 2, M(G(1,8,0.6), PAD, V(1,2,0.4), E(2,3,0.7), HAZE, bChorus=0.7, lSize=0.95, lShimmer=0.6, lathe=3)),
+ ("Gloom Disco", "Six-string bass melody, synth strings and a danceable drum machine.", 126, 4, (0,4,1), 11, 8, 1, M(dict(kOn=1, kInst=5, kFeel=0), G(1,8,0.5), bHook=0.8, bChorus=0.6, lathe=0)),
+ ("Neo-Psychedelic Swirl", "Flanged bass, backwards guitar and floor toms in a big dark room.", 120, 9, (1,0,16), 7, 1, 2, M(G(1,9,0.6), ECHO, HAZE, bFlanger=0.5, bChorus=0.5, dRoom=0.4, lathe=1)),
+ ("Gospel Drone", "One chord, tremolo guitar, organ and gospel patience.", 108, 4, (7,7,11), 1, 1, 5, M(G(5,10,0.6), dict(kOn=1, kInst=3, kFeel=0, kMotion=0.8), V(0,7,0.4), ECHO, HAZE, sectionBars=2, chordBars=2, lathe=1)),
+ ("Indie Dance Groove", "A funky drummer loop, wah guitar, organ and a bassline that dances.", 112, 9, (11,12,29), 33, 1, 10, M(G(1,4,0.6), dict(kOn=1, kInst=3, kFeel=3, kMotion=0.6), uBass=1, bBusy=0.7, tAdt=0.4, lathe=2)),
+ ("Baggy Sunrise", "Loose and blissful: house piano, shuffling breakbeat, a chiming guitar.", 116, 0, (8,13,11), 33, 1, 10, M(dict(kOn=1, kInst=0, kFeel=4), G(2,8,0.5), V(1,2,0.4), uBass=1, lathe=0)),
+ ("C86 Shamble", "Fast, shy and scrappy: trebly guitars and a tambourine doing the drummer's job.", 156, 7, (14,10,13), 6, 0, 5, M(G(1,1,0.8), bTreble=4, dLoose=0.5, dInt=0.6, lathe=2)),
+ ("Feedback Candy", "A 60s girl-group beat buried under a blizzard of fuzz.", 124, 4, (10,13,14), 0, 1, 5, M(SMASH, G(5,10,0.7), V(1,1,0.4), dSmash=0.5, dRoom=0.5, lSpace=0.6, lGtr=0.7, lathe=1)),
+ ("Synth Psych", "Analog arpeggios, a motorik machine and a wand lead from the future's past.", 124, 9, (0,2,5), 1, 8, 3, M(dict(kOn=1, kInst=7, kFeel=6), E(1,0,0.5), uBass=5, sRole=3, sPattern=1, lathe=0)),
+ ("Sophisti-Pop", "Fretless bass, jazzy sevenths and a snare the size of a penthouse.", 100, 5, (23,25,35), 5, 1, 1, M(dict(kOn=1, kInst=2, kFeel=1, kColour=0.8), V(1,2,0.4), uBass=9, bHook=0.7, dRoom=0.4, lathe=0)),
+ ("Big Music", "Widescreen and windswept: strummed acoustics, piano, a chorus you could plant a flag on.", 132, 2, (8,9,13), 4, 1, 0, M(G(0,1,0.7), PNO, STR, V(2,2,0.4), dRoom=0.45, lathe=2, energy=0.7)),
+ ("Goth Western", "Twanging tremolo guitar, a galloping bass and tubular drama.", 140, 4, (0,16,4), 13, 1, 7, M(G(1,1,0.6), E(2,3,0.5), dict(cOn=1, cEns=2, cFeel=8), bChorus=0.4, tMix=0.3, tSync=0, lathe=1)),
+ ("Cold Wave", "Minimal and frozen: a pulse bass, one-finger synth, a dry drum box.", 118, 2, (5,0,6), 11, 8, 3, M(dict(kOn=1, kInst=7, kFeel=0, kBusy=0.3), E(1,4,0.3), uBass=5, sRole=3, sPattern=5, lathe=0)),
+ ("Hi-Fi Art Pop", "Fairlight-era studio pop: sampled strings, fretless bass, a choir in a box.", 110, 9, (4,3,16), 5, 1, 1, M(dict(kOn=1, kInst=2, kFeel=5), E(2,3,0.5), STR, uBass=9, dRoom=0.4, lathe=0)),
+ ("Noise Pop Rush", "Three chords at full speed with the amps on fire and a tune underneath.", 164, 4, (8,13,11), 6, 2, 5, M(G(5,2,0.8), bGrit=0.5, dInt=0.85, lSpace=0.4, lathe=2, energy=0.8)),
+ ("Space Blues", "A slow two-chord blues in orbit: slide swoops, organ, brushed drums.", 72, 4, (11,12,11), 10, 0, 5, M(G(1,9,0.4), dict(kOn=1, kInst=3, kFeel=0, kMotion=0.6), E(3,0,0.7), ECHO, HAZE, dInt=0.35, lathe=1, energy=0.4)),
+ ("Second Summer", "Acid squelch meets tambourine: a 4/4 kick under psychedelic guitars.", 122, 9, (11,6,12), 11, 8, 15, M(G(2,9,0.5), dict(kOn=1, kInst=0, kFeel=4), E(3,5,0.5), uBass=3, lathe=0)),
+])
+
+many('90s Psych & Beyond', [
+ ("Fuzz Folk March", "A strummed acoustic pushed into the red, singing saw and a marching-band brass section.", 132, 7, (8,10,13), 4, 9, 5, M(SMASH, G(0,1,0.8), BRS, E(1,0,0.5), uBass=10, dSmash=0.6, lathe=6)),
+ ("Bedroom Symphony", "Four-track pop with too many ideas: toy piano, clarinets, sudden fuzz.", 120, 0, (10,19,14), 0, 0, 17, M(VB, GLK, WND, G(5,1,0.5), V(3,5,0.4), tWow=0.6, tAge=0.6, lathe=6)),
+ ("Lo-fi Brass Parade", "A lo-fi brass band, singalong harmonies and a tape hiss halo.", 108, 5, (14,10,12), 0, 0, 17, M(VB, TACK, BRS, V(0,5,0.6), tAge=0.7, tWow=0.5, tMix=0.15, lathe=6)),
+ ("Heartbroken Symphony", "Symphonic and heartbroken: warped strings, harp-like piano, cannon drums.", 78, 0, (9,19,3), 36, 9, 1, M(SMASH, dict(kOn=1, kInst=0, kFeel=5, kRoom=0.4), dict(cOn=1, cEns=0, cFeel=0, cWarp=0.6, cTimp=1, cRoom=0.45), V(0,2,0.4), E(3,0,0.6), uBass=10, bGrit=0.1)),
+ ("Robot Acoustic Pop", "Acoustic strum over a squelchy synth bass and a programmed beat.", 96, 0, (10,8,19), 5, 8, 1, M(G(0,0,0.6), dict(kOn=1, kInst=7, kFeel=6, kBusy=0.4), E(3,5,0.5), uBass=3, uBubble=0.6, dSmash=0.4, lathe=6)),
+ ("Deserter's Lullaby", "A frail waltz with bowed saw, pump organ and a faraway choir.", 92, 2, (19,10,9), 38, 0, 1, M(ORG, E(1,0,0.6), V(0,1,0.4), MTRN, uBass=8, meter=1, cWarp=0.6, dInt=0.35, lathe=3, energy=0.4)),
+ ("Gospel Space Swell", "Gospel choir, horns and strings over one swelling chord progression.", 70, 7, (33,33,13), 42, 1, 1, M(dict(kOn=1, kInst=3, kFeel=0), V(0,7,0.6), dict(cOn=1, cEns=4, cFeel=0, cRoom=0.45), G(1,8,0.4), HAZE, meter=2, lathe=1)),
+ ("Pitch-Bend Wash", "Guitars bent out of pitch, a buried voice, a snare like a pillow fight.", 96, 4, (19,20,12), 8, 1, 5, M(G(5,10,0.8), V(1,1,0.35), HAZE, bGrit=0.4, lCloud=0.8, lSpace=0.8, lSize=0.95, lGtr=0.85, tWow=0.6, chordBars=1, lathe=1)),
+ ("Space Rock Revival", "Tremolo, drones and a slow build to white light.", 88, 9, (7,11,12), 10, 1, 5, M(G(5,10,0.5), ORG, V(0,7,0.4), STR, ECHO, HAZE, sectionBars=2, lathe=1)),
+ ("Stereo Lounge", "Motorik bossa: vintage organ, vibes, 'ba ba ba' and a bubbling synth.", 132, 5, (26,23,34), 1, 0, 3, M(dict(kOn=1, kInst=3, kFeel=1, kMotion=0.2, kColour=0.7), VIB, V(1,5,0.6), E(3,5,0.4), uBass=1, lathe=3)),
+ ("Trip-Hop Noir", "A dusty breakbeat, upright bass, tape strings and a wand melody.", 84, 9, (3,0,16), 35, 3, 12, M(MTRN, E(1,0,0.6), EP, uBass=8, kLofi=0.5, tAge=0.6, lathe=1)),
+ ("Big Beat Psych", "A huge distorted break, a sitar-ish riff and sirens.", 124, 4, (6,7,5), 33, 9, 10, M(SMASH, G(2,9,0.6), E(3,5,0.6), uBass=3, bGrit=0.4, dSmash=0.9, energy=0.8)),
+ ("Brit-Psych Anthem", "A sunny stomper with backwards guitar, tape strings and a terrace chorus.", 118, 9, (12,8,20), 0, 1, 17, M(VB, G(4,1,0.6), MTRN, V(2,2,0.5), ADT, lathe=2)),
+ ("Dandy Jangle", "Tambourine-led 60s revival: droning 12-string and a bored, brilliant groove.", 122, 4, (12,11,13), 0, 1, 5, M(G(2,1,0.7), ORG, V(3,1,0.35), dLoose=0.45, tAdt=0.5, lathe=2)),
+ ("Slacker Fuzz", "Wobbly, tuneful and half-asleep, then suddenly very loud.", 112, 2, (8,12,13), 9, 2, 0, M(G(5,1,0.6), bGrit=0.4, dLoose=0.55, uBass=0, lathe=2)),
+ ("Lo-fi Hymn", "Four-track tape, a detuned piano, a drum kit down the hall.", 84, 5, (10,9,13), 5, 0, 1, M(dict(kOn=1, kInst=10, kFeel=5, kLofi=0.7), G(0,7,0.4), V(3,3,0.3), dRoom=0.6, tAge=0.8, tWow=0.6, tMix=0.15, lathe=3, energy=0.4)),
+ ("Chamber Indie", "Strings, glockenspiel and brushed drums around a fingerpicked guitar.", 100, 2, (9,10,38), 15, 0, 1, M(G(0,7), dict(cOn=1, cEns=1, cFeel=2), GLK, uBass=8, dInt=0.4, lathe=3, energy=0.45)),
+ ("Desert Psych", "A heavy riff rolling down an empty highway, fuzz bass in the back seat.", 104, 2, (15,6,12), 9, 2, 0, M(G(5,3,0.6), ECHO, uBass=10, bGrit=0.4, dInt=0.75, dRoom=0.35, tMix=0.15, lathe=2, energy=0.7)),
+ ("Post-Rock Sunrise", "Glockenspiel and bowed guitar swelling into a cymbal-washed climax.", 80, 2, (9,3,8), 10, 1, 1, M(G(1,8,0.5), GLK, dict(cOn=1, cEns=0, cFeel=5, cRoom=0.5), HAZE, lSize=0.9, sectionBars=2, lathe=1)),
+ ("Carnival Finale", "Everybody in: fuzz, brass, choir, timpani, the rise before each section. Then again, louder.", 126, 7, (8,13,33), 4, 9, 0, M(SMASH, G(5,2,0.7), dict(cOn=1, cEns=4, cFeel=6, cTimp=1, cWarp=0.4), V(0,2,0.7), TACK, E(3,5,0.6), uBass=10, uBubble=0.4, energy=0.85)),
+])
+
 def f(x): return ("%.3ff" % x) if isinstance(x, float) else str(x)
 out = []
 out.append('''#pragma once
