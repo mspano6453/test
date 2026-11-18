@@ -87,9 +87,12 @@ jobs:
           [ -n "$(ls out)" ] || exit 1
           TAG="democrazy-${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" out/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-             --title "DEMOCRAZY build ${GITHUB_RUN_NUMBER}" --notes "DEMOCRAZY: thirteen plugins. Windows: double-click the .exe. Mac: open the .pkg. Then Rescan in Ableton." || true
+             --title "DEMOCRAZY build ${GITHUB_RUN_NUMBER}" --notes "DEMOCRAZY: fourteen plugins. Windows: double-click the .exe. Mac: open the .pkg. Then Rescan in Ableton." || true
           # the branch keeps only the Windows installer (the Mac .pkg is too big for git; it's on the release)
           mkdir -p branch && cp out/*.exe branch/ 2>/dev/null || true
+          # git refuses files over 100 MB: then the installer lives on the release only
+          find branch -type f -size +95M -delete
+          [ -n "$(ls branch)" ] || { echo "installer too big for the branch; it's on the release $TAG"; exit 0; }
           cd branch
           git init -q -b tea-towel-installer
           git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
