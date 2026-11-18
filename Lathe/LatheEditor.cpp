@@ -477,6 +477,10 @@ Meters::Meters (LatheProcessor& p, juce::Component* popupParent) : proc (p)
     dither.addItemList ({ "Dither off", "Dither 16-bit", "Dither 24-bit" }, 1);
     ditherAtt = std::make_unique<APVTS::ComboBoxAttachment> (p.apvts, "dither", dither);
     addAndMakeVisible (dither);
+    recordCut.addItemList ({ "Record cut: off", "60s mono single", "Worn vinyl", "Cassette", "45 rpm (a 33 sped up)" }, 1);
+    recordCutAtt = std::make_unique<APVTS::ComboBoxAttachment> (p.apvts, "record_cut", recordCut);
+    recordCut.setTooltip ("Hear the master as a 60s mono single, a worn record, a cassette, or a 33 played at 45. Turn it off before you bounce, or leave it on for the effect.");
+    addAndMakeVisible (recordCut);
 }
 
 void Meters::tick()
@@ -566,6 +570,8 @@ void Meters::resized()
     outGain->setBounds (knobs);
     r.removeFromTop (6);
     dither.setBounds (r.removeFromTop (26));
+    r.removeFromTop (6);
+    recordCut.setBounds (r.removeFromTop (26));
 }
 
 // ===========================================================================

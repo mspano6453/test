@@ -10,6 +10,9 @@
 #include "../Jangle/JangleProcessor.h"
 #include "../Harmonia/HarmoniaProcessor.h"
 #include "../Ether/EtherProcessor.h"
+#include "../Loon/LoonProcessor.h"
+#include "../Lathe/LatheProcessor.h"
+#include "../Fuzzbox/FuzzboxProcessor.h"
 
 namespace
 {
@@ -481,6 +484,111 @@ void batch2Test()
     check (! nan, "no NaN");
 }
 
+// batch 3: the drum loop kit, found sounds and the collage, record cut, the fuzzbox, album mode
+void batch3Test()
+{
+    std::printf ("\n== BATCH 3: drum loops, found sounds, record cut, fuzzbox, album mode\n");
+    const double sr = 44100; const int bs = 256;
+    {
+        BandleaderProcessor lead; TeaTowelProcessor drums; LoonProcessor loon;
+        Head head; head.playing = true;
+        juce::AudioProcessor* all[] = { &lead, &drums, &loon };
+        for (auto* p : all) { p->setPlayConfigDetails (2, 2, sr, bs); p->prepareToPlay (sr, bs); p->setPlayHead (&head); }
+        drums.setPlayConfigDetails (0, 2, sr, bs); drums.prepareToPlay (sr, bs);
+        setP (lead.apvts, "meter", 1); setP (lead.apvts, "section_bars", 0); setP (lead.apvts, "count_in", 0); setP (lead.apvts, "intro", 0);
+        setP (lead.apvts, "album", 1); setP (lead.apvts, "ending", 1);
+        setP (drums.apvts, "loop", 1); setP (drums.apvts, "loop_kit", 1); setP (drums.apvts, "take_style", 0);
+        for (auto* id : { "gen_on" }) setP (loon.apvts, id, 0);
+        for (auto* id : { "wind", "rain", "creek", "crickets", "birds", "loons", "thunder", "dry", "gtr_space" }) setP (loon.apvts, id, 0);
+        setP (loon.apvts, "collage", 1.0f); setP (loon.apvts, "take_style", 0);
+        lead.timerCallback();
+        const auto song = lead.currentSong();
+        const double spb = sr * 60.0 / head.bpm;
+        const int bars = (int) song.length + 12;
+        std::vector<int> leadOn ((size_t) bars + 1, 0); std::vector<double> drumRms ((size_t) bars + 1, 0), loonRms ((size_t) bars + 1, 0);
+        bool nan = false;
+        for (int pos = 0; pos < (int) (spb * 4 * bars); pos += bs)
+        {
+            head.ppq = pos / spb; const int bar = (int) (head.ppq / 4.0);
+            for (int k = 0; k < 3; ++k)
+            {
+                juce::AudioBuffer<float> b (2, bs); b.clear(); juce::MidiBuffer m; all[k]->processBlock (b, m);
+                for (int c = 0; c < 2; ++c) for (int i = 0; i < bs; ++i) if (! std::isfinite (b.getSample (c, i))) nan = true;
+                if (k == 0) for (const auto ev : m) if (ev.getMessage().isNoteOn()) ++leadOn[(size_t) bar];
+                if (k == 1) drumRms[(size_t) bar] += b.getRMSLevel (0, 0, bs);
+                if (k == 2) loonRms[(size_t) bar] += b.getRMSLevel (0, 0, bs);
+            }
+            if (pos % (bs * 64) == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (1);
+        }
+        int endAt = -1; for (auto& g : song.segs) if (g.part == band::PEnd) endAt = (int) g.start;
+        int silentAfter = -1, backAt = -1;
+        for (int b = endAt + 1; b < bars; ++b) { if (silentAfter < 0 && leadOn[(size_t) b] == 0) silentAfter = b; if (silentAfter > 0 && b > silentAfter && leadOn[(size_t) b] > 0) { backAt = b; break; } }
+        check (endAt > 0 && silentAfter > 0 && backAt > 0 && backAt - silentAfter <= 4, "ALBUM: the song ends (bar " + juce::String (endAt) + "), a gap, and the next song starts at bar " + juce::String (backAt));
+        double loopSum = 0; for (int b = 0; b < endAt; ++b) loopSum += drumRms[(size_t) b];
+        check (loopSum / juce::jmax (1, endAt) > 2.0, "DRUM LOOP: the break plays on the grid (" + juce::String (loopSum / juce::jmax (1, endAt), 1) + " a bar)");
+        int collageBars = 0;
+        for (auto& g : song.segs) if (g.start > 1 && g.start <= endAt && loonRms[(size_t) g.start - 1] > 0.5) ++collageBars;
+        double quiet = 0; int nq = 0; for (int b = 0; b < endAt; ++b) { bool before = false; for (auto& g : song.segs) if (g.start == b + 1) before = true; if (! before) { quiet += loonRms[(size_t) b]; ++nq; } }
+        check (collageBars >= 2, "TAPE COLLAGE: found sounds in the bar before " + juce::String (collageBars) + " new sections (and " + juce::String (quiet / juce::jmax (1, nq), 2) + " a bar elsewhere)");
+        check (! nan, "no NaN");
+    }
+    {
+        // RECORD CUT
+        LatheProcessor lathe; lathe.setPlayConfigDetails (2, 2, sr, 512); lathe.prepareToPlay (sr, 512);
+        auto run = [&] (int mode, double& outHz, bool& mono, bool& finite)
+        {
+            setP (lathe.apvts, "record_cut", (float) mode);
+            int cross = 0; float last = 0; mono = true; finite = true; double ph = 0;
+            for (int blk = 0; blk < 200; ++blk)
+            {
+                juce::AudioBuffer<float> b (2, 512); juce::MidiBuffer m;
+                for (int i = 0; i < 512; ++i) { ph += 440.0 / sr; b.setSample (0, i, 0.3f * (float) std::sin (6.2831853 * ph)); b.setSample (1, i, 0.3f * (float) std::sin (6.2831853 * ph * 1.01)); }
+                lathe.processBlock (b, m);
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float x = b.getSample (0, i); if (! std::isfinite (x)) finite = false;
+                    if (blk > 40) { if (last < 0 && x >= 0) ++cross; if (std::abs (x - b.getSample (1, i)) > 0.002f) mono = false; }
+                    last = x;
+                }
+            }
+            outHz = cross / (159.0 * 512 / sr);
+        };
+        double hz = 0; bool mono = false, fin = true;
+        run (1, hz, mono, fin); check (mono && fin, "RECORD CUT 60s mono single: both sides the same");
+        run (4, hz, mono, fin); check (fin && hz > 560 && hz < 630, "RECORD CUT 45 rpm: 440 Hz comes out at " + juce::String (hz, 0) + " Hz (a 33 sped up is 587)");
+        run (2, hz, mono, fin); check (fin && hz > 420 && hz < 460, "RECORD CUT worn vinyl: in tune, with the wow (" + juce::String (hz, 0) + " Hz)");
+        run (3, hz, mono, fin); check (fin, "RECORD CUT cassette: plays");
+    }
+    {
+        // FUZZBOX
+        FuzzboxProcessor fz; fz.setPlayConfigDetails (2, 2, sr, 512); fz.prepareToPlay (sr, 512);
+        auto crest = [&] ()
+        {
+            double pk = 0, rms = 0; double ph = 0; int cnt = 0; bool fin = true;
+            for (int blk = 0; blk < 60; ++blk)
+            {
+                juce::AudioBuffer<float> b (2, 512); juce::MidiBuffer m;
+                for (int i = 0; i < 512; ++i) { ph += 110.0 / sr; const float x = 0.2f * (float) std::sin (6.2831853 * ph); b.setSample (0, i, x); b.setSample (1, i, x); }
+                fz.processBlock (b, m);
+                if (blk > 20) for (int i = 0; i < 512; ++i) { const float x = b.getSample (0, i); if (! std::isfinite (x)) fin = false; pk = std::max (pk, (double) std::abs (x)); rms += x * x; ++cnt; }
+            }
+            return fin ? pk / std::sqrt (rms / cnt) : -1.0;
+        };
+        for (int p = 0; p < FuzzboxProcessor::NumPedals; ++p) setP (fz.apvts, FuzzboxProcessor::onId (p), 0);
+        const double clean = crest();
+        setP (fz.apvts, "fuzz_on", 1); setP (fz.apvts, "fuzz", 1.0f);
+        const double fuzzed = crest();
+        if (std::getenv ("FUZZ_DUMP")) { juce::AudioBuffer<float> b (2, 512); juce::MidiBuffer m; double ph = 0; for (int i = 0; i < 512; ++i) { ph += 110.0 / sr; b.setSample (0, i, 0.2f * (float) std::sin (6.2831853 * ph)); b.setSample (1, i, b.getSample (0, i)); } fz.processBlock (b, m); for (int i = 0; i < 512; i += 8) std::printf ("%.3f ", b.getSample (0, i)); std::printf ("\n"); }
+        check (clean > 1.35 && fuzzed > 0 && fuzzed < 1.25, "FUZZ squares the wave up (crest " + juce::String (clean, 2) + " clean, " + juce::String (fuzzed, 2) + " fuzzed)");
+        for (int p = 0; p < FuzzboxProcessor::NumPedals; ++p) setP (fz.apvts, FuzzboxProcessor::onId (p), 1);
+        check (crest() > 0, "the whole board on: no NaN, no blow-up");
+        juce::AudioBuffer<float> b (2, 512); b.clear(); juce::MidiBuffer m;
+        m.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0); m.addEvent (juce::MidiMessage::controllerEvent (1, 11, 127), 1);
+        fz.processBlock (b, m);
+        check (val (fz.apvts, "wah_on") < 0.5f && val (fz.apvts, "wah_pos") > 0.99f, "footswitch C3 stomps the wah off; CC 11 moves the pedal");
+    }
+}
+
 // a long torture run: the whole band, random block sizes, jumps, stops, tempo, meter and style changes, footswitches
 void soak (int minutes)
 {
@@ -547,6 +655,7 @@ int main()
     benchTest();
     batch1Test();
     batch2Test();
+    batch3Test();
     learnKeys();
     learnGuitar();
     renderTest();

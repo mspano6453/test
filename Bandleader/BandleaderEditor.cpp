@@ -143,6 +143,10 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     tapeB.setTooltip ("Lathe (on the master) slows the whole mix to a stop. Press again to spin it back up.");
     saveSketchB.onClick = [this] { proc.saveSketch (juce::jmax (0, sketchBox.getSelectedItemIndex())); refreshSketches(); };
     loadSketchB.onClick = [this] { if (proc.loadSketch (juce::jmax (0, sketchBox.getSelectedItemIndex()))) repaint(); };
+    albumB.setClickingTogglesState (true);
+    albumB.setTooltip ("ALBUM: when a song ends, the next saved sketch starts two bars later, and so on round the book. (Live's tempo stays the same for every song.)");
+    albumAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "album", albumB);
+    addAndMakeVisible (albumB);
     for (auto* b : { &nextB, &fillB, &dropB, &allInB, &endB, &halfB, &keyUpB, &learnB, &learnNextB, &learnCancelB, &renderB, &openB,
                      &loopB, &mutateB, &tapeB, &chartB, &tunerB, &saveSketchB, &loadSketchB }) addAndMakeVisible (*b);
     addAndMakeVisible (sketchBox);
@@ -228,6 +232,7 @@ void BandleaderEditor::timerCallback()
                       + (proc.uiEndComing.load() ? 29 : 0) + (proc.uiOver.load() ? 37 : 0);
     if (dyn != lastDyn) { lastDyn = dyn; repaint (nowArea); repaint (formArea); repaint (learnArea); }
     if (chart->isVisible()) chart->repaint();
+    if (const int an = proc.uiAlbumNext.load(); an != lastAlbumNext) { lastAlbumNext = an; repaint (sketchArea); }
     if (proc.tunerOn.load()) { runTuner(); repaint (learnArea); }
     if (sketchBox.getNumItems() > 0 && proc.currentSketch.load() >= 0 && sketchBox.getSelectedItemIndex() != proc.currentSketch.load()) refreshSketches();
     if (++tick % 6 == 0) { repaint (bandArea); repaint (renderArea); dragSong->repaint(); }
@@ -572,7 +577,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
     g.setColour (kGold); g.setFont (font (13.0f, true));
     g.drawText ("SKETCHBOOK", sketchArea.reduced (18, 10).removeFromTop (18), juce::Justification::centredLeft);
     g.setColour (col::muted); g.setFont (font (11.0f));
-    g.drawText ("the whole song in a slot, saved with the set", sketchArea.reduced (18, 10).removeFromTop (18), juce::Justification::centredRight);
+    g.drawText (proc.uiAlbumNext.load() >= 0 ? juce::String ("album: the next song in ") + juce::String (proc.uiAlbumNext.load()) + " bars" : juce::String ("the whole song in a slot, saved with the set"), sketchArea.reduced (18, 10).removeFromTop (18), juce::Justification::centredRight);
 
     // ---- render
     g.setColour (col::panel); g.fillRoundedRectangle (renderArea.toFloat(), 8.0f);
@@ -603,6 +608,7 @@ void BandleaderEditor::resized()
     {
         auto sk = sketchArea.reduced (18, 10); sk.removeFromTop (24);
         auto row = sk.removeFromTop (28);
+        albumB.setBounds (row.removeFromRight (70).reduced (2));
         loadSketchB.setBounds (row.removeFromRight (62).reduced (2));
         saveSketchB.setBounds (row.removeFromRight (62).reduced (2));
         sketchBox.setBounds (row.reduced (2));

@@ -15,7 +15,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 Compression=lzma2
 SolidCompression=yes
-UninstallDisplayName=DEMOCRAZY (Tea Towel, Tape Twin, Lathe, Schaltwerk, Loon, Carousel, Undertow, Parlour, Ether, Chamber, Jangle, Harmonia, Swirl, Bandleader)
+UninstallDisplayName=DEMOCRAZY (Tea Towel, Tape Twin, Lathe, Schaltwerk, Loon, Carousel, Undertow, Parlour, Ether, Chamber, Jangle, Harmonia, Swirl, Fuzzbox, Bandleader)
 WizardStyle=modern
 
 [InstallDelete]
@@ -34,6 +34,7 @@ Type: filesandordirs; Name: "{commoncf64}\VST3\Chamber.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Jangle.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Harmonia.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Swirl.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\Fuzzbox.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Bandleader.vst3"
 
 [Files]
@@ -50,8 +51,9 @@ Source: "..\build\Chamber_artefacts\Release\VST3\Chamber.vst3\*"; DestDir: "{app
 Source: "..\build\Jangle_artefacts\Release\VST3\Jangle.vst3\*"; DestDir: "{app}\Jangle.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "..\build\Harmonia_artefacts\Release\VST3\Harmonia.vst3\*"; DestDir: "{app}\Harmonia.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "..\build\Swirl_artefacts\Release\VST3\Swirl.vst3\*"; DestDir: "{app}\Swirl.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "..\build\Fuzzbox_artefacts\Release\VST3\Fuzzbox.vst3\*"; DestDir: "{app}\Fuzzbox.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "..\build\Bandleader_artefacts\Release\VST3\Bandleader.vst3\*"; DestDir: "{app}\Bandleader.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "..\Grooves\*"; DestDir: "{commondocs}\DEMOCRAZY\Grooves"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Messages]
-FinishedLabel=DEMOCRAZY is installed: Tea Towel, Tape Twin, Lathe, Schaltwerk, Loon, Carousel, Undertow, Parlour, Ether, Chamber, Jangle, Harmonia, Swirl and Bandleader. In Ableton Live, open Settings > Plug-Ins and press Rescan.
+FinishedLabel=DEMOCRAZY is installed: Tea Towel, Tape Twin, Lathe, Schaltwerk, Loon, Carousel, Undertow, Parlour, Ether, Chamber, Jangle, Harmonia, Swirl, Fuzzbox and Bandleader. In Ableton Live, open Settings > Plug-Ins and press Rescan.

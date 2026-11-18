@@ -86,6 +86,7 @@ LoonEditor::LoonEditor (LoonProcessor& p) : AudioProcessorEditor (&p), proc (p)
         juce::String lbl (id); if (lbl == "nature_lvl") lbl = "level";
         knob (id, lbl.toUpperCase().toRawUTF8(), 2);
     }
+    knob ("found", "FOUND SOUNDS", 2); knob ("radio", "RADIO DIAL", 2); knob ("collage", "TAPE COLLAGE", 2); knob ("sea", "THE SEA", 2); knob ("clocks", "CLOCKS", 2);
     // SPACE
     knob ("v_size", "SIZE", 3); knob ("v_mix", "SPACE", 3); knob ("shimmer", "SHIMMER", 3); knob ("wobble", "TAPE WOBBLE", 3); knob ("out", "OUTPUT", 3);
 
@@ -203,7 +204,7 @@ void LoonEditor::paint (juce::Graphics& g)
     }
     else if (page == 2)
     {
-        panel (panelA, "NATURE - synthesized, never loops");
+        panel (panelA, "NATURE (synthesized, never loops)  +  FOUND SOUNDS (recorded)");
         g.setColour (kMuted); g.setFont (font (12.0f));
         g.drawFittedText ("WEATHER on the SCENE page pushes wind and rain harder and lets the thunder in.",
                           panelA.reduced (14, 10).removeFromBottom (24), juce::Justification::left, 1, 1.0f);
@@ -281,10 +282,12 @@ void LoonEditor::resized()
     }
     else if (page == 2)
     {
-        panelA = c.removeFromTop (300);
+        panelA = c.removeFromTop (330);
         auto a = panelA.reduced (14, 10).withTrimmedTop (30);
         layoutRow (a.removeFromTop (120), { byId["wind"], byId["rain"], byId["creek"], byId["crickets"], byId["birds"], byId["loons"], byId["thunder"], byId["nature_lvl"] },
                    a.getWidth() / 8);
+        a.removeFromTop (24);
+        layoutRow (a.removeFromTop (120), { byId["found"], byId["radio"], byId["collage"], byId["sea"], byId["clocks"] }, a.getWidth() / 8);
     }
     else
     {

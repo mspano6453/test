@@ -78,6 +78,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LatheProcessor::createLayout
     F ("in_gain", "Input Gain", { -18, 18, 0.1f }, 0, dB1);
     F ("out_gain", "Output Gain", { -18, 6, 0.1f }, 0, dB1);
     C ("dither", "Dither", { "Off", "16-bit", "24-bit" }, 0);
+    C ("record_cut", "Record Cut", { "Off", "60s mono single", "Worn vinyl", "Cassette", "45 rpm (a 33 sped up)" }, 0);
     C ("tape_stop", "Tape Stop", { "Off", "At the end of the song", "Footswitch only" }, 1);
 
     const bool defOn[NumModules] = { true, false, false, true, false, false, true };
@@ -167,6 +168,7 @@ bool LatheProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 
 void LatheProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    recordCut.prepare (sampleRate);
     sr = sampleRate;
     for (auto& b : tsBuf) b.assign ((size_t) (sr * 6.0), 0.0f);
     tsW = 0; tsState = 0; tsRead = 0; tsRate = 1;
@@ -276,6 +278,7 @@ void LatheProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBu
     const int bits = (int) apvts.getRawParameterValue ("dither")->load();
     if (bits > 0) { dither.process (L, n, bits == 1 ? 16 : 24); dither.process (R, n, bits == 1 ? 16 : 24); }
 
+    recordCut.process (L, R, n, (int) apvts.getRawParameterValue ("record_cut")->load());
     outLoud.process (L, R, n);
     tapeStopBlock (L, R, n);
 

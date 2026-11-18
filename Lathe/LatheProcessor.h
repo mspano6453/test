@@ -4,6 +4,7 @@
 #include "../Source/BandStyles.h"
 #include <juce_dsp/juce_dsp.h>
 #include "LatheDSP.h"
+#include "RecordCut.h"
 
 namespace lt
 {
@@ -144,4 +145,5 @@ private:
     double assistSeconds = 0, phase2Seconds = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LatheProcessor)
+    lt::RecordCut recordCut;
 };

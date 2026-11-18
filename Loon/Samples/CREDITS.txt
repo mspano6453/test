@@ -1,0 +1,3 @@
+Found sounds for Loon. All CC0 (public domain).
+found_crow, found_till, found_door, found_rewind, found_backspin: Sonic Pi sample set (github.com/sonic-pi-net/sonic-pi, etc/samples), from freesound.org, CC0.
+found_whistle*, found_siren*, found_glass*, found_tick*, found_sea*: Versilian Community Sample Library (github.com/sgossner/VCSL), CC0 - toy train whistle, siren whistle, wine glasses, woodblock, ocean drum.

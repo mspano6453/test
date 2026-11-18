@@ -103,8 +103,8 @@ private:
     float inPk = 0, outPk = 0, tpHold = 0;
     juce::TextButton resetButton { "Reset" };
     std::unique_ptr<ttui::Knob> inGain, outGain;
-    juce::ComboBox dither;
-    std::unique_ptr<APVTS::ComboBoxAttachment> ditherAtt;
+    juce::ComboBox dither, recordCut;
+    std::unique_ptr<APVTS::ComboBoxAttachment> ditherAtt, recordCutAtt;
 };
 } // namespace ltui
 

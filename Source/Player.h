@@ -489,6 +489,7 @@ public:
     // Read by the UI
     std::atomic<int> uiSection { 0 }, uiStep { -1 }, uiBar { 0 };
     std::atomic<bool> uiFillComing { false }, uiEnded { false }, uiRunning { false };
+    bool fillingNow() const { return fillThisBar; }
 
     void prepare (double newSr) { sr = newSr; reset(); }
 

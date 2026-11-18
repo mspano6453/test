@@ -159,7 +159,10 @@ target_link_libraries(Schaltwerk
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
-# Loon - ambient generator that listens to your guitar
+# Loon - ambient generator that listens to your guitar (and found sounds)
+file(GLOB LOON_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Loon/Samples/*.flac")
+juce_add_binary_data(LoonSamples NAMESPACE LoonData HEADER_NAME LoonData.h SOURCES ${LOON_SAMPLES})
+set_target_properties(LoonSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 juce_add_plugin(Loon
     COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.loon"
@@ -185,6 +188,7 @@ target_compile_definitions(Loon PUBLIC
 
 target_link_libraries(Loon
     PRIVATE
+        LoonSamples
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -514,6 +518,25 @@ target_compile_definitions(Swirl PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_
 target_link_libraries(Swirl PRIVATE juce::juce_audio_utils juce::juce_dsp
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
 
+# Fuzzbox - a 60s pedalboard: wah, fuzz, octave fuzz, tremolo, spring reverb
+juce_add_plugin(Fuzzbox
+    COMPANY_NAME "DEMOCRAZY"
+    BUNDLE_ID "com.teatowelaudio.fuzzbox"
+    PRODUCT_NAME "Fuzzbox"
+    PLUGIN_MANUFACTURER_CODE Ttwl
+    PLUGIN_CODE Fzbx
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Fx Distortion
+    AU_MAIN_TYPE kAudioUnitType_MusicEffect
+    FORMATS VST3 AU)
+target_sources(Fuzzbox PRIVATE Fuzzbox/FuzzboxProcessor.cpp Fuzzbox/FuzzboxEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
+target_compile_definitions(Fuzzbox PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(Fuzzbox PRIVATE juce::juce_audio_utils juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+
 # Offline render test: cmake -B build -DTEATOWEL_RENDER_DEMO=ON
 option(TEATOWEL_RENDER_DEMO "Build the offline render test tool" OFF)
 if(TEATOWEL_RENDER_DEMO)
@@ -546,7 +569,7 @@ if(TEATOWEL_RENDER_DEMO)
     juce_add_console_app(LoonTest PRODUCT_NAME "LoonTest")
     target_sources(LoonTest PRIVATE Tools/LoonTest.cpp Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(LoonTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 LOON_NO_ENTRY=1)
-    target_link_libraries(LoonTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(LoonTest PRIVATE LoonSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(CarouselTest PRODUCT_NAME "CarouselTest")
     target_sources(CarouselTest PRIVATE Tools/CarouselTest.cpp Carousel/CarouselProcessor.cpp Carousel/CarouselEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
@@ -599,7 +622,7 @@ if(TEATOWEL_RENDER_DEMO)
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(SuiteTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1
         LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 CAROUSEL_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
-    target_link_libraries(SuiteTest PRIVATE TeaTowelSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(SuiteTest PRIVATE TeaTowelSamples LoonSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(LiveSim PRODUCT_NAME "LiveSim")
     target_sources(LiveSim PRIVATE Tools/LiveSim.cpp
@@ -614,7 +637,7 @@ if(TEATOWEL_RENDER_DEMO)
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(LiveSim PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
         LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 CAROUSEL_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1)
-    target_link_libraries(LiveSim PRIVATE TeaTowelSamples UndertowSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(LiveSim PRIVATE TeaTowelSamples UndertowSamples LoonSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(StyleTest PRODUCT_NAME "StyleTest")
     target_sources(StyleTest PRIVATE Tools/StyleTest.cpp
@@ -633,7 +656,7 @@ if(TEATOWEL_RENDER_DEMO)
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
         LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1)
-    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples LoonSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     # the song form, learning a song, rendering it to MIDI files
     juce_add_console_app(FormTest PRODUCT_NAME "FormTest")
@@ -646,8 +669,9 @@ if(TEATOWEL_RENDER_DEMO)
         Jangle/JangleProcessor.cpp Jangle/JangleEditor.cpp
         Harmonia/HarmoniaProcessor.cpp Harmonia/HarmoniaEditor.cpp
         Ether/EtherProcessor.cpp Ether/EtherEditor.cpp
+        Loon/LoonProcessor.cpp Loon/LoonEditor.cpp Lathe/LatheProcessor.cpp Lathe/LatheEditor.cpp Fuzzbox/FuzzboxProcessor.cpp Fuzzbox/FuzzboxEditor.cpp
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(FormTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
-        PARLOUR_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1 ETHER_NO_ENTRY=1)
-    target_link_libraries(FormTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        PARLOUR_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1 ETHER_NO_ENTRY=1 LOON_NO_ENTRY=1 LATHE_NO_ENTRY=1 FUZZBOX_NO_ENTRY=1)
+    target_link_libraries(FormTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples LoonSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

@@ -4,6 +4,7 @@
 #include "../Source/MidiCapture.h"
 #include "../Source/BandStyles.h"
 #include "LoonDSP.h"
+#include "FoundSounds.h"
 
 class LoonProcessor : public juce::AudioProcessor
 {
@@ -54,6 +55,7 @@ private:
     ln::Generator gen;
     ln::Cloud cloud;
     ln::Nature nature;
+    ln::FoundSounds found;
     ln::Space space;
     std::vector<float> mono, gL, gR, sL, sR;
     double journeyTime = 0;
@@ -70,4 +72,5 @@ private:
     int blockSize = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LoonProcessor)
+    int64_t lastCollageBar = -1;
 };

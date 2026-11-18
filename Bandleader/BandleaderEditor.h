@@ -33,8 +33,9 @@ private:
     juce::TextButton learnB { "LEARN THE SONG" }, learnNextB { "NEXT PART" }, learnCancelB { "CANCEL" };
     juce::TextButton renderB { "RENDER SONG" }, openB { "OPEN FOLDER" };
     juce::TextButton loopB { "LOOP SECTION" }, mutateB { "MUTATE" }, tapeB { "TAPE STOP" }, chartB { "CHART" }, tunerB { "TUNER" };
-    juce::ComboBox sketchBox; juce::TextButton saveSketchB { "SAVE" }, loadSketchB { "LOAD" };
-    juce::Rectangle<int> sketchArea;
+    juce::ComboBox sketchBox; juce::TextButton saveSketchB { "SAVE" }, loadSketchB { "LOAD" }, albumB { "ALBUM" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> albumAtt;
+    juce::Rectangle<int> sketchArea; int lastAlbumNext = -2;
     ttui::Knob* strangeK = nullptr;
     class Chart;
     std::unique_ptr<Chart> chart;

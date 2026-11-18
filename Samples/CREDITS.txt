@@ -36,3 +36,5 @@ Sample Library (VCSL) by Versilian Studios / Samuel Gossner, released under CC0 
   perc_congahi_1..3 <- Conga / Quinto_HitN_v1..v3
   perc_congalo_1..3 <- Conga / Conga_HitN_v1..v3
   perc_claves_1..3  <- Claves / Claves1_Hit_v1..v3
+
+Drum loops (brk_*.flac): Sonic Pi sample set (github.com/sonic-pi-net/sonic-pi, etc/samples), from freesound.org, all CC0.

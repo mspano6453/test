@@ -11,6 +11,7 @@
 #include "Params.h"
 #include "DrumEngine.h"
 #include "Player.h"
+#include "BreakLoops.h"
 #include "MachineKits.h"
 
 class TeaTowelProcessor : public juce::AudioProcessor
@@ -64,6 +65,7 @@ public:
     std::array<std::atomic<float>, tt::NumPieces> hitFlash;    // UI hit lights
     std::atomic<float> gainReductionDb { 0.0f };               // Squash meter
     tt::GroovePlayer player;                                   // the PLAYER page
+    tt::BreakPlayer breaks;                                    // the drum loop kit
 
 private:
     void handleMidi (const juce::MidiMessage& m);

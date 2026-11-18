@@ -104,6 +104,7 @@ public:
     bool loadSketch (int slot);
     juce::String sketchName (int slot) const;
     std::atomic<int> currentSketch { -1 };
+    std::atomic<int> uiAlbumNext { -1 };     // bars until the next song of the album starts
     void mutate();
     mc::Capture capture;
 
@@ -165,4 +166,5 @@ private:
     std::array<float, bl::kNumCmds> lastTrig {};
     std::array<int, bl::kNumCmds> lastCC {};
     std::unique_ptr<mc::SongRenderer> renderer;
+    int64_t albumRestartAt = band::kNever, albumArmedFor = band::kNever;
 };

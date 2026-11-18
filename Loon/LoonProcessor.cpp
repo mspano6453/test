@@ -1,5 +1,6 @@
 #include "../Source/SongForm.h"
 #include "LoonProcessor.h"
+#include "LoonData.h"
 #include "../Source/BandBus.h"
 #include "LoonEditor.h"
 
@@ -72,6 +73,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LoonProcessor::createLayout(
 
     F ("wind", "Wind", 0.2f); F ("rain", "Rain", 0.0f); F ("creek", "Creek", 0.0f); F ("crickets", "Crickets", 0.3f);
     F ("birds", "Birds", 0.0f); F ("loons", "Loons", 0.2f); F ("thunder", "Thunder", 0.0f); F ("nature_lvl", "Nature Level", 0.7f);
+    F ("found", "Found Sounds", 0.0f); F ("radio", "Radio Dial", 0.0f); F ("collage", "Tape Collage", 0.0f); F ("sea", "The Sea", 0.0f); F ("clocks", "Clocks", 0.0f);
 
     F ("v_size", "Space Size", 0.7f); F ("v_mix", "Space", 0.6f); F ("shimmer", "Shimmer", 0.35f); F ("wobble", "Tape Wobble", 0.2f);
     F ("out", "Output", -3.0f, dB1, { -24, 6, 0.1f });
@@ -85,6 +87,7 @@ LoonProcessor::LoonProcessor()
       apvts (*this, nullptr, "Loon", createLayout())
 {
     band::available();   // open the band link here (message thread), not on the audio thread
+    found.load (&LoonData::getNamedResource, LoonData::namedResourceList, LoonData::namedResourceListSize);
     gen.midiOut = [this] (int note, float vel, bool)
     {
         if (pendingCount + 2 > 128) return;
@@ -105,7 +108,7 @@ bool LoonProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 void LoonProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
-    key.prepare (sr); gen.prepare (sr); cloud.prepare (sr); nature.prepare (sr); space.prepare (sr);
+    key.prepare (sr); gen.prepare (sr); cloud.prepare (sr); nature.prepare (sr); space.prepare (sr); found.prepare (sr);
     for (auto* b : { &mono, &gL, &gR, &sL, &sR }) b->assign ((size_t) juce::jmax (512, samplesPerBlock), 0.0f);
     pendingCount = 0;
 }
@@ -244,6 +247,27 @@ void LoonProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBuf
     np.wind = v ("wind") * (0.4f + w); np.rain = v ("rain") * (0.3f + w); np.creek = v ("creek");
     np.crickets = v ("crickets"); np.birds = v ("birds"); np.loons = v ("loons"); np.thunder = v ("thunder") * w;
     nature.process (L, R, n, np, v ("nature_lvl") * waitGain);
+
+    // ---- found sounds, and the tape collage before each new section
+    {
+        ln::FoundSounds::Params fp;
+        fp.amount = v ("found"); fp.radio = v ("radio"); fp.collage = v ("collage"); fp.sea = v ("sea"); fp.clocks = v ("clocks");
+        fp.level = 0.8f * waitGain;
+        if (led && fp.collage > 0.001f)
+        {
+            const double barQ = band::meterBarPpq (meter), half = (double) bar * barQ + barQ * 0.5;
+            const double endQ = ppq + bpm / 60.0 / sr * n;
+            int64_t inNext = 0;
+            const int nowSec = leader.sectionAt (bar), nextSec = leader.sectionAt (bar + 1, &inNext);
+            if (ppq <= half && endQ > half && inNext == 0 && (nextSec != nowSec || leader.isOut (bar + 1)) && ! leader.isEnding (bar + 1) && ! leader.isOver (bar + 1)
+                && bar != lastCollageBar)
+            {
+                lastCollageBar = bar;
+                found.collage (barQ * 0.5 * 60.0 / bpm, fp);
+            }
+        }
+        found.process (L, R, n, fp);
+    }
 
     // ---- output + gentle safety limiter
     const float g = juce::Decibels::decibelsToGain (v ("out"));

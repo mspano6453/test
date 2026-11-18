@@ -72,6 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BandleaderProcessor::createL
     C ("breakdown", "Breakdown", { "Off", "Before last chorus", "Half-time bridge", "Both" }, 0);
     C ("key_up", "Key Change", { "Off", "Last chorus +1", "Last chorus +2", "Last chorus +3" }, 0);
     C ("ending", "Ending", { "Keep going", "Big ending", "Fade out" }, 0);
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "album", 1 }, "Album Mode", juce::StringArray { "Off", "On" }, 0));
     ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "strange", 1 }, "Strange", juce::NormalisableRange<float> (0, 1, 0.001f), 0.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v * 100)) + "%"; })));
     return { ps.begin(), ps.end() };
@@ -460,7 +461,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // where are we? (start of play, or the playhead jumped)
     if (! playing || ! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.5)
     {
-        shift = 0; loopLen = 0;
+        shift = 0; loopLen = 0; albumRestartAt = band::kNever; albumArmedFor = band::kNever;
         endOverride = band::kNever; manualFill = -band::kNever;
         halfFrom = halfTo = band::kNever; keyOverride = 0; keyOverrideFrom = band::kNever;
         manualCountFrom = manualCountTo = manualIntroFrom = manualIntroTo = band::kNever;
@@ -542,8 +543,17 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             }
             if (loopLen > 0) while (bar - shift >= loopStart + loopLen) shift += loopLen;
         }
+        // ALBUM MODE: two bars after a song ends, the next sketch starts from its count-in
+        if (albumRestartAt < band::kNever && bar >= albumRestartAt) { shift = albumRestartAt; albumRestartAt = band::kNever; endOverride = band::kNever; keyOverride = 0; }
         band::applySong (L, songAudio, bar - shift);
         shiftLeader (L, shift);
+        if (playing && ! looping && apvts.getRawParameterValue ("album")->load() > 0.5f && L.overFrom < band::kNever && bar >= L.overFrom && albumArmedFor != L.overFrom)
+        {
+            albumArmedFor = L.overFrom;
+            albumRestartAt = L.overFrom + 2;
+            pendingSketchStep = 1; triggerAsyncUpdate();      // (with no sketches saved, the same song again)
+        }
+        uiAlbumNext = albumRestartAt < band::kNever ? (int) (albumRestartAt - bar) : -1;
         if (looping && loopLen > 0)
         {
             // the next part is this part again (so the fills and the sections still line up)
@@ -750,7 +760,7 @@ void BandleaderProcessor::saveSketch (int slot)
     sk.setProperty ("slot", slot, nullptr);
     for (auto* prm : getParameters())
         if (auto* r = dynamic_cast<juce::RangedAudioParameter*> (prm))
-            if (! r->getParameterID().startsWith ("t_")) sk.setProperty (r->getParameterID(), r->getValue(), nullptr);
+            if (! r->getParameterID().startsWith ("t_") && r->getParameterID() != "album") sk.setProperty (r->getParameterID(), r->getValue(), nullptr);
     sk.setProperty ("learned", apvts.state.getProperty ("learned", ""), nullptr);
     sk.setProperty ("benched", (juce::int64) benched.load(), nullptr);
     sk.setProperty ("strangeSeed", (juce::int64) strangeSeed, nullptr);

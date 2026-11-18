@@ -93,6 +93,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     }
     // Player
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::on, 1 }, "Player On", juce::StringArray { "Off", "On" }, 0));
+    {
+        juce::StringArray names;     // the same names, in the same order, as BreakPlayer::load
+        for (int r = 0; r < BinaryData::namedResourceListSize; ++r)
+        {
+            const juce::String res (BinaryData::namedResourceList[r]);
+            if (! res.startsWith ("brk_")) continue;
+            juce::StringArray t; t.addTokens (res, "_", "");
+            if (t[2].getIntValue() > 0) names.add (tt::BreakPlayer::prettyName (t[1]));
+        }
+        std::sort (names.begin(), names.end());
+        juce::StringArray ln { "Off" }; ln.addArray (names);
+        ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "loop", 1 }, "Drum Loop", ln, 0));
+        ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "loop_kit", 1 }, "Loop With", juce::StringArray { "Loop + kit", "Loop only" }, 0));
+        ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "loop_mix", 1 }, "Loop Level", juce::NormalisableRange<float> (0, 1, 0.001f), 0.7f));
+    }
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "swells", 1 }, "Backwards Cymbals",
                                                                 juce::StringArray { "Off", "Into choruses", "Into every section" }, 1));
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "sit_out", 1 }, "With The Band", juce::StringArray { "Plays along", "Sits out" }, 0));
@@ -135,6 +150,7 @@ TeaTowelProcessor::TeaTowelProcessor()
 
     formatManager.registerBasicFormats();
     loadBuiltInKit();
+    breaks.load (&BinaryData::getNamedResource, BinaryData::namedResourceList, BinaryData::namedResourceListSize);
     for (int t = 0; t < 3; ++t) buildMachineKit (t + 1, machineBanks[t]);
     const char* pids[] = { PID::on, PID::style, PID::section, PID::fillEvery, PID::intensity, PID::looseness, PID::swing, PID::variation };
     for (int i = 0; i < 8; ++i) playerParams[i] = apvts.getRawParameterValue (pids[i]);
@@ -155,6 +171,7 @@ void TeaTowelProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
     engine.prepare (sr);
+    breaks.prepare (sr);
     roomBuf.setSize (2, juce::jmax (samplesPerBlock, 512) * 2);
     reverb.reset();
     reverb.setSampleRate (sr);
@@ -311,6 +328,28 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         pos = ev;
     }
     renderSegment (buffer, pos, n);
+
+    // ---- the drum loop kit ------------------------------------------------
+    {
+        const int which = (int) apvts.getRawParameterValue ("loop")->load() - 1;
+        if (which >= 0 && apvts.getRawParameterValue ("loop_kit")->load() > 0.5f) buffer.clear();    // loop only: the kit goes quiet
+        tt::BreakPlayer::Ctx c { false, 0, 120, uiMeter.load(), false, false, apvts.getRawParameterValue ("loop_mix")->load() * 1.1f };
+        if (auto* ph = getPlayHead()) if (auto p = ph->getPosition())
+        {
+            c.playing = p->getIsPlaying(); if (auto q = p->getPpqPosition()) c.ppq = *q; else c.playing = false; if (auto b = p->getBpm()) c.bpm = *b;
+        }
+        const bool on = playerParams[0]->load() > 0.5f || fadeLed;
+        c.playing = c.playing && on && (! fadeLed || ! fadeLeader.off (band::WTeaTowel));
+        if (fadeLed && c.playing)
+        {
+            const int64_t bar = band::barOfPpq (c.ppq + 0.001, c.meter);
+            c.silent = fadeLeader.rests (bar, true) || fadeLeader.isEnding (bar) || fadeLeader.isCountIn (bar) || fadeLeader.isOver (bar) || apvts.getRawParameterValue ("sit_out")->load() > 0.5f;
+            c.fill = fadeLeader.fillAt (bar);
+            c.gain *= 0.85f + 0.3f * fadeLeader.energy;
+        }
+        else c.fill = player.fillingNow();
+        breaks.process (buffer, n, which, c);
+    }
 
     // ---- Room (a small, dark, heavily damped space) -----------------------
     const float roomLvl = mp[RoomLevel]->load();
