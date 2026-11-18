@@ -57,6 +57,8 @@ inline void timeSig (juce::MidiMessageSequence& seq, int meter)
 {
     if (meter == band::M34) seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (3, 4), 0);
     else if (meter == band::M68) seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (6, 8), 0);
+    else if (meter == band::M54) seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (5, 4), 0);
+    else if (meter == band::M78) seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (7, 8), 0);
     else seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (4, 4), 0);
 }
 
@@ -266,7 +268,7 @@ public:
         p.setTimeInSamples (samples);
         p.setTimeInSeconds ((double) samples / sr);
         const int m = meter;
-        p.setTimeSignature (juce::AudioPlayHead::TimeSignature { m == band::M44 ? 4 : m == band::M34 ? 3 : 6, m == band::M68 ? 8 : 4 });
+        p.setTimeSignature (juce::AudioPlayHead::TimeSignature { m == band::M44 ? 4 : m == band::M34 ? 3 : m == band::M54 ? 5 : m == band::M78 ? 7 : 6, (m == band::M68 || m == band::M78) ? 8 : 4 });
         const double bp = band::meterBarPpq (m);
         p.setPpqPositionOfLastBarStart (std::floor (ppq / bp) * bp);
         p.setBarCount ((int64_t) std::floor (ppq / bp));

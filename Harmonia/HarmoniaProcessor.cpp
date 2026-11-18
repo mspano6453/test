@@ -41,6 +41,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout HarmoniaProcessor::createLay
     C ("feel", "Feel", feelNames(), 0);
     C ("follow", "Chords From", { "Band (Bandleader / own song)", "MIDI chords", "Play it (MIDI keys)" }, 0);
     C ("sit_out", "With The Band", { "Plays along", "Sits out" }, 0);
+    C ("part", "What They Sing", { "Backing", "The melody", "Melody + harmony" }, 0);
     C ("parts", "Parts", { "2 parts", "3 parts", "4 parts" }, 1);
     C ("register", "Register", { "Low", "Middle", "High" }, 1);
     C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
@@ -84,7 +85,7 @@ void HarmoniaProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     for (int i = 0; i < kNumSingers; ++i) singers[i].prepare (sr, 0x9e3779b9u * (uint32_t) (i + 1));
     room.prepare (sr, juce::jmax (512, samplesPerBlock));
     const size_t n = (size_t) juce::jmax (512, samplesPerBlock);
-    tmpL.assign (n, 0.0f); tmpR.assign (n, 0.0f);
+    tmpL.assign (n, 0.0f); tmpR.assign (n, 0.0f); melL.assign (n, 0.0f); melR.assign (n, 0.0f);
     queue.clear();
     lastStep = -1; lastPpqEnd = -1; wasPlaying = false; curBar = -1; singing = false;
     for (auto& p : partNote) p = -1;
@@ -98,7 +99,7 @@ void HarmoniaProcessor::readParams()
     group = (int) g ("group"); feel = (int) g ("feel"); follow = (int) g ("follow"); parts = 2 + (int) g ("parts"); reg = (int) g ("register");
     key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
     chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = ut::sectionBarsFor ((int) g ("section_bars"));
-    section = (int) g ("section");
+    section = (int) g ("section"); melodyMode = (int) g ("part");
     busy = g ("busy"); dynamics = g ("dynamics"); human = g ("human"); vibrato = g ("vibrato"); breath = g ("breath");
     ensemble = g ("ensemble"); swell = g ("swell"); bright = g ("bright"); roomAmt = g ("room"); width = g ("width");
     // every group and feel about as loud as the others
@@ -156,6 +157,96 @@ void HarmoniaProcessor::singChord (int64_t at, int root, int q, const Hit& h, bo
     singing = true; lastSyl = h.syl;
 }
 
+void HarmoniaProcessor::makeMotif (int sec)
+{
+    Rng r; r.seed (melSeed[sec] ^ (uint32_t) (feel * 131 + sec * 7919));
+    const int ns = bs, beat = band::meterBeatSteps (meterNow);
+    const float b = juce::jlimit (0.0f, 1.0f, busy + (sec == band::Chorus ? 0.1f : 0.0f));
+    static const Syllable syls[] = { { VAh, ONone }, { VOo, OD }, { VAh, OD }, { VOh, ONone }, { VEe, OB }, { VOo, ONone }, { VAh, OB } };
+    const Syllable home = syls[r.i (7)];
+    for (int k = 0; k < 2; ++k)
+    {
+        auto& m = motif[sec][k]; m.clear();
+        int s = k == 0 && r.chance (0.35f) ? beat / 2 : 0;     // sometimes the tune comes in on the "and"
+        while (s < ns)
+        {
+            if (s > 0 && r.chance (0.12f + 0.1f * (1.0f - b))) { s += beat / 2 > 0 ? beat / 2 : 2; continue; }   // a breath
+            int dur;
+            const float x = r.u();
+            if (b > 0.6f) dur = x < 0.45f ? 2 : x < 0.8f ? 4 : x < 0.92f ? 1 : 6;
+            else if (b > 0.3f) dur = x < 0.3f ? 2 : x < 0.75f ? 4 : x < 0.9f ? 6 : 8;
+            else dur = x < 0.15f ? 2 : x < 0.55f ? 4 : x < 0.8f ? 6 : 8;
+            if (k == 1 && s + dur >= ns - 2) dur = ns - s;          // bar two lands and holds
+            dur = juce::jmin (dur, ns - s);
+            int deg = 0;
+            if (! m.empty() || k == 1)
+            {
+                const float y = r.u();
+                deg = y < 0.32f ? -1 : y < 0.64f ? 1 : y < 0.76f ? 0 : y < 0.86f ? -2 : y < 0.94f ? 2 : (r.chance (0.5f) ? 3 : -3);
+            }
+            m.push_back ({ s, (float) dur * 0.92f, deg, r.chance (0.65f) ? home : syls[r.i (7)] });
+            s += dur;
+        }
+    }
+    motifMade[sec] = true;
+}
+
+void HarmoniaProcessor::writeMelodyBar (int64_t b)
+{
+    melBar.clear();
+    const int sec = juce::jlimit (0, 2, barSection);
+    if (! motifMade[sec]) makeMotif (sec);
+    int r = 0, q = 0; chordAt (b, r, q);
+    if (r < 0) return;
+    const int kr = led ? leader.keyAt (b) : key;
+    const bool minorKey = led ? band::qualityIsMinor (leader.tonicQ) : false;
+    static const int maj[] = { 0, 2, 4, 5, 7, 9, 11 }, mnr[] = { 0, 2, 3, 5, 7, 8, 10 };
+    const bool female = group == GGirls || (group != GMen && reg > 0);
+    const int lo = female ? 60 : 48, hi = female ? 79 : 67;
+    int pool[24]; int np = 0;
+    for (int n = lo; n <= hi && np < 24; ++n)
+        for (int i = 0; i < 7; ++i) if (((n - kr) % 12 + 12) % 12 == (minorKey ? mnr : maj)[i]) { pool[np++] = n; break; }
+    if (np < 5) return;
+    const int third = band::qualityIsMinor (q) ? 3 : 4;
+    auto chordTone = [&] (int n) { const int iv = ((n - r) % 12 + 12) % 12; return iv == 0 || iv == third || iv == 7; };
+    auto nearest = [&] (int note) { int bi = 0; for (int i = 1; i < np; ++i) if (std::abs (pool[i] - note) < std::abs (pool[bi] - note)) bi = i; return bi; };
+    auto snap = [&] (int idx)
+    {
+        for (int d = 0; d < 4; ++d) { if (idx - d >= 0 && chordTone (pool[idx - d])) return idx - d; if (idx + d < np && chordTone (pool[idx + d])) return idx + d; }
+        return idx;
+    };
+    // where the tune sits: the verse low, the chorus up, the bridge in between
+    if (barInSec == 0 || melLast < 0) melLast = pool[np * (sec == band::Chorus ? 60 : sec == band::Bridge ? 48 : 36) / 100];
+    const int beat = band::meterBeatSteps (meterNow);
+    const int p = barInSec % 4;
+    int idx = nearest (melLast);
+    if (p == 3)
+    {
+        // the end of the phrase: one long note home (the root at the end of the section)
+        const bool sectionEnd = led ? leader.nextStartBar == b + 1 : (barInSec + 1) % sectionBars == 0;
+        int t = idx;
+        for (int d = 0; d < np; ++d)
+        {
+            auto ok = [&] (int i) { if (i < 0 || i >= np) return false; const int iv = ((pool[i] - r) % 12 + 12) % 12; return sectionEnd ? iv == 0 : chordTone (pool[i]); };
+            if (ok (idx - d)) { t = idx - d; break; }
+            if (ok (idx + d)) { t = idx + d; break; }
+        }
+        melBar.push_back ({ 0, (float) (bs - beat) * 0.95f, pool[t], 0.8f, motif[sec][1].empty() ? Syllable { VAh, ONone } : motif[sec][1].back().syl });
+        melLast = pool[t];
+        return;
+    }
+    const auto& src = motif[sec][p == 1 ? 1 : 0];
+    const int lift = p == 2 ? 1 : 0;      // the third bar: the same tune a step up
+    for (size_t i = 0; i < src.size(); ++i)
+    {
+        idx = juce::jlimit (0, np - 1, idx + src[i].deg + (i == 0 ? lift : 0));
+        const bool strong = src[i].step % beat == 0;
+        if (strong) idx = snap (idx);
+        melBar.push_back ({ src[i].step, src[i].len, pool[idx], strong ? 0.82f : 0.7f, src[i].syl });
+    }
+    melLast = pool[idx];
+}
+
 void HarmoniaProcessor::playStep (int64_t k, int64_t at)
 {
     const int64_t b = k / bs;
@@ -167,6 +258,8 @@ void HarmoniaProcessor::playStep (int64_t k, int64_t at)
         barSection = sectionAt (b, barInSec, lastBar);
         writeBar (feel, barSection, barInSec, busy, meterNow, rng, bar);
         if (led && leader.isHalf (b)) { bar.clear(); bar.push_back ({ 0, -1.0f, 0.66f, { VOo, ONone }, true }); }   // the breakdown: a soft "ooh"
+        if (melodyMode == 1) bar.clear();                 // the melody alone: the backing parts sit this one out
+        if (melodyMode > 0) writeMelodyBar (b); else melBar.clear();
         uiSection = barSection;
     }
     uiStep = s;
@@ -188,6 +281,13 @@ void HarmoniaProcessor::playStep (int64_t k, int64_t at)
     const bool changed = r != lastRoot || q != lastQ;
     lastRoot = r; lastQ = q;
     uiChord = r | (q << 4);
+    for (const auto& m : melBar)
+        if (m.step == s)
+        {
+            const float v = juce::jlimit (0.1f, 1.0f, m.vel * (0.6f + 0.55f * dynamics) + rng.n() * 0.05f * human);
+            const double sixteenth = sr * 15.0 / juce::jmax (30.0, bpmNow);
+            schedule ({ at + (int64_t) (rng.u() * 0.01 * human * sr), 7, 0, m.note, v, (float) (m.len * sixteenth / sr), m.syl, m.syl.onset == ONone && melMidi >= 0, 0.03f + 0.08f * swell });
+        }
     bool any = false; for (auto& h : bar) if (h.step == s) any = true;
     // a held "ooh" that the chord moves under: the parts glide to the new chord
     if (changed && ! any && singing && s != 0 && ! bar.empty() && bar.front().len < 0)
@@ -275,6 +375,24 @@ void HarmoniaProcessor::handle (const Ev& e, juce::MidiBuffer& out, int pos)
             if (e.len > 0) schedule ({ e.at + (int64_t) (e.len * sr), 2, e.part, e.note, 0, 0, {}, false, 0 });
             break;
         }
+        case 7:
+        {
+            // the lead singer: one voice, out front
+            const bool female = group == GGirls || (group != GMen && reg > 0);
+            auto& sg = singers[kMaxParts * kPerPart + kPlayVoices - 1];
+            sg.sing (e.note, e.vel, e.syl, e.legato, e.attack, female, vibrato * 1.1f, breath, rng.n() * 2.0f * human, 0);
+            if (melMidi >= 0) out.addEvent (juce::MidiMessage::noteOff (5, melMidi), pos);
+            out.addEvent (juce::MidiMessage::noteOn (5, e.note, (juce::uint8) juce::jlimit (1, 127, (int) (e.vel * 127))), pos);
+            melMidi = e.note;
+            schedule ({ e.at + (int64_t) (e.len * sr), 8, 0, e.note, 0, 0, {}, false, 0 });
+            break;
+        }
+        case 8:
+            if (melMidi != e.note) break;
+            singers[kMaxParts * kPerPart + kPlayVoices - 1].release (0.12);
+            out.addEvent (juce::MidiMessage::noteOff (5, melMidi), pos);
+            melMidi = -1;
+            break;
         case 2:
             if (partMidi[e.part] != e.note && e.note >= 0) break;    // a newer note has already taken over
             for (int i = 0; i < kPerPart; ++i) singers[e.part * kPerPart + i].release (0.18);
@@ -284,6 +402,7 @@ void HarmoniaProcessor::handle (const Ev& e, juce::MidiBuffer& out, int pos)
         case 3:
             for (int i = 0; i < kMaxParts * kPerPart; ++i) singers[i].release (0.3);
             for (int p = 0; p < kMaxParts; ++p) { if (partMidi[p] >= 0) out.addEvent (juce::MidiMessage::noteOff (p + 1, partMidi[p]), pos); partMidi[p] = -1; uiPartNote[p] = -1; }
+            if (melMidi >= 0) { singers[kMaxParts * kPerPart + kPlayVoices - 1].release (0.3); out.addEvent (juce::MidiMessage::noteOff (5, melMidi), pos); melMidi = -1; }
             break;
         case 5:
         {
@@ -313,7 +432,11 @@ void HarmoniaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     band::markPresent (band::WHarmonia);
     const bool wasLed = led;
     led = follow != FPlay && band::readLeader (leader);
-    if (led && leader.mutateStamp != lastMutate) { lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 13u); curBar = -1; }
+    if (led && leader.mutateStamp != lastMutate)
+    {
+        lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 13u); curBar = -1;
+        for (int i = 0; i < 3; ++i) { melSeed[i] = melSeed[i] * 1664525u + 1013904223u + leader.mutateStamp; motifMade[i] = false; }   // a new tune too
+    }
     uiLinked = led;
     if (led != wasLed) lastPpqEnd = -1e9;
 
@@ -336,6 +459,9 @@ void HarmoniaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     outMidi.clear();
     float* L = tmpL.data(); float* R = tmpR.data();
     std::fill (L, L + n, 0.0f); std::fill (R, R + n, 0.0f);
+    float* ML = melL.data(); float* MR = melR.data();
+    std::fill (ML, ML + n, 0.0f); std::fill (MR, MR + n, 0.0f);
+    const int melIdx = kMaxParts * kPerPart + kPlayVoices - 1;
     const int64_t end = sampleClock + n;
     int pos = 0;
     const int spp = singersPerPart (group);
@@ -346,6 +472,7 @@ void HarmoniaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         for (int i = 0; i < kNumSingers; ++i)
         {
             if (! singers[i].isActive()) continue;
+            if (i == melIdx && follow != FPlay) { singers[i].render (ML + pos, MR + pos, to - pos, 0.0f); continue; }
             float pan = 0.0f;
             if (i < kMaxParts * kPerPart)
             {
@@ -371,7 +498,7 @@ void HarmoniaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     renderTo (n);
     // the stack gets louder with more singers: keep it level
     const float norm = 0.55f / std::sqrt ((float) (parts * spp));
-    for (int i = 0; i < n; ++i) { L[i] *= norm; R[i] *= norm; }
+    for (int i = 0; i < n; ++i) { L[i] = L[i] * norm + ML[i] * 0.42f; R[i] = R[i] * norm + MR[i] * 0.42f; }
     room.process (L, R, n, roomAmt, bright, width, outGain * 1.4f);
     float* oL = buffer.getWritePointer (0);
     float* oR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;

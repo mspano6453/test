@@ -34,7 +34,7 @@ JangleEditor::JangleEditor (JangleProcessor& p) : AudioProcessorEditor (&p), pro
     lnf.setAccent (kCopper);
     setLookAndFeel (&lnf);
     guitarBox = combo ("guitar", "GUITAR"); feelBox = combo ("feel", "FEEL"); followBox = combo ("follow", "CHORDS FROM");
-    sitBox = combo ("sit_out", "WITH THE BAND"); posBox = combo ("position", "CHORD SHAPES");
+    sitBox = combo ("sit_out", "WITH THE BAND"); posBox = combo ("position", "CHORD SHAPES"); leadBox = combo ("lead_fills", "LEAD ANSWERS");
     keyBox = combo ("key", "KEY"); chordBarsBox = combo ("chord_bars", "BARS PER CHORD"); songBox = combo ("song", "SONG");
     secBarsBox = combo ("section_bars", "SECTION LENGTH"); secBox = combo ("section", "SECTION");
     progBox[0] = combo ("prog_verse", "VERSE"); progBox[1] = combo ("prog_chorus", "CHORUS"); progBox[2] = combo ("prog_bridge", "BRIDGE");
@@ -178,7 +178,7 @@ void JangleEditor::resized()
     guitarBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); feelBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); posBox->setBounds (row.reduced (4, 0));
     pa.removeFromTop (22);
     row = pa.removeFromTop (26);
-    followBox->setBounds (row.removeFromLeft (w3 * 2).reduced (4, 0)); sitBox->setBounds (row.reduced (4, 0));
+    followBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); leadBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); sitBox->setBounds (row.reduced (4, 0));
     pa.removeFromTop (10);
     const int kw = pa.getWidth() / 6;
     for (auto* k : playerKnobs) k->setBounds (pa.removeFromLeft (kw).withHeight (juce::jmin (pa.getHeight(), 110)));

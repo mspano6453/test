@@ -9,6 +9,7 @@
 #include "../Chamber/ChamberProcessor.h"
 #include "../Jangle/JangleProcessor.h"
 #include "../Harmonia/HarmoniaProcessor.h"
+#include "../Ether/EtherProcessor.h"
 
 namespace
 {
@@ -41,7 +42,7 @@ void formTest (int meterSel, const char* label)
     const double sr = 44100; const int bs = 256;
     BandleaderProcessor lead; TeaTowelProcessor drums; UndertowProcessor bass; ParlourProcessor keys; JangleProcessor gtr; HarmoniaProcessor vox; ChamberProcessor orch;
     Head head; head.bpm = 120; head.playing = false;
-    if (meterSel == 2) { head.num = 3; head.den = 4; } else if (meterSel == 3) { head.num = 6; head.den = 8; }
+    if (meterSel == 2) { head.num = 3; head.den = 4; } else if (meterSel == 3) { head.num = 6; head.den = 8; } else if (meterSel == 4) { head.num = 5; head.den = 4; } else if (meterSel == 5) { head.num = 7; head.den = 8; }
     struct P { juce::AudioProcessor* p; int ins; const char* name; };
     const P all[] = { { &lead, 2, "lead" }, { &drums, 0, "drums" }, { &bass, 2, "bass" }, { &keys, 0, "keys" }, { &gtr, 0, "guitar" }, { &vox, 0, "vox" }, { &orch, 0, "orch" } };
     for (auto& x : all) { x.p->setPlayConfigDetails (x.ins, 2, sr, bs); x.p->prepareToPlay (sr, bs); x.p->setPlayHead (&head); }
@@ -56,7 +57,7 @@ void formTest (int meterSel, const char* label)
     for (auto& g : song.segs) std::printf (" [%s%s%s x%d]", g.part == band::PCount ? "count" : g.part == band::PIntro ? "intro" : g.part == band::PEnd ? "END" : g.part == band::PHalf ? "half " : "",
                                            g.part == band::PNone || g.part == band::PHalf ? (g.sec == 0 ? "V" : g.sec == 1 ? "C" : "B") : "", g.key ? (" +" + juce::String (g.key)).toRawUTF8() : "", (int) g.bars);
     std::printf ("\n");
-    const int meter = meterSel == 1 ? band::M44 : meterSel == 2 ? band::M34 : band::M68;
+    const int meter = meterSel - 1;
     const double barQ = band::meterBarPpq (meter);
     const double spb = sr * 60.0 / head.bpm;
     const int bars = (int) song.length + 3;
@@ -113,8 +114,8 @@ void formTest (int meterSel, const char* label)
     check (verseAt == 5 && sum ((int) verseAt, (int) verseAt + 4, 5) > 0 && sum ((int) verseAt, (int) verseAt + 4, 6) > 0, "verse: the singers and the orchestra come in");
     if (halfAt >= 0)
     {
-        const int dHalf = sum ((int) halfAt, (int) halfAt + 2, 1), dBefore = sum ((int) halfAt - 2, (int) halfAt, 1);
-        check (dHalf < dBefore, "breakdown: the drums thin out (" + juce::String (dHalf) + " hits vs " + juce::String (dBefore) + " before)");
+        const int dHalf = sum ((int) halfAt, (int) halfAt + 2, 1), dBefore = sum ((int) halfAt + 2, (int) halfAt + 4, 1);   // vs the full chorus right after it
+        check (dHalf < dBefore, "breakdown: the drums thin out (" + juce::String (dHalf) + " hits vs " + juce::String (dBefore) + " in the chorus after)");
         check (sum ((int) halfAt, (int) halfAt + 2, 2) <= 2, "breakdown: the bass plays one long note a bar");
     }
     // chorus "I - V - vi - IV" in C, up 2 -> D A Bm G
@@ -126,7 +127,7 @@ void formTest (int meterSel, const char* label)
     check (after == 0, "after the last chord: silence (" + juce::String (after) + " notes)");
     check (! nan, "no NaN in any output");
     // the meter: every drum hit lands inside a bar of the right length (bars counted in this meter)
-    const int sw = meter == band::M44 ? 16 : 12;
+    const int sw = band::meterSteps (meter);
     int offGrid = 0;
     for (int i = (int) verseAt; i < (int) verseAt + 4; ++i) if (ons[(size_t) i][1] == 0) ++offGrid;
     check (offGrid == 0, juce::String ("drums play every bar of the verse in ") + band::meterName (meter) + " (" + juce::String (sw) + " steps a bar)");
@@ -427,6 +428,59 @@ void batch1Test()
     check (lead2.sketchName (2).isNotEmpty(), "the sketchbook is saved with the set");
 }
 
+// batch 2: backwards cymbals, lead answers, the melody, sitar and tanpura, tape ensembles, guitar to orchestra
+void batch2Test()
+{
+    std::printf ("\n== BATCH 2: swells, lead answers, melody, sitar, tanpura, guitar to orchestra\n");
+    const double sr = 44100; const int bs = 256;
+    BandleaderProcessor lead; TeaTowelProcessor drums; JangleProcessor gtr; HarmoniaProcessor vox; EtherProcessor sitar, tanpura; ChamberProcessor orch;
+    Head head; head.playing = true;
+    juce::AudioProcessor* all[] = { &lead, &drums, &gtr, &vox, &sitar, &tanpura, &orch };
+    for (auto* p : all) { p->setPlayConfigDetails (p == &lead || p == &orch ? 2 : 0, 2, sr, bs); p->prepareToPlay (sr, bs); p->setPlayHead (&head); }
+    setP (lead.apvts, "meter", 1); setP (lead.apvts, "key", 0); setP (lead.apvts, "section_bars", 0);
+    setP (drums.apvts, "swells", 2); setP (gtr.apvts, "lead_fills", 2); setP (vox.apvts, "part", 1);
+    for (auto* e : { &sitar, &tanpura }) { setP (e->apvts, "sit_out", 0); setP (e->apvts, "take_style", 0); setP (e->apvts, "role", 0); }
+    setP (vox.apvts, "take_style", 0); setP (gtr.apvts, "take_style", 0); setP (drums.apvts, "take_style", 0);
+    setP (sitar.apvts, "instrument", (float) et::ISitar); setP (tanpura.apvts, "instrument", (float) et::ITanpura);
+    setP (orch.apvts, "follow", 3); setP (orch.apvts, "sit_out", 0);
+    lead.timerCallback();
+    const double spb = sr * 60.0 / head.bpm;
+    int swells = 0, swellLate = 0, highGtr = 0, melody = 0, melodyVox = 0, orchA = 0, orchOther = 0;
+    double rmsSitar = 0, rmsTan = 0; bool nan = false;
+    juce::Random rnd (7); KS ks; int nextPluck = 0;
+    const int total = (int) (spb * 4 * 24) / bs * bs;
+    for (int pos = 0; pos < total; pos += bs)
+    {
+        head.ppq = pos / spb;
+        for (int k = 0; k < 7; ++k)
+        {
+            juce::AudioBuffer<float> b (2, bs); b.clear(); juce::MidiBuffer m;
+            if (k == 6)
+                for (int i = 0; i < bs; ++i) { if (pos + i >= nextPluck) { ks.pluck (220.0, sr, 0.5f, rnd); nextPluck += (int) (spb * 2); } const float v = ks.tick(); b.setSample (0, i, v); b.setSample (1, i, v); }
+            all[k]->processBlock (b, m);
+            for (int c = 0; c < 2; ++c) for (int i = 0; i < bs; ++i) if (! std::isfinite (b.getSample (c, i))) nan = true;
+            if (k == 4) rmsSitar += b.getRMSLevel (0, 0, bs);
+            if (k == 5) rmsTan += b.getRMSLevel (0, 0, bs);
+            for (const auto ev : m)
+            {
+                const auto& msg = ev.getMessage(); if (! msg.isNoteOn()) continue;
+                const double q = head.ppq + ev.samplePosition / spb; const double inBar = std::fmod (q, 4.0);
+                if (k == 1 && msg.getNoteNumber() == 26) { ++swells; if (inBar >= 1.9 && inBar <= 2.1) ++swellLate; }
+                if (k == 2 && msg.getNoteNumber() >= 70 && inBar >= 2.0) ++highGtr;
+                if (k == 3) { ++melodyVox; if (msg.getChannel() == 5) ++melody; }
+                if (k == 6) { if (msg.getNoteNumber() % 12 == 9) ++orchA; else ++orchOther; }
+            }
+        }
+    }
+    check (swells >= 2 && swellLate == swells, "backwards cymbals: " + juce::String (swells) + " swells, each starting half a bar before the new section");
+    check (highGtr > 0, "lead answers: the guitar plays " + juce::String (highGtr) + " high lead notes at the ends of phrases");
+    check (melody > 20 && melody == melodyVox, "the singers sing the melody (" + juce::String (melody) + " notes on channel 5, no backing parts)");
+    check (rmsSitar > 1.0, "the recorded sitar plays (" + juce::String (rmsSitar, 1) + ")");
+    check (rmsTan > 1.0, "the tanpura drone plays (" + juce::String (rmsTan, 1) + ")");
+    check (orchA > 4 && orchOther == 0, "guitar to orchestra: the orchestra plays the guitar's A (" + juce::String (orchA) + " notes, " + juce::String (orchOther) + " wrong)");
+    check (! nan, "no NaN");
+}
+
 // a long torture run: the whole band, random block sizes, jumps, stops, tempo, meter and style changes, footswitches
 void soak (int minutes)
 {
@@ -488,8 +542,11 @@ int main()
     formTest (2, "3-4");
     formTest (3, "6-8");
     formTest (1, "4-4");
+    formTest (4, "5-4");
+    formTest (5, "7-8");
     benchTest();
     batch1Test();
+    batch2Test();
     learnKeys();
     learnGuitar();
     renderTest();

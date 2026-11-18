@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cmath>
+#include <vector>
 #include <limits>
 
 // ---------------------------------------------------------------------------
@@ -35,18 +36,48 @@ constexpr int64_t kNever = std::numeric_limits<int64_t>::max() / 4;
 
 // ---- the meter. Every bar is counted in 16th notes: 16 in 4/4, 12 in 3/4 and 6/8.
 // 3/4 has three beats of four 16ths; 6/8 has two beats (dotted quarters) of six.
-enum Meter { M44 = 0, M34, M68, NumMeters };
-inline int meterSteps (int m)      { return m == M44 ? 16 : 12; }
+// 5/4 and 7/8 are "odd": every player writes its 4/4 part and plays it through a step map.
+// 5/4 = three beats then two (4/4's first three beats, then its last two); 7/8 = 2+2+3 eighths (4/4 less its last eighth).
+enum Meter { M44 = 0, M34, M68, M54, M78, NumMeters };
+inline int meterSteps (int m)      { return m == M44 ? 16 : m == M54 ? 20 : m == M78 ? 14 : 12; }
 inline double meterBarPpq (int m)  { return meterSteps (m) / 4.0; }       // quarter notes per bar
-inline int meterBeats (int m)      { return m == M44 ? 4 : m == M34 ? 3 : 2; }
+inline int meterBeats (int m)      { return m == M44 ? 4 : m == M34 ? 3 : m == M68 ? 2 : m == M54 ? 5 : 3; }
 inline int meterBeatSteps (int m)  { return m == M68 ? 6 : 4; }
-inline bool meterTriple (int m)    { return m != M44; }
-inline const char* meterName (int m) { static const char* n[] = { "4/4", "3/4", "6/8" }; return (m >= 0 && m < NumMeters) ? n[m] : "4/4"; }
+inline bool meterTriple (int m)    { return m == M34 || m == M68; }
+inline bool meterOdd (int m)       { return m == M54 || m == M78; }
+// the 4/4 step a bar of this meter plays at step s (the same step in 4/4, 3/4 and 6/8)
+inline int oddSrc (int m, int s)   { return m == M54 ? (s < 12 ? s : s - 4) : s; }
+// the meter a player writes its part in: odd meters write 4/4
+inline int writeMeter (int m)      { return meterOdd (m) ? M44 : m; }
+inline int patternSteps (int m)    { return meterSteps (writeMeter (m)); }
+inline const char* meterName (int m) { static const char* n[] = { "4/4", "3/4", "6/8", "5/4", "7/8" }; return (m >= 0 && m < NumMeters) ? n[m] : "4/4"; }
 inline int meterFromSig (int num, int den)
 {
     if (num == 3 && den == 4) return M34;
     if ((num == 6 && den == 8) || (num == 3 && den == 8)) return M68;
+    if (num == 5 && den == 4) return M54;
+    if (num == 7 && den == 8) return M78;
     return M44;
+}
+// a part written as 4/4 hits over `bars` bars (each 16 steps) moved onto the odd meter's steps.
+// Works for anything with an int `step` (and a float `len` in 16ths, which is kept).
+template <typename H> void oddRemap (std::vector<H>& hits, int m, int bars = 1)
+{
+    if (! meterOdd (m)) return;
+    const int ns = meterSteps (m);
+    std::vector<H> out; out.reserve (hits.size() * 2);
+    for (const auto& h : hits)
+    {
+        const int b = h.step / 16, s = h.step % 16;
+        if (b >= bars) continue;
+        if (m == M54)
+        {
+            if (s < 12) { H x = h; x.step = b * ns + s; out.push_back (x); }
+            if (s >= 8) { H x = h; x.step = b * ns + s + 4; out.push_back (x); }
+        }
+        else if (s < ns) { H x = h; x.step = b * ns + s; out.push_back (x); }
+    }
+    hits.swap (out);
 }
 inline int64_t barOfPpq (double ppq, int m) { return (int64_t) std::floor (ppq / meterBarPpq (m) + 1.0e-9); }
 

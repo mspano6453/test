@@ -80,7 +80,7 @@ private:
 
     // params
     int guitar = 0, feel = 0, follow = 0, key = 9, progs[3] { 0, 2, 5 }, chordBars = 1, sectionBars = 8, section = 0, position = 0;
-    bool autoSong = true;
+    bool autoSong = true; int leadFills = 1;
     float busy = 0.5f, human = 0.6f, swing = 0, dynamics = 0.7f, lengthK = 1, strumSpeed = 0.5f;
 
     // state

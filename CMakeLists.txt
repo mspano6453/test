@@ -306,7 +306,10 @@ target_link_libraries(Parlour
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
-# Ether - early electronic instruments (all modelled) that play melodies over the band
+# Ether - early electronic instruments (all modelled) that play melodies over the band, and a recorded sitar
+file(GLOB ETHER_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Ether/Samples/*.flac")
+juce_add_binary_data(EtherSamples NAMESPACE EtherData HEADER_NAME EtherData.h SOURCES ${ETHER_SAMPLES})
+set_target_properties(EtherSamples PROPERTIES POSITION_INDEPENDENT_CODE ON)
 juce_add_plugin(Ether
     COMPANY_NAME "DEMOCRAZY"
     BUNDLE_ID "com.teatowelaudio.ether"
@@ -333,6 +336,7 @@ target_compile_definitions(Ether PUBLIC
 
 target_link_libraries(Ether
     PRIVATE
+        EtherSamples
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -567,7 +571,7 @@ if(TEATOWEL_RENDER_DEMO)
     juce_add_console_app(EtherTest PRODUCT_NAME "EtherTest")
     target_sources(EtherTest PRIVATE Tools/EtherTest.cpp Ether/EtherProcessor.cpp Ether/EtherEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(EtherTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 ETHER_NO_ENTRY=1)
-    target_link_libraries(EtherTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(EtherTest PRIVATE EtherSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     juce_add_console_app(ChamberTest PRODUCT_NAME "ChamberTest")
     target_sources(ChamberTest PRIVATE Tools/ChamberTest.cpp Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp Source/UiKit.cpp Source/BandBus.cpp)
@@ -629,7 +633,7 @@ if(TEATOWEL_RENDER_DEMO)
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(StyleTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
         LOON_NO_ENTRY=1 SCHALTWERK_NO_ENTRY=1 TAPETWIN_NO_ENTRY=1 LATHE_NO_ENTRY=1 PARLOUR_NO_ENTRY=1 ETHER_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1)
-    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    target_link_libraries(StyleTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 
     # the song form, learning a song, rendering it to MIDI files
     juce_add_console_app(FormTest PRODUCT_NAME "FormTest")
@@ -641,8 +645,9 @@ if(TEATOWEL_RENDER_DEMO)
         Chamber/ChamberProcessor.cpp Chamber/ChamberEditor.cpp
         Jangle/JangleProcessor.cpp Jangle/JangleEditor.cpp
         Harmonia/HarmoniaProcessor.cpp Harmonia/HarmoniaEditor.cpp
+        Ether/EtherProcessor.cpp Ether/EtherEditor.cpp
         Source/UiKit.cpp Source/BandBus.cpp)
     target_compile_definitions(FormTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 BANDLEADER_NO_ENTRY=1 TEATOWEL_NO_ENTRY=1 UNDERTOW_NO_ENTRY=1
-        PARLOUR_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1)
-    target_link_libraries(FormTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        PARLOUR_NO_ENTRY=1 CHAMBER_NO_ENTRY=1 JANGLE_NO_ENTRY=1 HARMONIA_NO_ENTRY=1 ETHER_NO_ENTRY=1)
+    target_link_libraries(FormTest PRIVATE TeaTowelSamples UndertowSamples ParlourSamples ChamberSamples JangleSamples EtherSamples juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

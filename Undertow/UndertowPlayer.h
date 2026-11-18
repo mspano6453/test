@@ -35,11 +35,12 @@ struct Step
     bool ghost = false;
     bool slide = false;   // synth basses glide into this note from the last one
 };
-struct Motif { std::array<Step, kSteps> s; };
+constexpr int kMotifMax = 40;       // 2 bars of 5/4
+struct Motif { std::array<Step, kMotifMax> s; };
 
 inline void put (Motif& m, int i, int deg, float vel, float len, int semis = 0, bool ghost = false, bool slide = false)
 {
-    if (i < 0 || i >= kSteps) return;
+    if (i < 0 || i >= kMotifMax) return;
     m.s[(size_t) i] = { true, deg, semis, vel, len, ghost, slide };
 }
 
@@ -228,6 +229,17 @@ public:
     }
     static Motif writeAny (int feel, int section, uint32_t seed, float hook, float density, int meter)
     {
+        if (band::meterOdd (meter))
+        {
+            // 5/4 and 7/8: the 4/4 line, played through the meter's step map
+            const Motif m4 = write (feel, section, seed, hook, density);
+            Motif m; const int ns = band::meterSteps (meter);
+            for (int b = 0; b < 2; ++b)
+                for (int s = 0; s < ns; ++s) m.s[(size_t) (b * ns + s)] = m4.s[(size_t) (b * 16 + band::oddSrc (meter, s))];
+            // a note copied into the last beats of 5/4 shouldn't ring over the next one
+            legatoN (m, 0.92f, 2 * ns);
+            return m;
+        }
         return meter == band::M44 ? write (feel, section, seed, hook, density) : writeTriple (feel, section, seed, hook, density, meter);
     }
     // a fill at the end of the bar that ends at `barEnd`, in any meter
@@ -236,7 +248,7 @@ public:
         if (meter == band::M44) { fill (m, r, feel, big, barEnd); return; }
         const int span = big ? 6 : 4;
         const int from = std::max (0, barEnd - span);
-        for (int i = from; i < barEnd && i < kSteps; ++i) m.s[(size_t) i].on = false;
+        for (int i = from; i < barEnd && i < kMotifMax; ++i) m.s[(size_t) i].on = false;
         static const int runs[][3] = { { 0, 2, 4 }, { 7, 6, 4 }, { 4, 5, 6 }, { 2, 3, 4 } };
         const auto& run = runs[r.i (4)];
         for (int k = 0, i = from; i < barEnd && k < 3; i += 2, ++k) put (m, i, run[k], 0.82f + 0.04f * (float) k, 1.7f);

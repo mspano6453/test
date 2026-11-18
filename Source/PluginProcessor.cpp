@@ -48,6 +48,7 @@ bool mapNote (int note, Hit& h)
         case 63:                      h = { Perc, CongaHi, 1.0f };    return true;
         case 64:                      h = { Perc, CongaLo, 1.0f };    return true;
         case 75:                      h = { Perc, Claves, 1.0f };     return true;
+        case 26:                      h = { Crash, Swell, 1.0f };     return true;   // a backwards cymbal
         default: return false;
     }
 }
@@ -92,6 +93,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeaTowelProcessor::createLay
     }
     // Player
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { PID::on, 1 }, "Player On", juce::StringArray { "Off", "On" }, 0));
+    ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "swells", 1 }, "Backwards Cymbals",
+                                                                juce::StringArray { "Off", "Into choruses", "Into every section" }, 1));
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "sit_out", 1 }, "With The Band", juce::StringArray { "Plays along", "Sits out" }, 0));
     ps.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "band_link", 1 }, "Follow Bandleader", juce::StringArray { "Off", "On" }, 1));
     {
@@ -181,6 +184,7 @@ void TeaTowelProcessor::handleMidi (const juce::MidiMessage& m)
         if (! mapNote (m.getNoteNumber(), h)) return;
         const float vel = m.getFloatVelocity();
         const KitBank& kb = kitType > 0 ? machineBanks[kitType - 1] : bank;
+        if (h.artic == Swell) { engine.swellSec = player.swellSec > 0 ? player.swellSec : 1.5; player.swellSec = 0; }
         engine.noteOn (h.piece, h.artic, h.noteMul, vel, settings[h.piece], kb, blockSamples[h.piece]);
         // the gated reverb opens on every snare and clap
         if (h.piece == Snare || (h.piece == Perc && h.artic == Clap) || h.piece == RackTom || h.piece == FloorTom)
@@ -261,6 +265,7 @@ void TeaTowelProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         ps.looseness = playerParams[5]->load();
         ps.swing = playerParams[6]->load();
         ps.variation = playerParams[7]->load();
+        ps.swells = (int) apvts.getRawParameterValue ("swells")->load();
         // a Bandleader in the set runs the song: section, fills, drop-outs, energy
         band::markPresent (band::WTeaTowel);
         band::Leader leader;

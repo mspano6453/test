@@ -60,8 +60,8 @@ void ChamberEditor::timerCallback()
     auto v = [&] (const char* id) { return (int) proc.apvts.getRawParameterValue (id)->load(); };
     const bool band = v ("follow") == FBand;
     for (auto* cb : { keyBox, progBox[0], progBox[1], progBox[2], chordBarsBox, songBox, secBarsBox }) cb->setEnabled (band && ! proc.uiLinked.load());
-    feelBox->setEnabled (v ("follow") != FPlay);
-    artBox->setEnabled (v ("follow") == FPlay);
+    feelBox->setEnabled (v ("follow") != FPlay && v ("follow") != FGuitar);
+    artBox->setEnabled (v ("follow") == FPlay || v ("follow") == FGuitar);
     juce::String st;
     for (auto* id : { "follow", "key", "prog_verse", "prog_chorus", "prog_bridge", "ensemble", "feel", "sit_out" }) st << v (id) << ",";
     st << (int) proc.uiLinked.load() << (int) proc.samplesLoaded();
@@ -100,6 +100,7 @@ void ChamberEditor::paint (juce::Graphics& g)
     const int follow = (int) proc.apvts.getRawParameterValue ("follow")->load();
     const char* secs[3] = { "VERSE", "CHORUS", "BRIDGE" };
     juce::String s1 = follow == FPlay ? "Play it from your keys: each note goes to the part that plays that range best."
+                    : follow == FGuitar ? juce::String ("Following your guitar: route it to the sidechain (Audio From) and play single notes. ") + (proc.uiGuitarNote.load() >= 0 ? "Hearing " + juce::MidiMessage::getMidiNoteName (proc.uiGuitarNote.load(), true, true, 3) : juce::String ("Listening..."))
                     : proc.apvts.getRawParameterValue ("sit_out")->load() > 0.5f ? "Sitting out this style. Set WITH THE BAND to Plays along."
                     : ! proc.uiTransport.load() ? "Press play in Live."
                     : juce::String (feelName ((int) proc.apvts.getRawParameterValue ("feel")->load())) + "  -  " + secs[juce::jlimit (0, 2, proc.uiSection.load())]

@@ -1,4 +1,7 @@
 #include "EtherProcessor.h"
+#include "EtherData.h"
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <mutex>
 #include "EtherEditor.h"
 
 using namespace et;
@@ -52,6 +55,32 @@ EtherProcessor::EtherProcessor()
       apvts (*this, nullptr, "Ether", createLayout())
 {
     band::available();
+    // the recorded sitar, loaded once for every Ether in the set
+    static std::once_flag once;
+    std::call_once (once, []
+    {
+        juce::FlacAudioFormat flac;
+        auto& lib = sitarLib();
+        for (int r = 0; r < EtherData::namedResourceListSize; ++r)
+        {
+            const juce::String res (EtherData::namedResourceList[r]);
+            if (! res.startsWith ("sitar_")) continue;
+            int size = 0;
+            const char* data = EtherData::getNamedResource (res.toRawUTF8(), size);
+            if (data == nullptr) continue;
+            std::unique_ptr<juce::AudioFormatReader> rd (flac.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
+            if (rd == nullptr) continue;
+            const int len = (int) rd->lengthInSamples;
+            juce::AudioBuffer<float> tmp ((int) juce::jmax (1u, rd->numChannels), len);
+            rd->read (&tmp, 0, len, 0, true, true);
+            SampleZone z;
+            z.root = res.fromFirstOccurrenceOf ("_", false, false).getIntValue();
+            z.sr = rd->sampleRate;
+            z.d.assign (tmp.getReadPointer (0), tmp.getReadPointer (0) + len);
+            z.d.push_back (0); z.d.push_back (0);
+            lib.z.push_back (std::move (z));
+        }
+    });
     queue.reserve (512);
     outMidi.ensureSize (2048);
     for (auto& p : phrase) p.reserve (40);
@@ -187,6 +216,7 @@ void EtherProcessor::writePhrase (int sec, bool fresh)
         ph.push_back (n);
     }
     if (! ph.empty()) { ph.back().deg = sec == 1 ? 7 : 0; ph.back().len = juce::jmax (ph.back().len, 3); }
+    band::oddRemap (ph, meterNow, 2);      // 5/4 and 7/8: the 4/4 phrase on the meter's steps
     // the answer: same start, a different ending that comes home
     answer = ph;
     int d2 = answer.size() > 2 ? answer[answer.size() / 2].deg : 0;
@@ -240,6 +270,22 @@ void EtherProcessor::playStep (int64_t k, int64_t at)
     const double sixteenth = 15.0 / juce::jmax (30.0, bpmNow);
     const int64_t jit = (int64_t) (rng.n() * 0.004 * sr);
 
+    if (instrument == ITanpura)
+    {
+        // the tanpura's cycle on the key, not the chord: the fifth below, home, home, home an octave down;
+        // one pluck a beat, the four strings ringing into each other
+        const int beat = band::meterBeatSteps (meterNow), beats = band::meterBeats (meterNow);
+        if (s16 % beat == 0)
+        {
+            const int kr = led ? leader.keyAt (b) : key;
+            const int sa = 48 + kr + (reg == 2 ? 12 : reg == 0 ? -12 : 0);
+            static const int cycle[4] = { -5, 0, 0, -12 };
+            const int idx = (int) ((b * beats + s16 / beat) % 4);
+            const int64_t loose = (int64_t) (std::abs (rng.n()) * 0.012 * sr);
+            schedule ({ at + loose, 1, sa + cycle[idx], 0.55f + 0.12f * rng.u() + (idx == 0 ? 0.08f : 0.0f), (float) (sixteenth * beat * 4 * 1.1) });
+        }
+        return;
+    }
     if (role == RDrone)
     {
         // a long tone on each chord: the root (and fifth and third for the choir), gliding for the wand

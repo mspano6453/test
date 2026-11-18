@@ -288,7 +288,7 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
         double t = ((double) k * 0.25 - ppq) / ppqPerSample;
         if (step % 2 == 1 && meter != band::M68) t += swing * 0.333 * (0.25 / ppqPerSample);
         const int off = juce::jlimit (0, n - 1, (int) t);
-        currentStep = step;
+        currentStep = band::oddSrc (meter, step) & 15;
         bool out = false;
         if (led)
         {
@@ -302,7 +302,7 @@ void SchaltwerkProcessor::runSequencer (juce::MidiBuffer& midi, int n)
         if (seqOn && ! out)
             for (int d = 0; d < NumDrums; ++d)
             {
-                const int c = steps[d][step].load();
+                const int c = steps[d][band::oddSrc (meter, step) & 15].load();
                 if (c > 0) midi.addEvent (juce::MidiMessage::noteOn (10, kDrumBaseNote + d, c == 2 ? 1.0f : 0.72f), off);
             }
         const int every = autoRate == 1 ? 4 : autoRate == 2 ? 2 : autoRate == 3 ? 1 : 0;

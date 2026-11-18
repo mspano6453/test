@@ -467,6 +467,24 @@ many('90s Psych & Beyond', [
  ("Carnival Finale", "Everybody in: fuzz, brass, choir, timpani, the rise before each section. Then again, louder.", 126, 7, (8,13,33), 4, 9, 0, M(SMASH, G(5,2,0.7), dict(cOn=1, cEns=4, cFeel=6, cTimp=1, cWarp=0.4), V(0,2,0.7), TACK, E(3,5,0.6), uBass=10, uBubble=0.4, energy=0.85)),
 ])
 
+many('Odd Time (5/4 & 7/8)', [
+ ("Cool Five", "A smoky jazz 5/4: ride cymbal, a vamping piano, a walking upright.", 168, 3, (24,23,31), 3, 0, 4, M(dict(kOn=1, kInst=0, kFeel=2, kColour=0.7), uBass=8, dSwing=0.5, bSwing=0.5, meter=3, lathe=3, energy=0.5)),
+ ("Spy Theme Five", "Minor-key espionage in five: twangy guitar, brass stabs, bongos.", 140, 4, (16,0,3), 0, 1, 7, M(G(1,6,0.6), BRS, uBass=7, meter=3, tMix=0.25, tSync=0, lathe=2)),
+ ("Raga Rock Five", "A droning one-chord 5/4 with ringing 12-string and a wire lead.", 120, 2, (7,6,7), 15, 1, 5, M(G(2,9,0.6), E(1,2,0.5), HAZE, meter=3, sectionBars=2, lathe=1)),
+ ("Prog Seven", "Seven-eight riffing: fuzz organ, a busy bass, the drummer counting under his breath.", 132, 9, (16,4,0), 4, 2, 0, M(dict(kOn=1, kInst=3, kFeel=3, kMotion=0.5), G(4,2,0.6), uBass=0, bBusy=0.65, meter=4, lathe=2)),
+ ("Seven Sisters", "A skipping 7/8 folk-psych tune: harpsichord, tape flutes, tambourine.", 116, 2, (14,10,12), 15, 0, 17, M(VB, HARP, FLT, G(0,0,0.5), meter=4, lathe=4)),
+ ("Money Seven", "A lopsided seven-beat groove: a bass riff out front, electric piano, sax-like brass.", 120, 4, (11,12,11), 33, 1, 1, M(EP, BRS, uBass=1, bHook=0.7, meter=4, lathe=1)),
+])
+
+many('Raga & Tape Room', [
+ ("Sitar Afternoon", "A real sitar trading lines with a twelve-string over a tanpura-style one-chord groove.", 104, 4, (7,6,7), 15, 1, 5, M(G(2,9,0.5), E(1,7,0.55), HAZE, sectionBars=2, lathe=1)),
+ ("Drone Garden", "The tanpura drone under everything, hand percussion, a hum from the backing singers.", 84, 2, (7,7,6), 15, 0, 5, M(E(2,8,0.6), V(0,3,0.3), uBass=5, lathe=1, energy=0.35)),
+ ("Within & Without", "Slow raga-rock: sitar melody, tape cellos swelling under it, tabla-ish toms.", 76, 9, (7,6,7), 15, 0, 6, M(E(1,7,0.6), dict(cOn=1, cEns=7, cFeel=0, cRoom=0.4), sectionBars=2, lathe=1, energy=0.4)),
+ ("Brass Tapes", "A wonky tape-replay brass section stabbing over a bouncy music-hall beat.", 112, 7, (0,2,5), 17, 0, 1, M(dict(cOn=1, cEns=8, cFeel=1, cWarp=0.3, cRoom=0.25), PNO, lathe=4)),
+ ("Woodwind Tapes", "Tape-replay woodwinds in a lazy waltz with a harpsichord and a walking bass.", 96, 2, (14,10,12), 15, 0, 17, M(dict(cOn=1, cEns=9, cFeel=2, cWarp=0.35, cRoom=0.3), HARP, meter=1, lathe=4)),
+ ("Cello Tapes", "The tape-replay cellos on a slow minor song, a fuzz guitar out front, a long tape echo.", 72, 4, (16,0,3), 15, 1, 6, M(dict(cOn=1, cEns=7, cFeel=0, cRoom=0.35), G(4,7,0.4), ECHO, lathe=1, energy=0.45)),
+])
+
 def f(x): return ("%.3ff" % x) if isinstance(x, float) else str(x)
 out = []
 out.append('''#pragma once

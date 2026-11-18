@@ -94,12 +94,51 @@ inline int stringNote (const Shape& s, int str) { return s.fret[str] < 0 ? -1 : 
 inline int lowestString (const Shape& s) { for (int i = 0; i < 6; ++i) if (s.fret[i] >= 0) return i; return 0; }
 
 // one stroke of the right hand
-enum Stroke { SDown = 0, SUp, SScratch, SBass, SPick, SPinch };
+enum Stroke { SDown = 0, SUp, SScratch, SBass, SPick, SPinch, SLead };   // SLead: one lead note (arg = the MIDI note)
 struct Hit { int step; int stroke; float vel; float len; int arg = 0; };   // len in 16ths (<0: let it ring); arg: the string for picks
+
+// A lead guitar answer over the back half of a bar: a short pentatonic lick off the chord, ending on a chord tone
+inline void writeLick (int root, int q, int ns, int beat, Rng& r, std::vector<Hit>& out)
+{
+    const int from = ns - (ns >= 16 ? 8 : 6);
+    out.erase (std::remove_if (out.begin(), out.end(), [from] (const Hit& h) { return h.step >= from && h.step > 0; }), out.end());
+    static const int majP[] = { 0, 2, 4, 7, 9 }, minP[] = { 0, 3, 5, 7, 10 };
+    const int* sc = q == 1 ? minP : majP;
+    // the scale around the top of the neck (E4 to E5 and a bit)
+    int pool[16]; int np = 0;
+    for (int n = 62; n <= 79 && np < 16; ++n) for (int i = 0; i < 5; ++i) if ((n - root - sc[i]) % 12 == 0) { pool[np++] = n; break; }
+    if (np < 4) return;
+    // the rhythm: a few shapes a guitarist reaches for
+    static const int r1[] = { 0, 2, 4, 6 }, r2[] = { 0, 1, 2, 4, 6 }, r3[] = { 2, 3, 4, 6 }, r4[] = { 0, 2, 3, 4 };
+    const int* rs[] = { r1, r2, r3, r4 }; const int rn[] = { 4, 5, 4, 4 };
+    const int pick = r.i (4);
+    int at = r.i (np - 3) + 2;
+    const bool down = r.chance (0.65f);
+    for (int k = 0; k < rn[pick]; ++k)
+    {
+        const int step = from + rs[pick][k] * (ns >= 16 ? 1 : 1);
+        if (step >= ns) break;
+        const bool lastNote = k == rn[pick] - 1;
+        if (lastNote)
+        {
+            // home: the nearest root or fifth
+            int best = pool[at], bd = 99;
+            for (int i = 0; i < np; ++i) { const int iv = ((pool[i] - root) % 12 + 12) % 12; if ((iv == 0 || iv == 7) && std::abs (i - at) < bd) { bd = std::abs (i - at); best = pool[i]; } }
+            out.push_back ({ step, SLead, 0.82f, (float) (ns - step) + (float) beat, best });
+        }
+        else
+        {
+            out.push_back ({ step, SLead, k == 0 ? 0.86f : 0.7f + 0.1f * r.u(), rs[pick][k + 1] - rs[pick][k] <= 1 ? 0.9f : 1.8f, pool[at] });
+            at = juce::jlimit (0, np - 1, at + (down ? -1 : 1) * (r.chance (0.8f) ? 1 : 2));
+        }
+    }
+    juce::ignoreUnused (beat);
+}
 
 // Writes one bar. steps: 16 (4/4) or 12 (3/4, 6/8)
 inline void writeBar (int feel, int section, float busy, int meter, Rng& r, std::vector<Hit>& out)
 {
+    if (band::meterOdd (meter)) { writeBar (feel, section, busy, band::M44, r, out); band::oddRemap (out, meter); return; }
     out.clear();
     const bool chorus = section == band::Chorus, bridge = section == band::Bridge;
     const float b = juce::jlimit (0.0f, 1.0f, busy + (chorus ? 0.15f : 0.0f) - (bridge ? 0.15f : 0.0f));

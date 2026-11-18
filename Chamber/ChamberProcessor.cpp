@@ -28,7 +28,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ChamberProcessor::createLayo
     for (int i = 0; i < NumFeels; ++i) feels.add (feelName (i));
     C ("ensemble", "Ensemble", ens, 0);
     C ("feel", "Arrangement", feels, 1);
-    C ("follow", "Chords From", { "The band", "MIDI chords", "Play it (MIDI)" }, 0);
+    C ("follow", "Chords From", { "The band", "MIDI chords", "Play it (MIDI)", "Follow my guitar (sidechain)" }, 0);
     C ("sit_out", "With The Band", { "Plays along", "Sits out" }, 0);
     C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
     C ("prog_verse", "Verse Chords", ut::progressionNames(), 0);
@@ -58,7 +58,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout ChamberProcessor::createLayo
 }
 
 ChamberProcessor::ChamberProcessor()
-    : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor (BusesProperties().withInput ("Sidechain (guitar)", juce::AudioChannelSet::stereo(), true)
+                                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Chamber", createLayout())
 {
     band::available();
@@ -107,6 +108,7 @@ void ChamberProcessor::loadSamples()
 void ChamberProcessor::prepareToPlay (double sampleRate, int)
 {
     sr = sampleRate;
+    tracker.prepare (sr); guitarNote = -1;
     for (auto& v : voices) { v.prepare (sr); v.kill(); }
     rack.prepare (sr);
     queue.clear(); held.fill (false);
@@ -213,7 +215,7 @@ void ChamberProcessor::writePhrase (int sec)
     static const int slow3[] = { 0, 8, 12, 20 }, mid3[] = { 0, 4, 8, 12, 16, 20, 22 }, fast3[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 };
     static const int slow6[] = { 0, 6, 12, 18 }, mid6[] = { 0, 4, 6, 10, 12, 16, 18, 22 }, fast6[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 };
     const int* rh; int n;
-    if (meterNow == band::M44) { rh = b < 0.35f ? slow : (b < 0.7f ? mid : fast); n = b < 0.35f ? 5 : (b < 0.7f ? 10 : 15); }
+    if (band::writeMeter (meterNow) == band::M44) { rh = b < 0.35f ? slow : (b < 0.7f ? mid : fast); n = b < 0.35f ? 5 : (b < 0.7f ? 10 : 15); }
     else if (meterNow == band::M34) { rh = b < 0.35f ? slow3 : (b < 0.7f ? mid3 : fast3); n = b < 0.35f ? 4 : (b < 0.7f ? 7 : 12); }
     else { rh = b < 0.35f ? slow6 : (b < 0.7f ? mid6 : fast6); n = b < 0.35f ? 4 : (b < 0.7f ? 8 : 12); }
     int deg = sec == 1 ? 4 : 2;
@@ -223,6 +225,14 @@ void ChamberProcessor::writePhrase (int sec)
         ph.push_back ({ rh[i], deg });
     }
     if (! ph.empty()) ph.back().second = sec == 1 ? 4 : 0;
+    if (band::meterOdd (meterNow))
+    {
+        // 5/4 and 7/8: the 4/4 tune on the meter's steps
+        struct S { int step; int deg; };
+        std::vector<S> tmp; for (auto& p : ph) tmp.push_back ({ p.first, p.second });
+        band::oddRemap (tmp, meterNow, 2);
+        ph.clear(); for (auto& t : tmp) ph.push_back ({ t.step, t.deg });
+    }
 }
 
 void ChamberProcessor::writeBar (int sec, int in, bool fillBar)
@@ -262,12 +272,12 @@ void ChamberProcessor::writeBar (int sec, int in, bool fillBar)
             { const int line[4] = { 0, -1, -2, -3 }, line2[4] = { -4, -5, -3, -1 };
               const bool second = chordBars > 1 && (in % chordBars) % 2 == 1;
               const int steps = N / beat;
-              for (int i = 0; i < steps; ++i) add (i * beat, 8, ASus, (float) beat, lv + 0.05f, KBass, second ? line2[i] : line[i]); }
+              for (int i = 0; i < steps; ++i) add (i * beat, 8, ASus, (float) beat, lv + 0.05f, KBass, second ? line2[i % 4] : line[i % 4]); }
             break;
         case FPizz:
         {
             static const int order[8] = { 8, 4, 2, 1, 8, 2, 4, 1 };
-            for (int i = 0; i < N / 2; ++i) if (! (b < 0.35f && i % 2 == 1)) add (i * 2, order[i], APizz, 2.0f, (i * 2) % beat == 0 ? 0.85f : 0.72f);
+            for (int i = 0; i < N / 2; ++i) if (! (b < 0.35f && i % 2 == 1)) add (i * 2, order[i % 8], APizz, 2.0f, (i * 2) % beat == 0 ? 0.85f : 0.72f);
             if (b > 0.6f) for (int s = beat; s < N; s += beat) add (s, 15, APizz, 2.0f, 0.7f);
             break;
         }
@@ -280,7 +290,7 @@ void ChamberProcessor::writeBar (int sec, int in, bool fillBar)
             static const int riff3Maj[6] = { 0, 7, 5, 0, 10, 7 }, riff3Min[6] = { 0, 3, 7, 0, 10, 7 };
             const bool m = band::qualityIsMinor (curQ);
             for (int i = 0; i < N / 2; ++i)
-                add (i * 2, 12, AShort, 1.3f, (i * 2) % beat == 0 ? 0.88f : 0.74f, KRiff, N == 16 ? (m ? riffMin : riffMaj)[i] : (m ? riff3Min : riff3Maj)[i]);
+                add (i * 2, 12, AShort, 1.3f, (i * 2) % beat == 0 ? 0.88f : 0.74f, KRiff, N == 16 || N == 20 || N == 14 ? (m ? riffMin : riffMaj)[i % 8] : (m ? riff3Min : riff3Maj)[i % 6]);
             break;
         }
         case FFanfare:
@@ -296,7 +306,7 @@ void ChamberProcessor::writeBar (int sec, int in, bool fillBar)
             for (int s = 0; s < N; s += beat) add (s, 14, AShort, 1.6f, 0.66f);
             static const int up[16] = { 0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7 };
             const bool fast = b >= 0.45f;
-            for (int s = 0; s < N; s += fast ? 1 : 2) add (s, 1, AShort, fast ? 0.9f : 1.8f, s % beat == 0 ? 0.82f : 0.7f, KRun, up[s]);
+            for (int s = 0; s < N; s += fast ? 1 : 2) add (s, 1, AShort, fast ? 0.9f : 1.8f, s % beat == 0 ? 0.82f : 0.7f, KRun, up[s % 16]);
             break;
         }
     }
@@ -505,11 +515,18 @@ void ChamberProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
 {
     juce::ScopedNoDenormals nd;
     const int n = buffer.getNumSamples();
+    // the guitar on the sidechain (only used when following it)
+    {
+        auto side = getBusBuffer (buffer, true, 0);
+        if ((int) scBuf.size() < n) scBuf.resize ((size_t) n);
+        const int nc = side.getNumChannels();
+        for (int i = 0; i < n; ++i) { float v = 0; for (int c = 0; c < nc; ++c) v += side.getReadPointer (c)[i]; scBuf[(size_t) i] = nc > 0 ? v / (float) nc : 0.0f; }
+    }
     buffer.clear();
     readParams();
     band::markPresent (band::WChamber);
     const bool wasLed = led;
-    led = follow != FPlay && band::readLeader (leader);
+    led = ! liveFollow() && band::readLeader (leader);
     if (led && leader.mutateStamp != lastMutate) { lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 17u); curBar = -1; for (auto& ph : phrase) ph.clear(); }
     uiLinked = led;
     if (led != wasLed) lastPpqEnd = -1e9;
@@ -558,12 +575,38 @@ void ChamberProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         }
     }
     midi.clear();
-    if (follow != FPlay && ! sitOut && ! (led && leader.off (band::WChamber))) runPlayer (n);
+    if (follow == FGuitar)
+    {
+        // every note the guitar plays: the part that plays it best, and the part below an octave down
+        tracker.push (scBuf.data(), n, 0.6f, [&] (const ut::PitchTracker::Event& ev)
+        {
+            const int64_t at = sampleClock + ev.offset;
+            if (ev.type == 1)
+            {
+                if (guitarNote >= 0) schedule ({ at, 2, 0, 0, 0, guitarNote, 0, 0 }), schedule ({ at, 2, 0, 0, 0, guitarNote - 12, 0, 0 });
+                const int nn = ev.note; int bestP = 0, bd = 999;
+                for (int p = 0; p < 3; ++p) { int lo = 0, hi = 0; instrRange (parts[p], lo, hi); const int d = nn < lo ? (lo - nn) * 3 : nn > hi ? (nn - hi) * 3 : std::abs (nn - (lo + hi) / 2) / 4; if (d < bd) { bd = d; bestP = p; } }
+                const float vel = juce::jlimit (0.3f, 1.0f, ev.vel * 1.1f);
+                schedule ({ at, 1, bestP, parts[bestP], playArt, nn, vel, playArt == ASus || playArt == ATrem ? -1.0f : 0.5f, 0.03f + swell * 0.4f });
+                int lo = 0, hi = 0; instrRange (parts[bestP + 1], lo, hi);
+                if (nn - 12 >= lo) schedule ({ at, 1, bestP + 1, parts[bestP + 1], playArt, nn - 12, vel * 0.8f, playArt == ASus || playArt == ATrem ? -1.0f : 0.5f, 0.05f + swell * 0.4f });
+                guitarNote = nn;
+            }
+            else if (ev.type == 2 && ev.note == guitarNote)
+            {
+                schedule ({ at, 2, 0, 0, 0, guitarNote, 0, 0 }); schedule ({ at, 2, 0, 0, 0, guitarNote - 12, 0, 0 });
+                guitarNote = -1;
+            }
+            uiGuitarNote = guitarNote;
+        });
+    }
+    else if (guitarNote >= 0) { schedule ({ sampleClock, 3, 31, 0, 0, 0, 0, 0 }); guitarNote = -1; uiGuitarNote = -1; }
+    if (! liveFollow() && ! sitOut && ! (led && leader.off (band::WChamber))) runPlayer (n);
     else
     {
         double ppq = 0, bpm = 120; bool playing = false;
         if (auto* ph = getPlayHead()) if (auto pos = ph->getPosition()) { playing = pos->getIsPlaying(); if (auto b = pos->getBpm()) bpm = *b; if (auto p = pos->getPpqPosition()) ppq = *p; }
-        bpmNow = bpm; blockPpq = ppq; uiTransport = playing && follow == FPlay;
+        bpmNow = bpm; blockPpq = ppq; uiTransport = playing && liveFollow();
         if (wasPlaying) { schedule ({ sampleClock, 3, 31, 0, 0, 0, 0, 0 }); wasPlaying = false; }
     }
 

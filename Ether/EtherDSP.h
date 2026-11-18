@@ -18,10 +18,10 @@ namespace et
 {
 constexpr double kTwoPi = 6.283185307179586476925;
 
-enum Instrument { IWand = 0, IRibbon, IWire, IChoir, IStylus, IRadio, IReed, NumInstruments };
+enum Instrument { IWand = 0, IRibbon, IWire, IChoir, IStylus, IRadio, IReed, ISitar, ITanpura, NumInstruments };
 inline const char* instrumentName (int i)
 {
-    static const char* n[] = { "Wand", "Wave Ribbon", "Subharmonic Wire", "Tape Choir", "Stylus Buzz", "Radio Workshop", "Valve Reed" };
+    static const char* n[] = { "Wand", "Wave Ribbon", "Subharmonic Wire", "Tape Choir", "Stylus Buzz", "Radio Workshop", "Valve Reed", "Sitar", "Tanpura Drone" };
     return (i >= 0 && i < NumInstruments) ? n[i] : "";
 }
 inline const char* instrumentBlurb (int i)
@@ -29,10 +29,27 @@ inline const char* instrumentBlurb (int i)
     static const char* n[] = { "the hands-in-the-air instrument from 50s sci-fi films", "the 1920s ribbon keyboard: sweet and singing",
                                "1930s wires and valves: buzzing, with eerie undertones", "the 60s tape-replay keyboard choir",
                                "the pocket organ you play with a metal pen", "the 60s radio studio's oscillators and tape tricks",
-                               "the 50s valve keyboard: a wobbly electric clarinet" };
+                               "the 50s valve keyboard: a wobbly electric clarinet",
+                               "a real sitar (recorded): buzzing, bending lines over the band",
+                               "the sitar's drone strings in the tanpura's slow cycle: fifth, home, home, low home" };
     return (i >= 0 && i < NumInstruments) ? n[i] : "";
 }
-inline bool isPoly (int i) { return i == IChoir; }
+inline bool isPoly (int i) { return i == IChoir || i == ITanpura; }
+inline bool isSampled (int i) { return i == ISitar || i == ITanpura; }
+
+// the recorded sitar: one pluck per whole tone, played back at pitch
+struct SampleZone { int root = 60; double sr = 44100; std::vector<float> d; };
+struct SampleLib
+{
+    std::vector<SampleZone> z;
+    const SampleZone* find (int midi) const
+    {
+        const SampleZone* best = nullptr; int bd = 999;
+        for (auto& s : z) { const int d = std::abs (s.root - midi) * 2 + (s.root > midi ? 1 : 0); if (d < bd) { bd = d; best = &s; } }
+        return best;
+    }
+};
+inline SampleLib& sitarLib() { static SampleLib l; return l; }
 
 struct Rng
 {
@@ -79,7 +96,12 @@ public:
         inst = instrument;
         const double f = 440.0 * std::pow (2.0, (midi - 69) / 12.0);
         const bool sounding = note >= 0 && amp > 0.02f;
-        const bool legato = sounding && glide > 0.001f && ! isPoly (inst) && inst != IStylus && inst != IRadio;
+        const bool legato = sounding && glide > (inst == ISitar ? 0.12f : 0.001f) && ! isPoly (inst) && inst != IStylus && inst != IRadio;   // the sitar slides only on the long meends
+        if (isSampled (inst) && ! legato)
+        {
+            zone = sitarLib().find (midi); spos = 0;
+            if (zone != nullptr) zoneHz = 440.0 * std::pow (2.0, (zone->root - 69) / 12.0) * std::pow (2.0, r.n() * 0.04 / 12.0);
+        }
         target = f;
         if (legato) glideK = 1.0 - std::exp (-1.0 / (glide * sr));
         else
@@ -107,7 +129,7 @@ public:
 
         // vibrato: most of these instruments were played with a shaking hand, coming in after the note starts
         const double vRate = inst == IReed ? 6.4 : inst == IRibbon ? 5.9 : inst == IWand ? 5.4 : 4.8;
-        const double vDepth = (inst == IStylus || inst == IRadio) ? 0.0 : (inst == IChoir ? 0.002 : 0.009) * vibrato * std::min (1.0, ts / 0.35);
+        const double vDepth = (inst == IStylus || inst == IRadio || isSampled (inst)) ? 0.0 : (inst == IChoir ? 0.002 : 0.009) * vibrato * std::min (1.0, ts / 0.35);
         vibPh += vRate / sr; if (vibPh >= 1) vibPh -= 1;
         const double f = freq * (1.0 + vDepth * std::sin (kTwoPi * vibPh));
         const double dt = f / sr;
@@ -178,6 +200,17 @@ public:
                 yR = y * (1.0f + pan); y *= (1.0f - pan); stereo = true;
                 break;
             }
+            case ISitar:
+            case ITanpura:
+            {
+                if (zone == nullptr) { note = -1; return; }
+                const size_t len = zone->d.size();
+                if (spos >= (double) (len - 2)) { note = -1; return; }
+                const size_t i0 = (size_t) spos; const float fr = (float) (spos - (double) i0);
+                y = zone->d[i0] + (zone->d[i0 + 1] - zone->d[i0]) * fr;
+                spos += f / zoneHz * zone->sr / sr;
+                break;
+            }
             default:  // IReed
             {
                 ph[0] += dt; ph[0] -= std::floor (ph[0]);
@@ -188,12 +221,12 @@ public:
             }
         }
         // envelope
-        const double atk = inst == IWand ? 0.09 : inst == IRibbon ? 0.03 : inst == IChoir ? 0.16 : inst == IStylus ? 0.001 : inst == IRadio ? 0.002 : 0.02;
-        const double rel = inst == IWand ? 0.3 : inst == IRibbon ? 0.35 : inst == IChoir ? 0.4 : inst == IStylus ? 0.015 : inst == IRadio ? 0.12 : 0.08;
+        const double atk = isSampled (inst) ? 0.0005 : inst == IWand ? 0.09 : inst == IRibbon ? 0.03 : inst == IChoir ? 0.16 : inst == IStylus ? 0.001 : inst == IRadio ? 0.002 : 0.02;
+        const double rel = inst == ISitar ? 0.25 : inst == ITanpura ? 1.6 : inst == IWand ? 0.3 : inst == IRibbon ? 0.35 : inst == IChoir ? 0.4 : inst == IStylus ? 0.015 : inst == IRadio ? 0.12 : 0.08;
         if (! releasing) amp += (1.0f - amp) * (float) (1.0 - std::exp (-1.0 / (atk * sr)));
         else { amp *= (float) std::exp (-1.0 / (rel * sr)); if (amp < 1.0e-4f) { note = -1; return; } }
         if (inst == IRadio && ! releasing) amp *= (float) std::exp (-1.0 / (0.6 * sr));      // bloops die away
-        static const float trim[NumInstruments] = { 0.5f, 0.45f, 0.95f, 0.3f, 0.85f, 0.55f, 0.45f };
+        static const float trim[NumInstruments] = { 0.5f, 0.45f, 0.95f, 0.3f, 0.85f, 0.55f, 0.45f, 0.75f, 0.42f };
         const float g = amp * (0.45f + 0.55f * velocity) * trim[inst];
         L += y * g; R += (stereo ? yR : y) * g;
     }
@@ -204,6 +237,7 @@ private:
     bool releasing = false; int64_t t = 0, tsNote = 0, holdLeft = -1;
     BandPass f1, f2, f3, wireF;
     std::vector<float> res; size_t rp = 0;
+    const SampleZone* zone = nullptr; double spos = 0, zoneHz = 440;
 };
 
 // tape echo + spring-ish room + age, the way these were heard on old records

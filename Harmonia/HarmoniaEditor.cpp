@@ -35,7 +35,7 @@ HarmoniaEditor::HarmoniaEditor (HarmoniaProcessor& p) : AudioProcessorEditor (&p
 {
     lnf.setAccent (kRose);
     setLookAndFeel (&lnf);
-    groupBox = combo ("group", "SINGERS"); feelBox = combo ("feel", "FEEL"); partsBox = combo ("parts", "PARTS");
+    groupBox = combo ("group", "SINGERS"); feelBox = combo ("feel", "FEEL"); partsBox = combo ("parts", "PARTS"); partBox = combo ("part", "WHAT THEY SING");
     followBox = combo ("follow", "CHORDS FROM"); sitBox = combo ("sit_out", "WITH THE BAND"); regBox = combo ("register", "REGISTER");
     keyBox = combo ("key", "KEY"); chordBarsBox = combo ("chord_bars", "BARS PER CHORD"); songBox = combo ("song", "SONG");
     secBarsBox = combo ("section_bars", "SECTION LENGTH"); secBox = combo ("section", "SECTION");
@@ -157,8 +157,9 @@ void HarmoniaEditor::resized()
 
     auto pa = singPanel.reduced (18, 10); pa.removeFromTop (38);
     auto row = pa.removeFromTop (26);
-    const int w3 = row.getWidth() / 3;
-    groupBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); feelBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); partsBox->setBounds (row.reduced (4, 0));
+    const int w3 = row.getWidth() / 3, wq = row.getWidth() / 4;
+    groupBox->setBounds (row.removeFromLeft (wq).reduced (4, 0)); feelBox->setBounds (row.removeFromLeft (wq).reduced (4, 0));
+    partBox->setBounds (row.removeFromLeft (wq).reduced (4, 0)); partsBox->setBounds (row.reduced (4, 0));
     pa.removeFromTop (22);
     row = pa.removeFromTop (26);
     followBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); sitBox->setBounds (row.removeFromLeft (w3).reduced (4, 0)); regBox->setBounds (row.reduced (4, 0));

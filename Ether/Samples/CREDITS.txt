@@ -1,0 +1,2 @@
+Sitar samples and SFZ contributed by Dr. Narayan Bhagawan Raikar with CC0 license. Will need testing for quality etc.
+Source: Discord SFZ GM Bank (github.com/sfzinstruments/Discord-SFZ-GM-Bank), 105-Sitar. CC0. Trimmed to mono, 6 s.

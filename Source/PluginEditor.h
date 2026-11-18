@@ -113,8 +113,8 @@ private:
     TeaTowelProcessor& proc;
     juce::ToggleButton onButton { "Play along with Live's transport" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
-    juce::ComboBox styleBox, fillBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt, fillAtt;
+    juce::ComboBox styleBox, fillBox, swellBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> styleAtt, fillAtt, swellAtt;
     juce::TextButton sectionButtons[tt::NumSections];
     juce::TextButton fillButton { "FILL" }, endingButton { "ENDING" };
     std::unique_ptr<Knob> intensity, looseness, swing, variation;

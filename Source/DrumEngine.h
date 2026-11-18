@@ -66,7 +66,7 @@ using SamplePtr = std::shared_ptr<const SampleData>;
 
 // Articulations a MIDI note can ask for
 enum Artic { Normal = 0, SideStick, Rim, HatClosed, HatPedal, HatOpen, RideBell, FloorLow,
-             Clap, Tamb, TambShake, Shaker, Cowbell, CongaHi, CongaLo, Claves, NumArtics };
+             Clap, Tamb, TambShake, Shaker, Cowbell, CongaHi, CongaLo, Claves, Swell, NumArtics };   // Swell: a crash played backwards
 
 constexpr int kLayers = 5;
 struct Layers
@@ -91,6 +91,7 @@ struct KitBank
     {
         if (! art[piece][artic].empty()) return &art[piece][artic];
         if (piece == HiHat && ! art[piece][HatClosed].empty()) return &art[piece][HatClosed];
+        if (artic == Swell && ! art[Crash][Normal].empty()) return &art[Crash][Normal];
         if (! art[piece][Normal].empty()) return &art[piece][Normal];
         return nullptr;
     }
@@ -121,6 +122,7 @@ class DrumEngine
 {
 public:
     static constexpr int kVoices = 8;
+    double swellSec = 1.5;     // how long the next backwards cymbal takes to arrive (set just before the note)
 
     void prepare (double newSr) { sr = newSr; allOff(); }
 
@@ -195,6 +197,17 @@ public:
         const double cutoff = 1800.0 * std::pow (11.0, (double) s.tone) * (1.0 - 0.35 * d) * (0.75 + 0.25 * vel) * toneJitter;
         v.toneLp.reset();
         v.toneLp.lowpass (sr, cutoff, 0.6);
+
+        if (artic == Swell)
+        {
+            // backwards: start partway into the ring and play toward the strike, so it lands on the downbeat
+            const double want = juce::jlimit (0.25, 4.0, swellSec) * sr * v.rate;
+            v.pos = juce::jmin ((double) v.smp->mono.getNumSamples() - 2.0, want);
+            v.rate = -v.rate;
+            v.hold = 0; v.env = 1.0f; v.envK = 1.0f;
+            v.gain *= 0.9f;
+            v.toneLp.reset(); v.toneLp.lowpass (sr, cutoff * 1.4, 0.6);
+        }
     }
 
     void render (int piece, float* out, int n)
@@ -228,11 +241,12 @@ private:
         const int len = v.smp->mono.getNumSamples();
         for (int i = 0; i < n; ++i)
         {
-            if (v.pos >= (double) (len - 1)) { v.active = false; break; }
+            if (v.pos >= (double) (len - 1) || v.pos < 0.0) { v.active = false; break; }
             const int idx = (int) v.pos;
             const float fr = (float) (v.pos - idx);
             float s = d[idx] + fr * (d[idx + 1] - d[idx]);
             s = v.toneLp.process (s) * v.env * v.choke * v.gain;
+            if (v.rate < 0.0 && v.pos < 0.004 * sr) s *= (float) (v.pos / (0.004 * sr));     // no click where the strike would be
             out[i] += s;
             if (v.hold > 0) --v.hold; else v.env *= v.envK;
             if (v.choking) v.choke *= v.chokeK;

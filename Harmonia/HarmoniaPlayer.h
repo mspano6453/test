@@ -50,6 +50,7 @@ struct Hit { int step; float len; float vel; Syllable syl; bool swell = false; }
 
 inline void writeBar (int feel, int section, int barIn, float busy, int meter, Rng& r, std::vector<Hit>& out)
 {
+    if (band::meterOdd (meter)) { writeBar (feel, section, barIn, busy, band::M44, r, out); band::oddRemap (out, meter); return; }
     out.clear();
     const int n = band::meterSteps (meter), beat = band::meterBeatSteps (meter);
     const bool six = meter == band::M68;

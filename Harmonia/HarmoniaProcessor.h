@@ -58,7 +58,7 @@ public:
 
 private:
     struct Ev { int64_t at; int type; int part; int note; float vel; float len; hm::Syllable syl; bool legato; float attack; };
-    // type 1 a part sings, 2 a part stops, 3 everyone stops, 5 play-it note on, 6 play-it note off
+    // type 1 a part sings, 2 a part stops, 3 everyone stops, 5 play-it note on, 6 play-it note off, 7 the melody sings, 8 the melody stops
     void readParams();
     void runPlayer (int n);
     void playStep (int64_t k, int64_t at);
@@ -67,6 +67,17 @@ private:
     void handle (const Ev& e, juce::MidiBuffer& out, int pos);
     void chordAt (int64_t bar, int& root, int& q) const;
     int sectionAt (int64_t bar, int& barIn, bool& lastBar) const;
+    // the melody writer: a two-bar tune per section, sung over four-bar phrases (A, A', A again a step up, a long note home)
+    struct MNote { int step; float len; int deg; hm::Syllable syl; };
+    struct MHit { int step; float len; int note; float vel; hm::Syllable syl; };
+    void makeMotif (int sec);
+    void writeMelodyBar (int64_t b);
+    std::vector<MNote> motif[3][2];
+    bool motifMade[3] { false, false, false };
+    uint32_t melSeed[3] { 0x51ed270bu, 0x2545f491u, 0x9e3779b9u };
+    std::vector<MHit> melBar;
+    int melLast = -1, melMidi = -1, melodyMode = 0;
+    std::vector<float> melL, melR;
 
     double sr = 44100;
     hm::Singer singers[hm::kNumSingers];

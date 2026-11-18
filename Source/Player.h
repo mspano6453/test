@@ -480,7 +480,9 @@ public:
         float intensity = 0.5f, looseness = 0.3f, swing = 0.0f, variation = 0.5f;
         int meter = band::M44;                // 4/4, 3/4 or 6/8 (12 sixteenths a bar)
         const band::Leader* link = nullptr;   // set when a Bandleader is running the song
+        int swells = 1;                       // backwards cymbals: off, into choruses, into every section
     };
+    double swellSec = 0;                      // the length of the swell just sent (read by the sound engine)
 
     // UI / key-switch requests (any thread)
     std::atomic<bool> requestFill { false }, requestEnding { false };
@@ -635,7 +637,9 @@ private:
     void playStep (int step, int64_t t, double stepLen, const Settings& s, int wanted, int64_t bar)
     {
         uiStep = step;
-        const int ns = band::meterSteps (s.meter);          // steps in this bar: 16, or 12 for 3/4 and 6/8
+        const int ns = band::meterSteps (s.meter);          // steps in this bar: 16, 12 for 3/4 and 6/8, 20 for 5/4, 14 for 7/8
+        const int pns = band::patternSteps (s.meter);      // steps of the pattern it plays (5/4 and 7/8 play a 4/4 pattern through a map)
+        const int ps = band::oddSrc (s.meter, step);
         const int half = ns / 2, last = ns - 1;
         const int beat = band::meterBeatSteps (s.meter);    // 4 (a quarter), or 6 in 6/8 (a dotted quarter)
         const int pulse = s.meter == band::M68 ? 2 : 4;     // where the hats count: quarters, or 6/8's eighths
@@ -692,6 +696,16 @@ private:
             }
             else if (formBar == 0) { outBar = wasOut = false; halfBar = introBar = false; }
 
+            // a backwards cymbal over the second half of this bar when the next bar starts a new section
+            swellThisBar = false;
+            if (L != nullptr && formBar == 0 && s.swells > 0 && ! outBar && ! L->isHalf (bar))
+            {
+                int64_t inNext = 0;
+                const int now = L->sectionAt (bar), next = L->sectionAt (bar + 1, &inNext);
+                if (inNext == 0 && next != now && ! L->isOut (bar + 1) && ! L->isEnding (bar + 1) && ! L->isOver (bar + 1)
+                    && (s.swells == 2 || next == 1) && rand01() < 0.85f)
+                    swellThisBar = true;
+            }
             fillThisBar = fillNextBar;
             const bool requested = fillNextBar;
             fillNextBar = false;
@@ -700,7 +714,7 @@ private:
             barsLeftInPhrase = phraseLen - 1 - (barInSection % phraseLen);
             if (every > 0 && barsLeftInPhrase == 0 && formBar == 0) fillThisBar = true;
             if (endingStage == 1) { fillThisBar = true; endingStage = 2; }
-            if (fillThisBar) chooseFill (s, ! requested && endingStage == 0, ns);
+            if (fillThisBar) chooseFill (s, ! requested && endingStage == 0, pns);
 
             // the drummer's feel drifts a little from bar to bar
             const float V = s.variation;
@@ -721,16 +735,17 @@ private:
                 {
                     uint16_t m = 0;
                     const Groove& gg = st.sec[juce::jlimit (0, NumSections - 1, sec)];
-                    for (int i = 0; i < ns; ++i)
+                    for (int i = 0; i < ns && i < 16; ++i)
                     {
-                        const bool inF = fill && i >= fillStart;
+                        const int si = band::oddSrc (s.meter, i);
+                        const bool inF = fill && si >= fillStart;
                         const char* lane = inF ? (useGenFill ? nullptr : st.fill[fillAlt].lane[LK]) : gg.lane[LK];
-                        const char c = inF && useGenFill ? genFill[LK][i] : (lane != nullptr ? lane[i] : '.');
+                        const char c = inF && useGenFill ? genFill[LK][si] : (lane != nullptr ? lane[si] : '.');
                         if (c != '.') m |= (uint16_t) (1u << i);
                     }
                     return m;
                 };
-                const uint16_t thisBar = formBar != 0 ? (uint16_t) 0 : outBar ? (fillThisBar ? (uint16_t) (mask (section, true) & (0xFFFFu << fillStart)) : (uint16_t) 0) : mask (section, fillThisBar);
+                const uint16_t thisBar = formBar != 0 ? (uint16_t) 0 : outBar ? (fillThisBar ? (uint16_t) (mask (section, true) & (0xFFFFu << juce::jmin (15, fillStart))) : (uint16_t) 0) : mask (section, fillThisBar);
                 band::publishKicks (bar, thisBar);
                 const int nextSec = L != nullptr ? L->sectionAt (bar + 1) : section;
                 band::publishKicks (bar + 1, L != nullptr && L->rests (bar + 1, true) ? (uint16_t) 0 : mask (nextSec, false));
@@ -757,22 +772,29 @@ private:
 
         if (ended || section < 0) return;
         // the Bandleader called a fill after this bar had started: take it if there's room
-        if (L != nullptr && step > 0 && step <= half && ! fillThisBar && L->fillAt (bar)) { fillThisBar = true; chooseFill (s, false, ns); }
-        if (outBar && ! (fillThisBar && step >= fillStart && L != nullptr && ! L->isOut (bar + 1))) return;   // dropped out (but play the fill that brings everyone back)
+        if (L != nullptr && step > 0 && step <= half && ! fillThisBar && L->fillAt (bar)) { fillThisBar = true; chooseFill (s, false, pns); }
+        if (outBar && ! (fillThisBar && ps >= fillStart && L != nullptr && ! L->isOut (bar + 1))) return;   // dropped out (but play the fill that brings everyone back)
 
         // requests land on the second half of the current bar if there's time, otherwise the next bar
-        if (requestFill.exchange (false)) { if (step < half) { fillThisBar = true; chooseFill (s, false, ns); } else fillNextBar = true; }
+        if (requestFill.exchange (false)) { if (step < half) { fillThisBar = true; chooseFill (s, false, pns); } else fillNextBar = true; }
         if (requestEnding.exchange (false))
         {
-            if (step < half) { fillThisBar = true; chooseFill (s, false, ns); endingStage = 2; }
+            if (step < half) { fillThisBar = true; chooseFill (s, false, pns); endingStage = 2; }
             else             { endingStage = 1; }
         }
         // a section change coming at the next bar gets a fill if there's room
-        if (step == half && wanted != section && ! fillThisBar) { fillThisBar = true; chooseFill (s, false, ns); }
+        if (step == half && wanted != section && ! fillThisBar) { fillThisBar = true; chooseFill (s, false, pns); }
+        if (step == half && swellThisBar)
+        {
+            // timed to land exactly on the next downbeat, under the crash
+            swellSec = (double) (ns - half) * stepLen / sr;
+            push (t, 26, 70.0f + 30.0f * s.intensity);
+            swellThisBar = false;
+        }
 
         uiFillComing = fillThisBar || fillNextBar || endingStage > 0;
 
-        const bool inFill = fillThisBar && step >= fillStart;
+        const bool inFill = fillThisBar && ps >= fillStart;
         nowInFill = inFill;
         const Groove& g = st.sec[section];
         const Groove& ex = st.extra[section];
@@ -781,7 +803,7 @@ private:
         const float build = (barsLeftInPhrase == 0 || fillThisBar) ? 1.05f : 1.0f;
         const float velScale = (0.78f + 0.34f * s.intensity) * energy * build * (introBar ? 0.82f : 1.0f);
         const float swingDelay = (step % 2 == 1 && s.meter != band::M68) ? (float) (s.swing * 0.333 * stepLen) : 0.0f;
-        const int halfSnare = s.meter == band::M44 ? 8 : s.meter == band::M34 ? 8 : 6;
+        const int halfSnare = s.meter == band::M68 ? 6 : 8;
 
         for (int l = 0; l < NumLanes; ++l)
         {
@@ -790,22 +812,22 @@ private:
             int lane = l;
             if (inFill)
             {
-                c = useGenFill ? genFill[l][step] : (st.fill[fillAlt].lane[l] != nullptr ? st.fill[fillAlt].lane[l][step] : '.');
+                c = useGenFill ? genFill[l][ps] : (st.fill[fillAlt].lane[l] != nullptr ? st.fill[fillAlt].lane[l][ps] : '.');
                 // keep time on the hats/ride through a short fill's first steps
-                if (c == '.' && step < half && g.lane[l] != nullptr && (l == LH || l == LRD || l == LO)) c = g.lane[l][step];
+                if (c == '.' && ps < pns / 2 && g.lane[l] != nullptr && (l == LH || l == LRD || l == LO)) c = g.lane[l][ps];
             }
             else
             {
-                c = g.lane[l] != nullptr ? g.lane[l][step] : '.';
-                if (! halfBar && c == '.' && ex.lane[l] != nullptr && ex.lane[l][step] != '.' && rand01() < (s.intensity - 0.35f) * 1.6f)
-                    c = ex.lane[l][step];
+                c = g.lane[l] != nullptr ? g.lane[l][ps] : '.';
+                if (! halfBar && c == '.' && ex.lane[l] != nullptr && ex.lane[l][ps] != '.' && rand01() < (s.intensity - 0.35f) * 1.6f)
+                    c = ex.lane[l][ps];
 
                 // little things a real drummer does that a loop never would
                 if (l == LH && c != '.' && step % 4 == 2 && rand01() < 0.03f * V) c = '.';                  // drops a weak hat
                 if (l == LH && c != '.' && step == ns - 2 && rand01() < 0.07f * V) lane = LO;               // opens the hat
                 if (l == LS && c == '.' && (step % 2 == 1) && rand01() < 0.05f * V * (0.4f + s.intensity)) c = 'g';   // ghost note
                 if (l == LK && c == '.' && (step == 3 || step == 7 || step == 10 || (ns == 16 && step == 14))
-                    && g.lane[LS] != nullptr && g.lane[LS][step] == '.' && rand01() < 0.025f * V) c = 'o';  // extra kick
+                    && g.lane[LS] != nullptr && g.lane[LS][ps] == '.' && rand01() < 0.025f * V) c = 'o';  // extra kick
                 if (l == LS && c == '.' && step == last && barsLeftInPhrase == 0 && rand01() < 0.4f * V) c = '-';  // pickup into the next phrase
 
                 // the half-time breakdown: one big snare, the kick on one, the cymbals only on the beat
@@ -836,7 +858,7 @@ private:
     bool nowInFill = false, useGenFill = false;
     int fillStart = 8, barsLeftInPhrase = 7;
     float energy = 1.0f, timeBiasMs = 0.0f, hatAccent = 1.0f;
-    char genFill[NumLanes][16] {};
+    char genFill[NumLanes][20] {};
 
     // Pick this bar's fill: one of the style's own fills, or one made up on the spot.
     // Auto fills are sometimes just the last beat; requested ones always take half a bar.
@@ -871,6 +893,8 @@ private:
         h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
         return (float) (h & 0xffff) / 65536.0f;
     }
+
+    bool swellThisBar = false;
 
     void hit (int note, float vel, int64_t t, const Settings& s, int lane)
     {

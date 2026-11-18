@@ -20,7 +20,7 @@ inline const char* feelName (int f)
                                "Rising Chaos", "Cello Riff", "Fanfare", "Unison Hook", "Baroque Lines" };
     return (f >= 0 && f < NumFeels) ? n[f] : "";
 }
-enum Follow { FBand = 0, FMidiChords, FPlay };
+enum Follow { FBand = 0, FMidiChords, FPlay, FGuitar };   // FGuitar: the orchestra plays what the guitar on the sidechain plays
 constexpr int kNumVoices = 40;
 }
 
@@ -32,7 +32,11 @@ public:
     std::unique_ptr<mc::SongRenderer> renderer;
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
-    bool isBusesLayoutSupported (const BusesLayout& l) const override { return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
+    bool isBusesLayoutSupported (const BusesLayout& l) const override
+    {
+        const auto in = l.getMainInputChannelSet();
+        return l.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() && (in.isDisabled() || in == juce::AudioChannelSet::stereo() || in == juce::AudioChannelSet::mono());
+    }
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     using AudioProcessor::processBlock;
 
@@ -111,4 +115,10 @@ private:
     uint32_t seeds[3] { 11, 23, 37 };
     bool rising = false;
     uint32_t lastMutate = 0;   // Bandleader's MUTATE
+    ut::PitchTracker tracker;            // guitar to orchestra
+    std::vector<float> scBuf;
+    int guitarNote = -1;
+public:
+    std::atomic<int> uiGuitarNote { -1 };
+    bool liveFollow() const { return follow == ch::FPlay || follow == ch::FGuitar; }
 };

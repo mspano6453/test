@@ -44,6 +44,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout JangleProcessor::createLayou
     C ("feel", "Feel", feelNames(), 0);
     C ("follow", "Chords From", { "Band (Bandleader / own song)", "MIDI chords", "Play it (MIDI keys)" }, 0);
     C ("sit_out", "With The Band", { "Plays along", "Sits out" }, 0);
+    C ("lead_fills", "Lead Answers", { "Off", "Sometimes", "Often" }, 1);
     C ("position", "Chord Shapes", { "Open chords", "Barre chords", "Up the neck" }, 0);
     C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 9);
     C ("prog_verse", "Verse Chords", ut::progressionNames(), 0);
@@ -132,7 +133,7 @@ void JangleProcessor::readParams()
     guitar = (int) g ("guitar"); feel = (int) g ("feel"); follow = (int) g ("follow"); position = (int) g ("position");
     key = (int) g ("key"); progs[0] = (int) g ("prog_verse"); progs[1] = (int) g ("prog_chorus"); progs[2] = (int) g ("prog_bridge");
     chordBars = 1 << (int) g ("chord_bars"); autoSong = g ("song") < 0.5f; sectionBars = ut::sectionBarsFor ((int) g ("section_bars"));
-    section = (int) g ("section");
+    section = (int) g ("section"); leadFills = (int) g ("lead_fills");
     busy = g ("busy"); strumSpeed = g ("strum"); dynamics = g ("dynamics"); human = g ("human"); swing = g ("swing"); lengthK = g ("length");
     Rig::Params p;
     p.guitar = guitar; p.drive = g ("drive"); p.tone = g ("tone"); p.trem = g ("trem"); p.chorus = g ("chorus");
@@ -250,6 +251,14 @@ void JangleProcessor::strum (const Hit& h, int64_t at, const Shape& sh, double s
             play (s, at, v, lenSec);
             break;
         }
+        case SLead:
+        {
+            // the highest string that reaches the note under the 17th fret
+            int str = 5; while (str > 0 && h.arg < kOpen[str]) --str;
+            if (h.arg < kOpen[str] || h.arg - kOpen[str] > 17) break;
+            schedule ({ at, 1, str, h.arg, juce::jmin (1.0f, v * 1.08f), lenSec, setFor (guitar) });
+            break;
+        }
         case SPinch:
             play (used.front(), at, v * 0.9f, lenSec);
             play (used.back(), at + 2, v, lenSec);
@@ -276,6 +285,12 @@ void JangleProcessor::playStep (int64_t k, int64_t at)
         const bool fill = (led && leader.fillAt (b)) || (! led && follow == FBand && autoSong && lastBar);
         if (fill && filledBar != b) { writeFill (feel, meterNow, rng, bar); filledBar = b; }
         if (led && leader.isHalf (b)) { bar.clear(); bar.push_back ({ 0, SDown, 0.82f, -1.0f }); }   // the breakdown: one big strum a bar
+        else if (leadFills > 0 && ! fill && barInSec % 4 == 3 && feel != FWash && follow != FPlay
+                 && rng.chance (leadFills == 1 ? 0.45f : 0.85f) && ! (led && (leader.rests (b, false) || leader.isEnding (b))))
+        {
+            int lr = 0, lq = 0; chordAt (b, lr, lq);
+            if (lr >= 0) writeLick (lr, lq == 1 ? 1 : 0, bs, band::meterBeatSteps (meterNow), rng, bar);    // the guitarist answers the line
+        }
         uiSection = barSection;
     }
     uiStep = s;

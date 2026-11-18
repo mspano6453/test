@@ -21,7 +21,7 @@ private:
     juce::OwnedArray<juce::Component> owned;
     juce::OwnedArray<APVTS::ComboBoxAttachment> cAtt;
     std::vector<std::pair<juce::ComboBox*, juce::String>> labelled;
-    juce::ComboBox *guitarBox = nullptr, *feelBox = nullptr, *followBox = nullptr, *sitBox = nullptr, *posBox = nullptr;
+    juce::ComboBox *guitarBox = nullptr, *feelBox = nullptr, *followBox = nullptr, *sitBox = nullptr, *posBox = nullptr, *leadBox = nullptr;
     juce::ComboBox *keyBox = nullptr, *progBox[3] {}, *chordBarsBox = nullptr, *songBox = nullptr, *secBarsBox = nullptr, *secBox = nullptr;
     std::vector<ttui::Knob*> playerKnobs, soundKnobs;
     juce::Rectangle<int> nowArea, neckArea, playerPanel, soundPanel, songPanel, legendArea;

@@ -29,20 +29,21 @@ inline void instrRange (int i, int& lo, int& hi)
 enum Art { ASus = 0, AShort, APizz, ATrem, NumArts };
 inline const char* artCode (int a) { static const char* c[] = { "sus", "spc", "pz", "trm" }; return c[a]; }
 
-enum Ensemble { EStrings = 0, EQuartet, EBrass, EWinds, EStringsHorns, ETapeStrings, ETapeFlutes, NumEnsembles };
+enum Ensemble { EStrings = 0, EQuartet, EBrass, EWinds, EStringsHorns, ETapeStrings, ETapeFlutes, ETapeCellos, ETapeBrass, ETapeWinds, NumEnsembles };
 inline const char* ensembleName (int e)
 {
-    static const char* n[] = { "String Section", "String Quartet", "Brass", "Woodwinds", "Strings + Horns", "Tape Strings", "Tape Flutes" };
+    static const char* n[] = { "String Section", "String Quartet", "Brass", "Woodwinds", "Strings + Horns", "Tape Strings", "Tape Flutes", "Tape Cellos", "Tape Brass", "Tape Woodwinds" };
     return (e >= 0 && e < NumEnsembles) ? n[e] : "";
 }
 // the four parts, top to bottom
 inline void ensembleParts (int e, int out[4])
 {
     static const int p[NumEnsembles][4] = { { VLN, VLN, VLA, VC }, { SVL, VLN, VLA, VC }, { TPT, TPT, HRN, TBN }, { FL, OB, CL, BSN },
-                                            { VLN, VLA, HRN, VC }, { VLN, VLN, VLA, VC }, { FL, FL, CL, BSN } };
+                                            { VLN, VLA, HRN, VC }, { VLN, VLN, VLA, VC }, { FL, FL, CL, BSN },
+                                            { VC, VC, VC, VC }, { TPT, TPT, TBN, TBN }, { FL, OB, CL, BSN } };
     for (int i = 0; i < 4; ++i) out[i] = p[juce::jlimit (0, NumEnsembles - 1, e)][i];
 }
-inline bool ensembleIsTape (int e) { return e == ETapeStrings || e == ETapeFlutes; }
+inline bool ensembleIsTape (int e) { return e >= ETapeStrings; }
 
 struct Rng
 {

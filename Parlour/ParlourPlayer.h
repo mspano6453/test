@@ -232,6 +232,7 @@ inline void writeBarTriple (int feel, int section, int barInPhrase, float busy, 
 }
 inline void writeBarAny (int feel, int section, int barInPhrase, float busy, Rng& r, std::vector<Hit>& out, int meter)
 {
+    if (band::meterOdd (meter)) { writeBar (feel, section, barInPhrase, busy, r, out); band::oddRemap (out, meter); return; }
     if (meter == band::M44) writeBar (feel, section, barInPhrase, busy, r, out);
     else writeBarTriple (feel, section, barInPhrase, busy, r, out, meter);
 }
@@ -248,6 +249,15 @@ inline void writeFillTriple (int feel, Rng& r, std::vector<Hit>& out, int meter)
 inline void writeFill (int feel, Rng& r, std::vector<Hit>& out);
 inline void writeFillAny (int feel, Rng& r, std::vector<Hit>& out, int meter)
 {
+    if (band::meterOdd (meter))
+    {
+        // 5/4 and 7/8: a run up the chord over the last two beats
+        const int ns = band::meterSteps (meter), from = ns - 8;
+        if (feelHolds (feel)) { out.push_back ({ from, 4.0f, 0.82f, HTopOct, 0 }); return; }
+        out.erase (std::remove_if (out.begin(), out.end(), [from] (const Hit& h) { return h.step >= from; }), out.end());
+        for (int i = 0, s = from; s < ns; s += 2, ++i) out.push_back ({ s, 1.0f, 0.7f + 0.06f * (float) i, HNote, i });
+        return;
+    }
     if (meter == band::M44) writeFill (feel, r, out); else writeFillTriple (feel, r, out, meter);
 }
 inline void writeFill (int feel, Rng& r, std::vector<Hit>& out)

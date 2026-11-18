@@ -673,6 +673,9 @@ PlayerView::PlayerView (TeaTowelProcessor& p, juce::Component* popupParent) : pr
     fillBox.addItemList ({ "Off", "4 bars", "8 bars", "16 bars" }, 1);
     fillAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, PID::fillEvery, fillBox);
     addAndMakeVisible (fillBox);
+    swellBox.addItemList ({ "Off", "Into choruses", "Into every section" }, 1);
+    swellAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, "swells", swellBox);
+    addAndMakeVisible (swellBox);
 
     for (int i = 0; i < NumSections; ++i)
     {
@@ -747,6 +750,7 @@ void PlayerView::paint (juce::Graphics& g)
     g.setFont (font (12.0f));
     g.drawText ("Style", r.getX() + 16, r.getY() + 74, 60, 24, juce::Justification::centredLeft);
     g.drawText ("Auto fill", r.getX() + 16 + 470, r.getY() + 74, 80, 24, juce::Justification::centredLeft);
+    g.drawText ("Backwards", r.getX() + 16 + 470, r.getY() + 40, 80, 24, juce::Justification::centredLeft);
 
     // step lights
     const bool running = proc.player.uiRunning.load();
@@ -795,6 +799,7 @@ void PlayerView::resized()
     onButton.setBounds (top.removeFromLeft (360));
     styleBox.setBounds (r.getX() + 16 + 64, r.getY() + 74, 300, 26);
     fillBox.setBounds (r.getX() + 16 + 470 + 80, r.getY() + 74, 140, 26);
+    swellBox.setBounds (r.getX() + 16 + 470 + 80, r.getY() + 40, 140, 26);
 
     auto song = juce::Rectangle<int> (r.getX() + 16, r.getY() + 136 + 40, r.getWidth() - 32, 44);
     const int bw = (song.getWidth() - 5 * 10) / 5;

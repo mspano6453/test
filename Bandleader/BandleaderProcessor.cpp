@@ -65,7 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BandleaderProcessor::createL
                                         "Footswitch: Tape Stop", "Footswitch: Next Sketch", "Footswitch: Previous Sketch" };
     for (int i = 0; i < kNumCmds; ++i) C (kTrigIds[i], trigNames[i], onOff(), 0);
     // the song form
-    C ("meter", "Time Signature", { "Follow Live", "4/4", "3/4", "6/8" }, 0);
+    C ("meter", "Time Signature", { "Follow Live", "4/4", "3/4", "6/8", "5/4", "7/8" }, 0);
     C ("form", "Arrangement", formMenu(), 0);
     C ("count_in", "Count-In", { "Off", "1 bar", "2 bars" }, 0);
     C ("intro", "Intro", { "Off", "2 bars", "4 bars", "8 bars" }, 0);
