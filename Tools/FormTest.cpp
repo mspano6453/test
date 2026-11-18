@@ -373,6 +373,60 @@ void benchTest()
     check (lead2.benched.load() == (1u << band::WParlour), "the lights are saved with the set");
 }
 
+// STRANGE, the practice loop, the sketchbook
+void batch1Test()
+{
+    std::printf ("\n== STRANGE / LOOP / SKETCHBOOK\n");
+    const double sr = 44100; const int bs = 512;
+    BandleaderProcessor lead; Head head; head.playing = true;
+    lead.setPlayConfigDetails (2, 2, sr, bs); lead.prepareToPlay (sr, bs); lead.setPlayHead (&head);
+    setP (lead.apvts, "meter", 1); setP (lead.apvts, "key", 0);
+    setP (lead.apvts, "prog_verse", 0); setP (lead.apvts, "prog_chorus", 2); setP (lead.apvts, "section_bars", 0);
+    lead.timerCallback();
+    const double spb = sr * 60.0 / head.bpm;
+    auto chordsOver = [&] (int bars) {
+        std::vector<int> out; int pos = 0;
+        for (int b = 0; b < bars; ++b)
+        {
+            head.ppq = b * 4.0 + 0.01; juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m; lead.processBlock (buf, m);
+            band::Leader L; band::readLeader (L); int r; bool mn; L.chordAt (b, r, mn); out.push_back (r | (L.qualityAt (b) << 4));
+        }
+        juce::ignoreUnused (pos, spb); return out; };
+    auto plain = chordsOver (16);
+    setP (lead.apvts, "strange", 1.0f);
+    auto odd = chordsOver (16);
+    int changed = 0, kept0 = 0;
+    for (int b = 0; b < 16; ++b) { if (plain[(size_t) b] != odd[(size_t) b]) ++changed; }
+    kept0 = plain[0] == odd[0] && plain[4] == odd[4];
+    juce::String line; for (int b = 0; b < 8; ++b) line << ut::pcName (odd[(size_t) b] & 15) << band::qualitySuffix (odd[(size_t) b] >> 4) << " ";
+    check (changed >= 8, "Strange 100%: " + juce::String (changed) + " of 16 bars changed chord (" + line.trim() + ")");
+    check (kept0, "every section still starts on its own first chord");
+    lead.command (BandleaderProcessor::CMutate);
+    head.ppq = 0.01; { juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m; lead.processBlock (buf, m); }
+    auto mut = chordsOver (16); int diff = 0; for (int b = 0; b < 16; ++b) diff += mut[(size_t) b] != odd[(size_t) b];
+    band::Leader L; band::readLeader (L);
+    check (diff > 0 && L.mutateStamp == 1, "MUTATE: the strange chords change (" + juce::String (diff) + " bars) and the players are told");
+    // loop: in bar 1 of the verse turn LOOP on, play 12 bars, stay in the verse
+    setP (lead.apvts, "strange", 0.0f);
+    head.playing = false; { juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m; lead.processBlock (buf, m); }
+    head.playing = true; head.ppq = 0; { juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m; lead.processBlock (buf, m); }
+    lead.command (BandleaderProcessor::CLoop);
+    bool allVerse = true;
+    for (int pos = 0; pos < (int) (spb * 4 * 14); pos += bs)
+    {
+        head.ppq = pos / spb; juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m; lead.processBlock (buf, m);
+        band::Leader LL; band::readLeader (LL); if (LL.sectionAt (band::barOfPpq (head.ppq, 0)) != 0) allVerse = false;
+    }
+    check (allVerse, "LOOP SECTION: 14 bars later the band is still in the verse");
+    // sketchbook
+    setP (lead.apvts, "key", 4); setP (lead.apvts, "strange", 0.4f); lead.saveSketch (2);
+    setP (lead.apvts, "key", 7); setP (lead.apvts, "strange", 0.0f);
+    check (lead.loadSketch (2) && (int) val (lead.apvts, "key") == 4 && std::abs (val (lead.apvts, "strange") - 0.4f) < 0.01f, "sketch saved and loaded back (" + lead.sketchName (2) + ")");
+    juce::MemoryBlock mb; lead.getStateInformation (mb);
+    BandleaderProcessor lead2; lead2.setStateInformation (mb.getData(), (int) mb.getSize());
+    check (lead2.sketchName (2).isNotEmpty(), "the sketchbook is saved with the set");
+}
+
 // a long torture run: the whole band, random block sizes, jumps, stops, tempo, meter and style changes, footswitches
 void soak (int minutes)
 {
@@ -435,6 +489,7 @@ int main()
     formTest (3, "6-8");
     formTest (1, "4-4");
     benchTest();
+    batch1Test();
     learnKeys();
     learnGuitar();
     renderTest();

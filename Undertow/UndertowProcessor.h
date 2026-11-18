@@ -146,4 +146,5 @@ private:
 
     std::vector<float> sc, mono, tmpR;
     std::vector<Ev> events;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

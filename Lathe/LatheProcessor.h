@@ -114,7 +114,11 @@ public:
 
     void processCore (juce::AudioBuffer<float>&, juce::MidiBuffer&);
     band::Bench bench;
+    std::atomic<bool> uiTapeStopped { false };
 private:
+    void tapeStopBlock (float* L, float* R, int n);
+    std::vector<float> tsBuf[2]; int tsW = 0, tsState = 0; double tsRead = 0, tsRate = 1; uint32_t tsStamp = 0; bool tsStampSeen = false, tsEndDone = false, tsWasPlaying = false;
+
     void readParams();
     void setParam (const juce::String& id, float value);
 

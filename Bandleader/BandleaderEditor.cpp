@@ -26,6 +26,45 @@ const Member kMembers[] = { { "Tea Towel", band::WTeaTowel, "drums" },
                             { "Lathe", band::WLathe, "mastering" } };
 }
 
+// the big chord chart: the chord now and what's coming, readable from across the room. Click to close.
+class BandleaderEditor::Chart : public juce::Component
+{
+public:
+    explicit Chart (BandleaderProcessor& p) : proc (p) {}
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (col::bg.withAlpha (0.97f));
+        auto r = getLocalBounds().reduced (40, 30);
+        auto name = [] (int c) { return c < 0 ? juce::String ("-") : juce::String (ut::pcName (c & 15)) + band::qualitySuffix (c >> 4); };
+        const bool playing = proc.uiPlaying.load();
+        g.setColour (kGold); g.setFont (font (22.0f, true));
+        g.drawText (playing ? juce::String (kSecNames[juce::jlimit (0, 2, proc.uiChartSec[0].load())]) + "   bar " + juce::String (proc.uiBarIn.load())
+                            : juce::String ("Press play"), r.removeFromTop (34), juce::Justification::centredLeft);
+        if (proc.uiLooping.load()) { g.setColour (col::red); g.drawText ("LOOPING THIS SECTION", r.withHeight (34).translated (0, -34), juce::Justification::centredRight); }
+        g.setColour (col::cream); g.setFont (font (juce::jmin (260.0f, (float) r.getHeight() * 0.5f), true));
+        g.drawFittedText (name (proc.uiChartChord[0].load()), r.removeFromTop (r.getHeight() * 6 / 10), juce::Justification::centred, 1);
+        r.removeFromTop (10);
+        const int w = r.getWidth() / 4;
+        for (int k = 1; k < 5; ++k)
+        {
+            auto c = r.removeFromLeft (w).reduced (8, 0);
+            const int ch = proc.uiChartChord[k].load();
+            if (ch == -2) continue;
+            g.setColour (col::panel); g.fillRoundedRectangle (c.toFloat(), 10.0f);
+            g.setColour (k == 1 ? kGold : col::cream.withAlpha (0.8f)); g.setFont (font (juce::jmin (90.0f, c.getHeight() * 0.55f), true));
+            g.drawFittedText (name (ch), c.withTrimmedBottom (c.getHeight() / 4), juce::Justification::centred, 1);
+            const int b = proc.uiChartBars[k].load();
+            g.setColour (col::muted); g.setFont (font (16.0f));
+            g.drawText (b <= 1 ? juce::String ("next bar") : "in " + juce::String (b) + " bars", c.removeFromBottom (c.getHeight() / 4), juce::Justification::centred);
+        }
+        g.setColour (col::muted); g.setFont (font (13.0f));
+        g.drawText ("click anywhere to close", getLocalBounds().removeFromBottom (24), juce::Justification::centred);
+    }
+    void mouseDown (const juce::MouseEvent&) override { setVisible (false); }
+private:
+    BandleaderProcessor& proc;
+};
+
 // drags every .mid file of the last render into Live at once
 class BandleaderEditor::SongDrag : public juce::Component, public juce::SettableTooltipClient
 {
@@ -94,7 +133,20 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     learnCancelB.onClick = [this] { proc.command (BandleaderProcessor::CLearnCancel); };
     renderB.onClick = [this] { proc.startRender(); repaint(); };
     openB.onClick = [this] { if (proc.renderFolder.isDirectory()) proc.renderFolder.revealToUser(); else mc::midiFolder().revealToUser(); };
-    for (auto* b : { &nextB, &fillB, &dropB, &allInB, &endB, &halfB, &keyUpB, &learnB, &learnNextB, &learnCancelB, &renderB, &openB }) addAndMakeVisible (*b);
+    loopB.onClick = [this] { proc.command (BandleaderProcessor::CLoop); };
+    mutateB.onClick = [this] { proc.command (BandleaderProcessor::CMutate); };
+    tapeB.onClick = [this] { proc.command (BandleaderProcessor::CTapeStop); };
+    chartB.onClick = [this] { chart->setVisible (true); chart->toFront (false); };
+    tunerB.setClickingTogglesState (true);
+    tunerB.onClick = [this] { proc.tunerOn = tunerB.getToggleState(); repaint (learnArea); };
+    mutateB.setTooltip ("Every player rewrites its part a little, and the Strange chords change.");
+    tapeB.setTooltip ("Lathe (on the master) slows the whole mix to a stop. Press again to spin it back up.");
+    saveSketchB.onClick = [this] { proc.saveSketch (juce::jmax (0, sketchBox.getSelectedItemIndex())); refreshSketches(); };
+    loadSketchB.onClick = [this] { if (proc.loadSketch (juce::jmax (0, sketchBox.getSelectedItemIndex()))) repaint(); };
+    for (auto* b : { &nextB, &fillB, &dropB, &allInB, &endB, &halfB, &keyUpB, &learnB, &learnNextB, &learnCancelB, &renderB, &openB,
+                     &loopB, &mutateB, &tapeB, &chartB, &tunerB, &saveSketchB, &loadSketchB }) addAndMakeVisible (*b);
+    addAndMakeVisible (sketchBox);
+    refreshSketches();
     for (int i = 0; i < 3; ++i)
     {
         secB[i].setButtonText (kSecNames[i]);
@@ -142,6 +194,9 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     combo ("breakdown", "BREAKDOWN");
     combo ("key_up", "KEY CHANGE");
     combo ("ending", "ENDING");
+    strangeK = new ttui::Knob ("STRANGE", false, this);
+    strangeK->attach (proc.apvts, "strange");
+    owned.add (strangeK); addAndMakeVisible (strangeK);
     energyK = new ttui::Knob ("ENERGY", false, this);
     energyK->attach (proc.apvts, "energy");
     owned.add (energyK); addAndMakeVisible (energyK);
@@ -149,6 +204,8 @@ BandleaderEditor::BandleaderEditor (BandleaderProcessor& p) : AudioProcessorEdit
     addAndMakeVisible (*dragMidi);
     dragSong = std::make_unique<SongDrag> (proc);
     addAndMakeVisible (*dragSong);
+    chart = std::make_unique<Chart> (proc);
+    addChildComponent (*chart);
     setSize (1200, 900);
     startTimerHz (12);
 }
@@ -170,7 +227,59 @@ void BandleaderEditor::timerCallback()
                       + proc.uiLearnState.load() * 13 + proc.uiLearnSec.load() * 17 + proc.uiLearnBars.load() * 19 + proc.uiLearnHeard.load() * 23
                       + (proc.uiEndComing.load() ? 29 : 0) + (proc.uiOver.load() ? 37 : 0);
     if (dyn != lastDyn) { lastDyn = dyn; repaint (nowArea); repaint (formArea); repaint (learnArea); }
+    if (chart->isVisible()) chart->repaint();
+    if (proc.tunerOn.load()) { runTuner(); repaint (learnArea); }
+    if (sketchBox.getNumItems() > 0 && proc.currentSketch.load() >= 0 && sketchBox.getSelectedItemIndex() != proc.currentSketch.load()) refreshSketches();
     if (++tick % 6 == 0) { repaint (bandArea); repaint (renderArea); dragSong->repaint(); }
+}
+
+void BandleaderEditor::refreshSketches()
+{
+    const int sel = juce::jmax (0, sketchBox.getSelectedItemIndex(), proc.currentSketch.load());
+    sketchBox.clear (juce::dontSendNotification);
+    for (int i = 0; i < BandleaderProcessor::kSketches; ++i)
+    {
+        const auto nm = proc.sketchName (i);
+        sketchBox.addItem (juce::String (i + 1) + ".  " + (nm.isEmpty() ? juce::String ("(empty)") : nm), i + 1);
+    }
+    sketchBox.setSelectedItemIndex (sel, juce::dontSendNotification);
+}
+
+// the tuner: the pitch of the sidechain (autocorrelation, refined between samples), as a note and how far off
+void BandleaderEditor::runTuner()
+{
+    tunerHas = false;
+    if (! proc.tunerOn.load()) return;
+    constexpr int N = 4096;
+    static float x[N];
+    const int w = proc.tunerW.load();
+    float pk = 0;
+    for (int i = 0; i < N; ++i) { x[i] = proc.tunerBuf[(w - N + i + BandleaderProcessor::kTunerN) % BandleaderProcessor::kTunerN]; pk = juce::jmax (pk, std::abs (x[i])); }
+    if (pk < 0.01f) { tunerText = "play a string"; return; }
+    const double sr = juce::jmax (8000.0, proc.getSampleRate());
+    const int minLag = (int) (sr / 1100.0), maxLag = juce::jmin (N / 2, (int) (sr / 60.0));
+    // the normalised difference (YIN): the first dip under the threshold is the period
+    static float d[N / 2 + 2];
+    float run = 0; int best = -1;
+    d[0] = 1;
+    for (int tau = 1; tau <= maxLag; ++tau)
+    {
+        float s = 0;
+        for (int i = 0; i < N / 2; ++i) { const float df = x[i] - x[i + tau]; s += df * df; }
+        run += s; d[tau] = run > 0 ? s * (float) tau / run : 1.0f;
+        if (tau > minLag && best < 0 && d[tau] < 0.15f) best = tau;
+        if (best > 0 && tau == best + 1 && d[tau] < d[best]) best = tau;
+    }
+    if (best < 0) { tunerText = "..."; return; }
+    while (best + 1 <= maxLag && d[best + 1] < d[best]) ++best;
+    double t = best;
+    if (best > 1 && best < maxLag) { const double a = d[best - 1], b = d[best], c = d[best + 1]; const double den = a - 2 * b + c; if (std::abs (den) > 1e-9) t = best + 0.5 * (a - c) / den; }
+    const double f = sr / t;
+    const double midi = 69.0 + 12.0 * std::log2 (f / 440.0);
+    const int nn = (int) std::lround (midi);
+    tunerCents = (float) ((midi - nn) * 100.0);
+    tunerText = juce::String (ut::pcName (((nn % 12) + 12) % 12)) + juce::String (nn / 12 - 1);
+    tunerHas = true;
 }
 
 void BandleaderEditor::updateButtons()
@@ -182,6 +291,7 @@ void BandleaderEditor::updateButtons()
     fillB.setToggleState (proc.uiFillComing.load(), juce::dontSendNotification);
     endB.setToggleState (proc.uiEndComing.load(), juce::dontSendNotification);
     halfB.setToggleState (proc.uiHalfOn.load(), juce::dontSendNotification);
+    loopB.setToggleState (proc.uiLooping.load(), juce::dontSendNotification);
     const bool learning = proc.uiLearnState.load() != 0;
     learnB.setButtonText (learning ? "DONE" : "LEARN THE SONG");
     learnB.setToggleState (learning, juce::dontSendNotification);
@@ -227,6 +337,23 @@ void BandleaderEditor::paintLearn (juce::Graphics& g, juce::Rectangle<int> r)
     const int ls = proc.uiLearnState.load();
     const int key = juce::jmax (0, keyBox->getSelectedItemIndex());
     auto text = r.withTrimmedLeft (420);
+    if (proc.tunerOn.load())
+    {
+        auto t = text;
+        g.setColour (col::cream); g.setFont (font (34.0f, true));
+        g.drawText (tunerText, t.removeFromLeft (110), juce::Justification::centredLeft);
+        auto bar = t.withSizeKeepingCentre (t.getWidth(), 14).toFloat();
+        g.setColour (col::line); g.fillRoundedRectangle (bar, 7.0f);
+        g.setColour (col::cream); g.fillRect (bar.getCentreX() - 1, bar.getY() - 6, 2.0f, bar.getHeight() + 12);
+        if (tunerHas)
+        {
+            const float x = bar.getCentreX() + bar.getWidth() * 0.5f * juce::jlimit (-1.0f, 1.0f, tunerCents / 50.0f);
+            g.setColour (std::abs (tunerCents) < 4.0f ? kGreen : col::red); g.fillEllipse (x - 9, bar.getCentreY() - 9, 18, 18);
+            g.setColour (col::muted); g.setFont (font (12.0f));
+            g.drawText ((tunerCents > 0 ? "+" : "") + juce::String (juce::roundToInt (tunerCents)) + " cents", t.removeFromBottom (16), juce::Justification::centred);
+        }
+        return;
+    }
     if (ls != 0)
     {
         const int sec = juce::jlimit (0, 2, proc.uiLearnSec.load());
@@ -424,13 +551,28 @@ void BandleaderEditor::paint (juce::Graphics& g)
     ba.removeFromTop (2);
     const char* fs[][2] = { { "C2 / CC 90", "Next section" }, { "D2 / CC 91", "Fill" }, { "E2 / CC 92", "Drop out" }, { "F2 / CC 93", "All in" },
                             { "G2 / CC 94", "Verse" }, { "A2 / CC 95", "Chorus" }, { "B2 / CC 96", "Bridge" }, { "C3 / CC 97", "End the song" },
-                            { "D3 / CC 98", "Half-time on / off" }, { "E3 / CC 99", "Key up" }, { "F3 / CC 100", "Learn / done" } };
-    for (auto& f : fs)
+                            { "D3 / CC 98", "Half-time" }, { "E3 / CC 99", "Key up" }, { "F3 / CC 100", "Learn / done" },
+                            { "G3 / CC 101", "Strange up" }, { "A3 / CC 102", "Strange down" }, { "B3 / CC 103", "Mutate" }, { "C4 / CC 104", "Loop section" },
+                            { "D4 / CC 105", "Tape stop" }, { "E4 / CC 106", "Next sketch" }, { "F4 / CC 107", "Prev sketch" } };
     {
-        auto r = ba.removeFromTop (17);
-        g.setColour (col::muted); g.setFont (font (11.5f)); g.drawText (f[0], r.removeFromLeft (96), juce::Justification::centredLeft);
-        g.setColour (col::cream); g.drawText (f[1], r, juce::Justification::centredLeft);
+        const int rows = 9, colW = ba.getWidth() / 2;
+        auto top = ba.getY();
+        int k = 0;
+        for (auto& f : fs)
+        {
+            auto r = juce::Rectangle<int> (ba.getX() + (k / rows) * colW, top + (k % rows) * 17, colW, 17);
+            g.setColour (col::muted); g.setFont (font (10.5f)); g.drawText (f[0], r.removeFromLeft (76), juce::Justification::centredLeft);
+            g.setColour (col::cream); g.setFont (font (11.0f)); g.drawText (f[1], r, juce::Justification::centredLeft);
+            ++k;
+        }
     }
+
+    // ---- sketchbook
+    g.setColour (col::panel); g.fillRoundedRectangle (sketchArea.toFloat(), 8.0f);
+    g.setColour (kGold); g.setFont (font (13.0f, true));
+    g.drawText ("SKETCHBOOK", sketchArea.reduced (18, 10).removeFromTop (18), juce::Justification::centredLeft);
+    g.setColour (col::muted); g.setFont (font (11.0f));
+    g.drawText ("the whole song in a slot, saved with the set", sketchArea.reduced (18, 10).removeFromTop (18), juce::Justification::centredRight);
 
     // ---- render
     g.setColour (col::panel); g.fillRoundedRectangle (renderArea.toFloat(), 8.0f);
@@ -444,6 +586,7 @@ void BandleaderEditor::paint (juce::Graphics& g)
 
 void BandleaderEditor::resized()
 {
+    if (chart != nullptr) chart->setBounds (getLocalBounds());
     auto r = getLocalBounds();
     dragMidi->setBounds (getWidth() - 196, 14, 178, 32);
     r.removeFromTop (60);
@@ -454,7 +597,16 @@ void BandleaderEditor::resized()
     r.removeFromRight (14);
     renderArea = right.removeFromBottom (170);
     right.removeFromBottom (12);
+    sketchArea = right.removeFromBottom (86);
+    right.removeFromBottom (12);
     bandArea = right;
+    {
+        auto sk = sketchArea.reduced (18, 10); sk.removeFromTop (24);
+        auto row = sk.removeFromTop (28);
+        loadSketchB.setBounds (row.removeFromRight (62).reduced (2));
+        saveSketchB.setBounds (row.removeFromRight (62).reduced (2));
+        sketchBox.setBounds (row.reduced (2));
+    }
     {
         auto ra = renderArea.reduced (18, 12); ra.removeFromTop (22);
         auto row = ra.removeFromTop (32);
@@ -465,8 +617,13 @@ void BandleaderEditor::resized()
     nowArea = r.removeFromTop (150);
     {
         auto btns = nowArea.reduced (18, 14).removeFromRight (400);
-        const int h = btns.getHeight() / 3;
-        auto a = btns.removeFromTop (h), b = btns.removeFromTop (h), c = btns;
+        const int h = btns.getHeight() / 4;
+        auto a = btns.removeFromTop (h), b = btns.removeFromTop (h), c = btns.removeFromTop (h), d = btns;
+        {
+            const int w = d.getWidth() / 4;
+            loopB.setBounds (d.removeFromLeft (w).reduced (3)); mutateB.setBounds (d.removeFromLeft (w).reduced (3));
+            tapeB.setBounds (d.removeFromLeft (w).reduced (3)); chartB.setBounds (d.reduced (3));
+        }
         const int w4 = a.getWidth() / 4;
         nextB.setBounds (a.removeFromLeft (w4 * 2).reduced (3)); fillB.setBounds (a.removeFromLeft (w4).reduced (3)); dropB.setBounds (a.reduced (3));
         allInB.setBounds (b.removeFromLeft (w4).reduced (3)); halfB.setBounds (b.removeFromLeft (w4).reduced (3)); keyUpB.setBounds (b.removeFromLeft (w4).reduced (3)); endB.setBounds (b.reduced (3));
@@ -499,9 +656,10 @@ void BandleaderEditor::resized()
         auto la = learnArea.reduced (18, 12); la.removeFromTop (24);
         auto col1 = la.removeFromLeft (400);
         auto row = col1.removeFromTop (34);
-        learnB.setBounds (row.removeFromLeft (170).reduced (3));
-        learnNextB.setBounds (row.removeFromLeft (120).reduced (3));
-        learnCancelB.setBounds (row.removeFromLeft (100).reduced (3));
+        learnB.setBounds (row.removeFromLeft (150).reduced (3));
+        learnNextB.setBounds (row.removeFromLeft (100).reduced (3));
+        learnCancelB.setBounds (row.removeFromLeft (76).reduced (3));
+        tunerB.setBounds (row.removeFromLeft (74).reduced (3));
     }
     r.removeFromTop (12);
     songArea = r;
@@ -518,14 +676,18 @@ void BandleaderEditor::resized()
     }
     sa.removeFromTop (16);
     auto row1 = sa.removeFromTop (26);
-    energyK->setBounds (sa.withTrimmedTop (4).removeFromRight (100).withHeight (juce::jmin (96, sa.getHeight())));
-    row1.removeFromRight (110);
+    {
+        auto kn = sa.withTrimmedTop (4);
+        energyK->setBounds (kn.removeFromRight (100).withHeight (juce::jmin (96, sa.getHeight())));
+        strangeK->setBounds (kn.removeFromRight (100).withHeight (juce::jmin (96, sa.getHeight())));
+    }
+    row1.removeFromRight (220);
     const int w3 = row1.getWidth() / 3;
     labelled[0].first->setBounds (row1.removeFromLeft (w3).reduced (4, 0));
     labelled[1].first->setBounds (row1.removeFromLeft (w3).reduced (4, 0));
     labelled[3].first->setBounds (row1.reduced (4, 0));
     sa.removeFromTop (22);
-    auto row2 = sa.removeFromTop (26).withTrimmedRight (110);
+    auto row2 = sa.removeFromTop (26).withTrimmedRight (220);
     const int wp = row2.getWidth() / 3;
     for (int i = 0; i < 3; ++i) progBox[i]->setBounds (row2.removeFromLeft (wp).reduced (4, 0));
 }

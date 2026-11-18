@@ -7,7 +7,8 @@ using namespace bl;
 namespace
 {
 const juce::StringArray& onOff() { static const juce::StringArray s { "Off", "On" }; return s; }
-const char* kTrigIds[kNumCmds] = { "t_next", "t_fill", "t_drop", "t_allin", "t_verse", "t_chorus", "t_bridge", "t_end", "t_half", "t_keyup", "t_learn" };
+const char* kTrigIds[kNumCmds] = { "t_next", "t_fill", "t_drop", "t_allin", "t_verse", "t_chorus", "t_bridge", "t_end", "t_half", "t_keyup", "t_learn",
+                                   "t_strange_up", "t_strange_down", "t_mutate", "t_loop", "t_tape", "t_sketch_next", "t_sketch_prev" };
 juce::StringArray progMenu() { auto a = ut::progressionNames(); a.add ("Learned"); return a; }
 juce::StringArray formMenu() { juce::StringArray a; for (auto& f : band::forms()) a.add (f.name); return a; }
 
@@ -60,7 +61,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BandleaderProcessor::createL
         juce::AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v * 100)) + "%"; })));
     const char* trigNames[kNumCmds] = { "Footswitch: Next Section", "Footswitch: Fill", "Footswitch: Drop Out", "Footswitch: All In",
                                         "Footswitch: Verse", "Footswitch: Chorus", "Footswitch: Bridge",
-                                        "Footswitch: End Song", "Footswitch: Half-Time", "Footswitch: Key Up", "Footswitch: Learn" };
+                                        "Footswitch: End Song", "Footswitch: Half-Time", "Footswitch: Key Up", "Footswitch: Learn" , "Footswitch: Strange Up", "Footswitch: Strange Down", "Footswitch: Mutate", "Footswitch: Loop Section",
+                                        "Footswitch: Tape Stop", "Footswitch: Next Sketch", "Footswitch: Previous Sketch" };
     for (int i = 0; i < kNumCmds; ++i) C (kTrigIds[i], trigNames[i], onOff(), 0);
     // the song form
     C ("meter", "Time Signature", { "Follow Live", "4/4", "3/4", "6/8" }, 0);
@@ -70,6 +72,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BandleaderProcessor::createL
     C ("breakdown", "Breakdown", { "Off", "Before last chorus", "Half-time bridge", "Both" }, 0);
     C ("key_up", "Key Change", { "Off", "Last chorus +1", "Last chorus +2", "Last chorus +3" }, 0);
     C ("ending", "Ending", { "Keep going", "Big ending", "Fade out" }, 0);
+    ps.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "strange", 1 }, "Strange", juce::NormalisableRange<float> (0, 1, 0.001f), 0.0f,
+        juce::AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v * 100)) + "%"; })));
     return { ps.begin(), ps.end() };
 }
 
@@ -206,6 +210,13 @@ void BandleaderProcessor::handle (Cmd c, int64_t bar, double frac)
         case CKeyUp:
             keyOverride = (keyOverride + 1) % 12; keyOverrideFrom = at; manualFill = at - 1;
             break;
+        case CStrangeUp:   pendingStrange = juce::jmin (1.0f, apvts.getRawParameterValue ("strange")->load() + 0.1f); triggerAsyncUpdate(); break;
+        case CStrangeDown: pendingStrange = juce::jmax (0.0f, apvts.getRawParameterValue ("strange")->load() - 0.1f); triggerAsyncUpdate(); break;
+        case CMutate:      strangeSeed = strangeSeed * 1664525u + 1013904223u; ++mutateStamp; pendingMutate = true; triggerAsyncUpdate(); break;
+        case CLoop:        looping = ! looping; loopLen = 0; break;
+        case CTapeStop:    ++tapeStamp; break;
+        case CSketchNext:  pendingSketchStep = 1; triggerAsyncUpdate(); break;
+        case CSketchPrev:  pendingSketchStep = -1; triggerAsyncUpdate(); break;
         case CLearn:
             learnState = 1; learnSec = band::Verse; lastRoot = -1;
             for (int s = 0; s < band::NumSec; ++s) { lbHas[s] = false; lb[s].bars = 0; }
@@ -369,11 +380,17 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     capture.setMeter (meter);
 
     // the guitar (sidechain) for learning; the plugin passes nothing through
-    if (learnState != 0 && getTotalNumInputChannels() > 0 && (int) mono.size() >= n)
+    if ((learnState != 0 || tunerOn.load()) && getTotalNumInputChannels() > 0 && (int) mono.size() >= n)
     {
         const int ch = juce::jmin (2, getTotalNumInputChannels());
         for (int i = 0; i < n; ++i) { float v = 0; for (int c = 0; c < ch; ++c) v += buffer.getSample (c, i); mono[(size_t) i] = v / (float) ch; }
-        ears.push (mono.data(), n);
+        if (learnState != 0) ears.push (mono.data(), n);
+        if (tunerOn.load())
+        {
+            int w = tunerW.load();
+            for (int i = 0; i < n; ++i) { tunerBuf[w] = mono[(size_t) i]; w = (w + 1) % kTunerN; }
+            tunerW = w;
+        }
     }
     buffer.clear();
 
@@ -397,10 +414,26 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             for (int i = 0; i < L.progLen[s]; ++i) { L.progOff[s][i] = (int8_t) p[(size_t) i].off; L.progMinor[s][i] = (int8_t) p[(size_t) i].quality(); }
         }
     }
+    // STRANGE: swap chords for rare ones (the home chord is worked out from the song as written, first)
+    L.tonicQ = band::QMaj;
+    for (int s = 0, found = 0; s < band::NumSec && ! found; ++s)
+        for (int i = 0; i < L.progLen[s]; ++i) if (L.progOff[s][i] == 0) { L.tonicQ = L.progMinor[s][i]; found = 1; break; }
+    const int tonicKeep = L.tonicQ;
+    L.strange = g ("strange");
+    if (L.strange > 0.0f)
+        for (int s = 0; s < band::NumSec; ++s)
+            for (int i = 0; i < L.progLen[s]; ++i)
+            {
+                int o = 0, q = 0;
+                band::strangeChord (L.progOff[s][i], L.progMinor[s][i], L.strange, strangeSeed, s, i, o, q);
+                L.progOff[s][i] = (int8_t) o; L.progMinor[s][i] = (int8_t) q;
+            }
+    L.mutateStamp = mutateStamp; L.tapeStamp = tapeStamp;
     // the home chord (the last chord of a big ending): the key's own chord, as the song plays it
     L.tonicQ = band::QMaj;
     for (int s = 0, found = 0; s < band::NumSec && ! found; ++s)
         for (int i = 0; i < L.progLen[s]; ++i) if (L.progOff[s][i] == 0) { L.tonicQ = L.progMinor[s][i]; found = 1; break; }
+    L.tonicQ = tonicKeep;
     if (L.tonicQ == band::QDom7) L.tonicQ = band::QMaj;
     L.energy = g ("energy");
     L.benched = benched.load();
@@ -427,7 +460,7 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // where are we? (start of play, or the playhead jumped)
     if (! playing || ! wasPlaying || ppq < lastPpqEnd - 0.02 || ppq > lastPpqEnd + 0.5)
     {
-        shift = 0;
+        shift = 0; loopLen = 0;
         endOverride = band::kNever; manualFill = -band::kNever;
         halfFrom = halfTo = band::kNever; keyOverride = 0; keyOverrideFrom = band::kNever;
         manualCountFrom = manualCountTo = manualIntroFrom = manualIntroTo = band::kNever;
@@ -498,8 +531,25 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool useAuto = autoSong && ! (paramsPending.load() && pendingManual.load());
     if (useAuto && ! songAudio.segs.empty())
     {
+        // PRACTICE LOOP: the part you're in plays again and again until you let it go
+        if (looping && playing)
+        {
+            int64_t off = 0;
+            if (loopLen <= 0)
+            {
+                const int i = band::segAt (songAudio, bar - shift, off);
+                if (i >= 0) { loopStart = songAudio.segs[(size_t) i].start + off; loopLen = songAudio.segs[(size_t) i].bars; }
+            }
+            if (loopLen > 0) while (bar - shift >= loopStart + loopLen) shift += loopLen;
+        }
         band::applySong (L, songAudio, bar - shift);
         shiftLeader (L, shift);
+        if (looping && loopLen > 0)
+        {
+            // the next part is this part again (so the fills and the sections still line up)
+            L.nextSection = L.curSection; L.nextStartBar = loopStart + loopLen + shift; L.fillBar = L.nextStartBar - 1;
+            L.endBar = L.overFrom = band::kNever; L.outroFrom = L.outroTo = band::kNever;
+        }
     }
     else
     {
@@ -613,12 +663,27 @@ void BandleaderProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     uiLearnState = learnState; uiLearnSec = learnSec; uiLearnBars = lb[juce::jlimit (0, 2, learnSec)].bars;
     int r; bool mn; L.chordAt (playing ? bar : 0, r, mn);
     uiChord = r | (L.qualityAt (playing ? bar : 0) << 4);   juce::ignoreUnused (mn);
+    uiLooping = looping;
+    {
+        // the chord chart: this chord and the next four changes
+        const int64_t b0 = playing ? bar : 0;
+        int n2 = 0, last = -2;
+        for (int64_t b = b0; b < b0 + 48 && n2 < 5; ++b)
+        {
+            if (L.isOver (b)) break;
+            int rr = 0; bool mm = false; L.chordAt (b, rr, mm);
+            const int c = L.isCountIn (b) ? -1 : (rr | (L.qualityAt (b) << 4));
+            if (c != last || b == b0) { uiChartChord[n2] = c; uiChartBars[n2] = (int) (b - b0); uiChartSec[n2] = L.sectionAt (b); ++n2; last = c; }
+        }
+        for (; n2 < 5; ++n2) { uiChartChord[n2] = -2; uiChartBars[n2] = 0; }
+    }
 }
 
 void BandleaderProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     saveLearned();
     apvts.state.setProperty ("benched", (juce::int64) benched.load(), nullptr);
+    apvts.state.setProperty ("strangeSeed", (juce::int64) strangeSeed, nullptr);
     if (auto xml = apvts.copyState().createXml()) copyXmlToBinary (*xml, dest);
 }
 
@@ -634,6 +699,8 @@ void BandleaderProcessor::setStateInformation (const void* data, int size)
             styleStamp = (uint32_t) (juce::int64) apvts.state.getProperty ("styleStamp", 0);
             loadLearned();
             benched = (uint32_t) (juce::int64) apvts.state.getProperty ("benched", 0);
+            strangeSeed = (uint32_t) (juce::int64) apvts.state.getProperty ("strangeSeed", 1);
+            if (strangeSeed == 0) strangeSeed = 1;
             lastSpecKey = {};
             rebuildSong();
         }
@@ -668,6 +735,63 @@ void BandleaderProcessor::applyStyle (int idx)
     if (stamp == 0) stamp = 1;
     styleIdx = idx; styleStamp = stamp;
     apvts.state.setProperty ("styleStamp", (juce::int64) stamp, nullptr);
+}
+
+void BandleaderProcessor::mutate() { command (CMutate); }
+
+// ---------------------------------------------------------------------------
+// The sketchbook: the song as it stands (every setting, the learned chords, the band lights, the
+// Strange seed) saved in one of 20 slots inside the set.
+void BandleaderProcessor::saveSketch (int slot)
+{
+    if (slot < 0 || slot >= kSketches) return;
+    saveLearned();
+    juce::ValueTree sk ("Sketch");
+    sk.setProperty ("slot", slot, nullptr);
+    for (auto* prm : getParameters())
+        if (auto* r = dynamic_cast<juce::RangedAudioParameter*> (prm))
+            if (! r->getParameterID().startsWith ("t_")) sk.setProperty (r->getParameterID(), r->getValue(), nullptr);
+    sk.setProperty ("learned", apvts.state.getProperty ("learned", ""), nullptr);
+    sk.setProperty ("benched", (juce::int64) benched.load(), nullptr);
+    sk.setProperty ("strangeSeed", (juce::int64) strangeSeed, nullptr);
+    const int st = (int) apvts.getRawParameterValue ("style")->load();
+    static const char* keys[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    juce::String nm = st > 0 ? juce::String (band::styles()[(size_t) (st - 1)].name) : juce::String ("My song");
+    nm << " in " << keys[juce::jlimit (0, 11, (int) apvts.getRawParameterValue ("key")->load())];
+    if (apvts.getRawParameterValue ("strange")->load() > 0.01f) nm << ", strange " << juce::roundToInt (apvts.getRawParameterValue ("strange")->load() * 100) << "%";
+    sk.setProperty ("name", nm, nullptr);
+    auto book = apvts.state.getOrCreateChildWithName ("Sketches", nullptr);
+    for (int i = book.getNumChildren(); --i >= 0;) if ((int) book.getChild (i).getProperty ("slot") == slot) book.removeChild (i, nullptr);
+    book.appendChild (sk, nullptr);
+    currentSketch = slot;
+}
+
+bool BandleaderProcessor::loadSketch (int slot)
+{
+    auto book = apvts.state.getChildWithName ("Sketches");
+    juce::ValueTree sk;
+    for (auto c : book) if ((int) c.getProperty ("slot") == slot) sk = c;
+    if (! sk.isValid()) return false;
+    // the style first (with no re-dress of the band: the sketch keeps whatever was tweaked), then everything else
+    for (auto* prm : getParameters())
+        if (auto* r = dynamic_cast<juce::RangedAudioParameter*> (prm))
+            if (sk.hasProperty (r->getParameterID())) r->setValueNotifyingHost ((float) sk.getProperty (r->getParameterID()));
+    lastStyleParam = (int) apvts.getRawParameterValue ("style")->load();
+    styleIdx = lastStyleParam - 1;
+    apvts.state.setProperty ("learned", sk.getProperty ("learned", ""), nullptr);
+    loadLearned();
+    benched = (uint32_t) (juce::int64) sk.getProperty ("benched", 0);
+    strangeSeed = (uint32_t) (juce::int64) sk.getProperty ("strangeSeed", 1);
+    lastSpecKey = {}; rebuildSong();
+    currentSketch = slot;
+    return true;
+}
+
+juce::String BandleaderProcessor::sketchName (int slot) const
+{
+    auto book = apvts.state.getChildWithName ("Sketches");
+    for (auto c : book) if ((int) c.getProperty ("slot") == slot) return c.getProperty ("name").toString();
+    return {};
 }
 
 void BandleaderProcessor::reapplyStyle()
@@ -716,6 +840,18 @@ void BandleaderProcessor::postParams (int sec, bool manual)
 
 void BandleaderProcessor::handleAsyncUpdate()
 {
+    if (const float st = pendingStrange.exchange (-1.0f); st >= 0.0f) band::setParam (apvts, "strange", st);
+    if (pendingMutate.exchange (false)) apvts.state.setProperty ("strangeSeed", (juce::int64) strangeSeed, nullptr);
+    if (const int step = pendingSketchStep.exchange (0); step != 0)
+    {
+        // the next (or previous) sketch that has something in it
+        const int from = juce::jmax (0, currentSketch.load());
+        for (int k = 1; k <= kSketches; ++k)
+        {
+            const int s = ((from + step * k) % kSketches + kSketches) % kSketches;
+            if (loadSketch (s)) break;
+        }
+    }
     if (paramsPending.load())
     {
         if (pendingManual.load()) if (auto* p = apvts.getParameter ("song")) p->setValueNotifyingHost (1.0f);

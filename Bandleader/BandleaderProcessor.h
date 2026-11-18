@@ -16,8 +16,8 @@
 namespace bl
 {
 // footswitch notes (send these from the MIDI Captain to the Bandleader track)
-constexpr int kNumCmds = 11;
-inline const int kNotes[kNumCmds] = { 48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65 };
+constexpr int kNumCmds = 18;
+inline const int kNotes[kNumCmds] = { 48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77 };
 constexpr int kCCBase = 90;   // CC 90..100 in the same order
 constexpr int kLearnedProg = -2;   // (marker) the "Learned" item is the last one in the chord menus
 }
@@ -50,7 +50,8 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     juce::AudioProcessorValueTreeState apvts;
 
-    enum Cmd { CNone = 0, CNext, CFill, CDrop, CAllIn, CVerse, CChorus, CBridge, CEnd, CHalf, CKeyUp, CLearn, CLearnCancel };
+    enum Cmd { CNone = 0, CNext, CFill, CDrop, CAllIn, CVerse, CChorus, CBridge, CEnd, CHalf, CKeyUp, CLearn,
+               CStrangeUp, CStrangeDown, CMutate, CLoop, CTapeStop, CSketchNext, CSketchPrev, CLearnCancel };
     void command (Cmd c) { uiCmd.store ((int) c); }
     void reapplyStyle();                 // "Apply again": put every plugin's knobs back to the style
     void timerCallback() override;      // public so offline tests can drive it
@@ -90,6 +91,20 @@ public:
 
     std::atomic<uint32_t> benched { 0 };     // band members switched off with the lights in THE BAND
     void toggleBench (int who) { benched ^= (1u << who); }
+    // ---- the chord chart: the chord now and the next changes (root | quality << 4, -1 = none) and how many bars away
+    std::atomic<int> uiChartChord[5] { -1, -1, -1, -1, -1 }, uiChartBars[5] { 0, 0, 0, 0, 0 }, uiChartSec[5] { 0, 0, 0, 0, 0 };
+    std::atomic<bool> uiLooping { false };
+    // ---- the tuner: the sidechain, kept for the screen to read
+    std::atomic<bool> tunerOn { false };
+    static constexpr int kTunerN = 8192;
+    float tunerBuf[kTunerN] {}; std::atomic<int> tunerW { 0 };
+    // ---- the sketchbook: 20 saved song ideas
+    static constexpr int kSketches = 20;
+    void saveSketch (int slot);
+    bool loadSketch (int slot);
+    juce::String sketchName (int slot) const;
+    std::atomic<int> currentSketch { -1 };
+    void mutate();
     mc::Capture capture;
 
 private:
@@ -115,6 +130,9 @@ private:
     int64_t endOverride = band::kNever, manualFill = -band::kNever;
     int64_t halfFrom = band::kNever, halfTo = band::kNever;
     int keyOverride = 0; int64_t keyOverrideFrom = band::kNever;
+    bool looping = false; int64_t loopStart = 0, loopLen = 0;
+    std::atomic<int> pendingSketchStep { 0 }; std::atomic<float> pendingStrange { -1.0f }; std::atomic<bool> pendingMutate { false };
+    uint32_t strangeSeed = 1, mutateStamp = 0, tapeStamp = 0;
     int64_t manualCountFrom = band::kNever, manualCountTo = band::kNever, manualIntroFrom = band::kNever, manualIntroTo = band::kNever;
 
     // ---- learning

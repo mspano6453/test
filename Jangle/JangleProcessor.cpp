@@ -367,6 +367,7 @@ void JangleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     band::markPresent (band::WJangle);
     const bool wasLed = led;
     led = follow != FPlay && band::readLeader (leader);
+    if (led && leader.mutateStamp != lastMutate) { lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 11u); curBar = -1; }
     uiLinked = led;
     if (led != wasLed) lastPpqEnd = -1e9;
 

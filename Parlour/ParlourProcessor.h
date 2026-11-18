@@ -100,4 +100,5 @@ private:
     mc::NoteOut midiOut;
     juce::MidiBuffer outMidi;
     int barSection = 0, barInSec = 0;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

@@ -97,4 +97,5 @@ private:
     std::vector<et::Note16> answer;         // the reply to it
     uint32_t seeds[3] { 101, 202, 303 };
     int lastRoot = -1;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

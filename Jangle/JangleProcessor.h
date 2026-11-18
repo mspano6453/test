@@ -95,4 +95,5 @@ private:
     band::Fade fade;
     mc::NoteOut midiOut;
     juce::MidiBuffer outMidi;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

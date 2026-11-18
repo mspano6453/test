@@ -576,6 +576,7 @@ void UndertowProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         band::markPresent (band::WUndertow);
         const bool wasLed = led;
         led = follow == FollowSelf && band::readLeader (leader);
+        if (led && leader.mutateStamp != lastMutate) { if (lastMutate != 0 || leader.mutateStamp > 0) { for (int s = 0; s < ut::NumSections; ++s) rebuildBase (s, true); inst = base[activeSection]; publishMotif(); } lastMutate = leader.mutateStamp; }
         uiLinked = led;
         if (led != wasLed) lastPpqEnd = -1e9;   // re-sync to (or away from) the Bandleader's song
         // a style can ask the bass to sit out (an orchestra-only song, say)

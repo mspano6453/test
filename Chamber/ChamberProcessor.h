@@ -110,4 +110,5 @@ private:
     std::vector<std::pair<int, int>> phrase[3];       // (step 0-31, scale degree)
     uint32_t seeds[3] { 11, 23, 37 };
     bool rising = false;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

@@ -510,6 +510,7 @@ void ChamberProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     band::markPresent (band::WChamber);
     const bool wasLed = led;
     led = follow != FPlay && band::readLeader (leader);
+    if (led && leader.mutateStamp != lastMutate) { lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 17u); curBar = -1; for (auto& ph : phrase) ph.clear(); }
     uiLinked = led;
     if (led != wasLed) lastPpqEnd = -1e9;
 

@@ -168,6 +168,47 @@ inline int meterFrom (const juce::Optional<juce::AudioPlayHead::PositionInfo>& p
     return M44;
 }
 
+// ---- STRANGE: swap common chords for ones rock, pop and folk songs almost never use, chosen so they
+// still move smoothly (a chromatic mediant, the Neapolitan, a borrowed minor four...). The first chord of
+// every section stays put, so each part still starts at home. Same seed + same amount = the same song.
+inline uint32_t strangeHash (uint32_t seed, int sec, int i, int salt)
+{
+    uint32_t h = seed * 2654435761u ^ (uint32_t) (sec * 7919 + i * 104729 + salt * 15485863);
+    h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+    return h;
+}
+inline void strangeChord (int off, int q, float amount, uint32_t seed, int sec, int i, int& outOff, int& outQ)
+{
+    outOff = off; outQ = q;
+    if (amount <= 0.0f || i == 0) return;
+    if ((float) (strangeHash (seed, sec, i, 1) % 1000) / 1000.0f >= amount) return;
+    struct O { int off, q; };
+    const bool mn = qualityIsMinor (q);
+    static const O I[] = { { 8, QMaj }, { 4, QMaj }, { 3, QMaj } };              // bVI, III, bIII
+    static const O II[] = { { 1, QMaj }, { 2, QDom7 }, { 10, QMaj } };           // the Neapolitan, II7, bVII
+    static const O III[] = { { 4, QMaj }, { 3, QMaj }, { 6, QDim } };            // III major, bIII, #iv dim
+    static const O IV[] = { { 5, QMin }, { 8, QMaj }, { 2, QMaj } };             // iv (borrowed), bVI, II
+    static const O V[] = { { 10, QMaj }, { 4, QDom7 }, { 1, QMaj } };            // bVII, III7, bII
+    static const O VI[] = { { 8, QMaj }, { 9, QMaj }, { 3, QMaj } };             // bVI, VI major, bIII
+    static const O VII[] = { { 8, QMaj }, { 1, QMaj }, { 6, QMaj } };            // bVI, bII, the tritone
+    const O* t = nullptr;
+    switch (((off % 12) + 12) % 12)
+    {
+        case 0: t = I; break;
+        case 2: t = II; break;
+        case 4: t = III; break;
+        case 5: t = IV; break;
+        case 7: t = V; break;
+        case 9: t = VI; break;
+        case 10: t = VII; break;
+        default: break;
+    }
+    const int pick = (int) (strangeHash (seed, sec, i, 2) % 3);
+    if (t != nullptr) { outOff = t[pick].off; outQ = t[pick].q; }
+    else { static const int mv[3] = { 4, 8, 6 }; outOff = (off + mv[pick]) % 12; outQ = pick == 2 ? QDim : QMaj; }
+    if (mn && outQ == QMaj && amount > 0.7f && (strangeHash (seed, sec, i, 3) & 1)) outQ = QMaj7;   // the very strange end gets lusher
+}
+
 // the host's meter for this block
 inline int hostMeter (juce::AudioPlayHead* ph)
 {

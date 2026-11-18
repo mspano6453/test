@@ -78,6 +78,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LatheProcessor::createLayout
     F ("in_gain", "Input Gain", { -18, 18, 0.1f }, 0, dB1);
     F ("out_gain", "Output Gain", { -18, 6, 0.1f }, 0, dB1);
     C ("dither", "Dither", { "Off", "16-bit", "24-bit" }, 0);
+    C ("tape_stop", "Tape Stop", { "Off", "At the end of the song", "Footswitch only" }, 1);
 
     const bool defOn[NumModules] = { true, false, false, true, false, false, true };
     for (int m = 0; m < NumModules; ++m) B (modOnId (m), juce::String (moduleName (m)) + " On", defOn[m]);
@@ -167,6 +168,8 @@ bool LatheProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 void LatheProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
+    for (auto& b : tsBuf) b.assign ((size_t) (sr * 6.0), 0.0f);
+    tsW = 0; tsState = 0; tsRead = 0; tsRate = 1;
     eq.prepare (sr); deq.prepare (sr); tape.prepare (sr); dyn.prepare (sr);
     ex.prepare (sr); im.prepare (sr); mx.prepare (sr);
     inLoud.prepare (sr); outLoud.prepare (sr);
@@ -274,6 +277,7 @@ void LatheProcessor::processCore (juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (bits > 0) { dither.process (L, n, bits == 1 ? 16 : 24); dither.process (R, n, bits == 1 ? 16 : 24); }
 
     outLoud.process (L, R, n);
+    tapeStopBlock (L, R, n);
 
     // the band: loudness of each section, so you can see whether the chorus really lifts
     band::markPresent (band::WLathe);
@@ -515,3 +519,59 @@ juce::AudioProcessorEditor* LatheProcessor::createEditor() { return new LatheEdi
 #ifndef LATHE_NO_ENTRY
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new LatheProcessor(); }
 #endif
+
+// ---------------------------------------------------------------------------
+// TAPE STOP: like a hand on the reel. The whole mix slows down to a stop (at the end of the song, or
+// from Bandleader's footswitch) and spins back up when the footswitch is pressed again or play restarts.
+void LatheProcessor::tapeStopBlock (float* L, float* R, int n)
+{
+    if (tsBuf[0].empty()) return;
+    const int mode = (int) apvts.getRawParameterValue ("tape_stop")->load();
+    band::Leader leader; bool led = false; double ppq = 0; bool playing = false;
+    if (auto* ph = getPlayHead()) if (auto pos = ph->getPosition()) { playing = pos->getIsPlaying(); if (auto p = pos->getPpqPosition()) ppq = *p; }
+    if (mode != 0) led = band::readLeader (leader);
+    auto stop = [&] { if (tsState == 0) { tsState = 1; tsRead = (double) tsW; tsRate = 1.0; } };
+    auto start = [&] { if (tsState == 1 || tsState == 2) { tsState = 3; tsRead = (double) tsW - 0.25 * sr; tsRate = 0.0; } };
+    if (led)
+    {
+        if (leader.tapeStamp != tsStamp) { if (tsStampSeen) { if (tsState == 0) stop(); else start(); } tsStamp = leader.tapeStamp; }
+        if (mode == 1 && playing && leader.endBar < band::kNever && ! tsEndDone)
+        {
+            const double bp = band::meterBarPpq (leader.meter);
+            if (ppq >= (double) leader.endBar * bp + bp * 0.5) { stop(); tsEndDone = true; }
+        }
+    }
+    tsStampSeen = true;
+    if (playing && ! tsWasPlaying) { tsEndDone = false; if (tsState == 2 || tsState == 1) start(); }
+    tsWasPlaying = playing;
+    const int sz = (int) tsBuf[0].size();
+    const double decel = 1.0 / (1.3 * sr), accel = 1.0 / (0.45 * sr);
+    for (int i = 0; i < n; ++i)
+    {
+        tsBuf[0][(size_t) tsW] = L[i]; tsBuf[1][(size_t) tsW] = R[i];
+        if (tsState != 0)
+        {
+            float o[2] = { 0, 0 };
+            if (tsState == 1) { tsRate -= decel * (0.4 + tsRate); if (tsRate <= 0.0) { tsRate = 0.0; tsState = 2; } }
+            else if (tsState == 3)
+            {
+                double lag = (double) tsW - tsRead; while (lag < 0) lag += sz;
+                if (tsRate < 1.0) tsRate = juce::jmin (1.0, tsRate + accel * (0.3 + tsRate));
+                else tsRate = juce::jmin (1.6, 1.0 + lag / (0.15 * sr));
+                if (tsRate >= 1.0 && lag < 2.0) tsState = 0;
+            }
+            if (tsState != 2 && tsState != 0)
+            {
+                double rp = tsRead; while (rp < 0) rp += sz; while (rp >= sz) rp -= sz;
+                const int a = (int) rp, b = (a + 1) % sz; const float f = (float) (rp - a);
+                const float lvl = (float) juce::jmin (1.0, tsRate * 1.6);       // the sound sinks as it slows
+                for (int c = 0; c < 2; ++c) o[c] = (tsBuf[c][(size_t) a] + (tsBuf[c][(size_t) b] - tsBuf[c][(size_t) a]) * f) * lvl;
+                tsRead += tsRate;
+            }
+            if (tsState == 0) { o[0] = L[i]; o[1] = R[i]; }
+            L[i] = o[0]; R[i] = o[1];
+        }
+        tsW = (tsW + 1) % sz;
+    }
+    uiTapeStopped = tsState == 2;
+}

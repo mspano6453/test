@@ -94,4 +94,5 @@ private:
     int playNote[hm::kPlayVoices] { -1, -1, -1, -1, -1, -1, -1, -1 };
     band::Fade fade;
     juce::MidiBuffer outMidi;
+    uint32_t lastMutate = 0;   // Bandleader's MUTATE
 };

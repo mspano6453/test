@@ -86,6 +86,9 @@ struct Leader
     uint32_t benched = 0;                             // one bit per band member (Who) that Bandleader has switched off
     bool off (int who) const { return ((benched >> who) & 1u) != 0; }
     int32_t learning = 0;                             // Bandleader is learning the song: the band lays out
+    uint32_t mutateStamp = 0;                         // MUTATE: every player rewrites its part a little
+    uint32_t tapeStamp = 0;                           // TAPE STOP footswitch: Lathe stops the tape (or starts it again)
+    float strange = 0;                                // how many chords Bandleader swapped for rare ones (0..1)
 
     // ---- helpers every follower uses
     int sectionAt (int64_t bar, int64_t* barIn = nullptr) const

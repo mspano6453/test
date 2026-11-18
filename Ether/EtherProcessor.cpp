@@ -346,6 +346,7 @@ void EtherProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     band::markPresent (band::WEther);
     const bool wasLed = led;
     led = follow == FBand && band::readLeader (leader);
+    if (led && leader.mutateStamp != lastMutate) { lastMutate = leader.mutateStamp; rng.seed (leader.mutateStamp * 2654435761u + 19u); curBar = -1; for (auto& ph : phrase) ph.clear(); }
     uiLinked = led;
     if (led != wasLed) lastPpqEnd = -1e9;
 

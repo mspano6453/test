@@ -32,6 +32,15 @@ private:
     juce::TextButton secB[3];
     juce::TextButton learnB { "LEARN THE SONG" }, learnNextB { "NEXT PART" }, learnCancelB { "CANCEL" };
     juce::TextButton renderB { "RENDER SONG" }, openB { "OPEN FOLDER" };
+    juce::TextButton loopB { "LOOP SECTION" }, mutateB { "MUTATE" }, tapeB { "TAPE STOP" }, chartB { "CHART" }, tunerB { "TUNER" };
+    juce::ComboBox sketchBox; juce::TextButton saveSketchB { "SAVE" }, loadSketchB { "LOAD" };
+    juce::Rectangle<int> sketchArea;
+    ttui::Knob* strangeK = nullptr;
+    class Chart;
+    std::unique_ptr<Chart> chart;
+    void refreshSketches();
+    juce::String tunerText; float tunerCents = 0; bool tunerHas = false;
+    void runTuner();
     juce::ComboBox* progBox[3] {};
     juce::ComboBox* keyBox = nullptr;
     juce::ComboBox styleBox;
